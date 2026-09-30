@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subtype_en">영어(미국)</string>
+    <string name="subtype_ko">한국어</string>
+
+    <string name="strip_paste">붙여넣기</string>
+    <string name="strip_split">분할</string>
+    <string name="strip_full">전체</string>
+    <string name="strip_switch">전환</string>
+    <string name="strip_settings">설정</string>
+    <string name="strip_hide">숨김</string>
+
+    <string name="settings_intro">갤럭시 Z 폴드7 내부 화면에서 코드와 터미널 작업을 위해 만든 PC 배열 키보드입니다. 한글 두벌식 입력을 지원합니다.</string>
+    <string name="settings_enable">1. 시스템 설정에서 FoldKey 사용 켜기</string>
+    <string name="settings_pick">2. 입력 방법을 FoldKey로 선택</string>
+    <string name="status_disabled">상태: 사용 안 함</string>
+    <string name="status_enabled">상태: 사용 설정됨, 선택되지 않음</string>
+    <string name="status_active">상태: 사용 중</string>
+    <string name="settings_try">입력 시험</string>
+    <string name="settings_try_single">한 줄 입력창</string>
+    <string name="settings_try_multi">여러 줄 입력창(고정폭 글꼴)</string>
+    <string name="settings_echo">키 이벤트 확인창. 터미널처럼 TYPE_NULL 입력을 요청하고 받은 내용을 그대로 보여 줍니다.</string>
+    <string name="settings_echo_clear">확인창 지우기</string>
+    <string name="echo_placeholder">(여기를 누른 뒤 입력)</string>
+
+    <string name="settings_layout">배열</string>
+    <string name="pref_split_portrait">세로 화면에서 분할 배열</string>
+    <string name="pref_split_landscape">가로 화면에서 분할 배열</string>
+    <string name="pref_row_height">행 높이</string>
+    <string name="pref_split_unit">분할 배열 키 너비</string>
+    <string name="pref_latin_hints">한글 키에 영문 글자 함께 표시</string>
+
+    <string name="settings_feedback">피드백</string>
+    <string name="pref_haptic">키 누름 햅틱</string>
+    <string name="pref_haptic_level">햅틱 효과</string>
+    <string name="haptic_system">시스템 키보드 진동</string>
+    <string name="haptic_tick">틱</string>
+    <string name="haptic_click">클릭</string>
+    <string name="pref_sound">키 소리</string>
+    <string name="pref_popup">탭할 때 미리보기 팝업 (밀기 동작은 항상 미리보기 표시)</string>
+    <string name="popup_auto">자동 (600dp보다 좁은 화면에서만 켬)</string>
+
+    <string name="settings_input">입력</string>
+    <string name="pref_swipe_down_ctrl">키를 아래로 밀면 Ctrl+키</string>
+    <string name="pref_esc_latin">Esc를 누르면 한글에서 영문으로 전환(vim)</string>
+    <string name="pref_long_press">길게 눌러 윗글자 입력</string>
+    <string name="off">끔</string>
+    <string name="on">켬</string>
+    <string name="label_value">%1$s: %2$s</string>
+    <string name="pref_adaptive">내 터치 편차 학습</string>
+    <string name="pref_adaptive_reset">학습한 터치 편차 초기화</string>
+    <string name="pref_raw_packages">터미널로 취급할 앱(조합 중 글자를 앱에 보내지 않고, Enter를 키 이벤트로 보냄). 패키지 이름을 쉼표로 구분:</string>
+
+    <string name="settings_gestures">제스처</string>
+    <string name="settings_gestures_body">• 위로 밀기: Shift 글자 (9 → (, \' → \")\n• 아래로 밀기: Ctrl+키 (c → ^C), 숫자 행은 F1–F12\n• 길게 누르기: 위로 밀기와 같음\n• 스페이스에서 좌우로 끌기: 커서 이동 (Shift와 함께면 선택)\n• Esc/Ctrl 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl\n• Ctrl·Alt·Shift·Fn: 한 번 누르면 다음 키 한 번에 적용, 빠르게 두 번 누르면 고정, 누른 채 입력하면 조합\n• Fn + 숫자: F1–F10, Fn + ⌫: Del, Fn + h j k l: 방향키, Fn + y o: Home End, Fn + u i: PgDn PgUp\n• 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복\n• 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
+</resources>
