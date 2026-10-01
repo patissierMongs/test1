@@ -3,6 +3,8 @@
     <string name="subtype_en">영어(미국)</string>
     <string name="subtype_ko">한국어</string>
 
+    <string name="strip_select_all">모두 선택</string>
+    <string name="strip_copy">복사</string>
     <string name="strip_paste">붙여넣기</string>
     <string name="strip_split">분할</string>
     <string name="strip_full">전체</string>
@@ -66,12 +68,19 @@
     <string name="long_press_shift">윗글자 (위로 밀기와 같음)</string>
     <string name="long_press_repeat">반복 입력 (vim hjkl, x 등)</string>
     <string name="settings_center">분할 배열 가운데</string>
-    <string name="pref_center_clipboard">복사한 글 표시 (누르면 붙여넣기, 메모리에 1시간 보관, 민감한 클립은 제외)</string>
+    <string name="pref_center_clipboard">복사한 글 표시 (누르면 붙여넣기, 끌면 넘기기, 길게 누르면 고정·삭제, 고정한 글만 기기에 저장, 민감한 클립은 제외)</string>
+    <string name="pref_clip_count">복사 기록 개수</string>
+    <string name="pref_clip_hours">복사 기록 보관 시간</string>
+    <string name="hours_value">%1$d시간</string>
     <string name="pref_center_echo">커서 앞 글자 표시 (비밀번호 입력창 제외)</string>
     <string name="pref_terminal_echo">터미널에서 친 글자도 표시 (비밀번호 입력도 보임)</string>
     <string name="pref_split_lift">분할 반쪽을 화면 아래 끝에서 띄우는 높이</string>
     <string name="settings_reach">엄지 범위를 재서 분할 키 너비 정하기</string>
     <string name="panel_clip_empty">복사한 글</string>
+    <string name="clip_pin">고정</string>
+    <string name="clip_unpin">해제</string>
+    <string name="clip_delete">삭제</string>
+    <string name="clip_pins_full">가득</string>
     <string name="reach_title">엄지 범위 측정</string>
     <string name="reach_instructions">기기를 양손으로 쥐고, 엄지를 편하게 뻗은 채로 음영 처리된 키보드 다섯 줄을 한 번에 그어 주세요. 엄지마다 세 번 긋습니다.</string>
     <string name="reach_progress">왼쪽 %1$d/%3$d · 오른쪽 %2$d/%3$d</string>

@@ -120,7 +120,9 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 - 가운데를 투명하게 만들어 앱을 보이게 하는 방식은 쓰지 않았다. 코드와 터미널의 줄은 왼쪽 끝에서 시작하므로 20–29 mm 폭으로는 줄의 중간만 보인다. Android에서는 `InputMethodService.Insets.TOUCHABLE_INSETS_REGION`으로 구현할 수 있다(SDK의 `android.jar`에서 필드 확인).
 - 2차원 커서 패드 대신 스페이스를 위아래로 끄는 동작을 넣었다. 같은 기능을 엄지가 닿는 곳에서 쓰기 위해서다.
 
-클립보드 구현 근거(AOSP `ClipboardService` main 브랜치 확인): 기본 IME는 언제나 클립보드를 읽을 수 있고("The default IME is always allowed to access the clipboard"), 클립 변경 알림도 받는다. 클립보드 접근 알림(toast)도 기본 IME에는 뜨지 않는다("Exclude special cases: IME, ContentCapture, Autofill"). FoldKey는 `ClipDescription`의 `android.content.extra.IS_SENSITIVE`가 켜진 클립을 기록하지 않고, 기록은 메모리에만 다섯 개, 1시간까지 둔다.
+클립보드 구현 근거(AOSP `ClipboardService` main 브랜치 확인): 기본 IME는 언제나 클립보드를 읽을 수 있고("The default IME is always allowed to access the clipboard"), 클립 변경 알림도 받는다. 클립보드 접근 알림(toast)도 기본 IME에는 뜨지 않는다("Exclude special cases: IME, ContentCapture, Autofill"). FoldKey는 `ClipDescription`의 `android.content.extra.IS_SENSITIVE`가 켜진 클립을 기록하지 않는다. 고정하지 않은 기록은 메모리에만 두고(0.3.0부터 기본 20개, 24시간, 설정으로 조절), 사용자가 고정한 글만 백업 제외 영역에 저장한다.
+
+모두 선택, 복사, 붙여넣기 버튼은 `InputConnection.performContextMenuAction`만 부른다. androidx-main의 Jetpack Compose `InputConnection` 두 구현(`RecordingInputConnection`, `StatelessInputConnection`)은 selectAll·copy·paste를 처리한 뒤에도 항상 false를 돌려준다. false를 보고 클립 글자를 직접 넣는 대체 경로를 두면 Compose 입력창에 두 번 붙는다. 0.2.0까지의 붙여넣기에는 이 대체 경로가 있었고 0.3.0에서 뺐다. 터미널(TYPE_NULL)은 이 동작을 처리하지 않으므로 붙여넣기는 클립 글자를 `commitText`로 보내고, 모두 선택과 복사는 숨긴다.
 
 입력 표시 구현 근거: 일반 입력창은 `onUpdateSelection` 뒤에 `getTextBeforeCursor(120)`로 커서가 있는 줄을 읽고, 입력이 시작될 때는 `EditorInfo.getInitialTextBeforeCursor`를 쓴다. AOSP `EditorInfo.setInitialSurroundingSubText`는 비밀번호 입력 종류이면 초기 텍스트를 저장하지 않는다. FoldKey도 비밀번호 입력창에서는 표시하지 않는다. 터미널은 Termux의 `commitText`가 받은 글자를 보낸 직후 내부 `Editable`을 비우므로 화면 내용을 읽을 수 없다. 그래서 FoldKey가 보낸 글자와 키를 Enter 전까지 기록한다. 터미널 비밀번호 프롬프트를 키보드가 구별할 수 없으므로 이 기록은 기본으로 끄고, 꺼져 있을 때는 조합 중인 한글만 보여 준다.
 
@@ -377,6 +379,12 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 여러 줄 `EditText`에서 ㅎㅏㄴㄱㅡㄹ과 스페이스가 "한글 "이 되었다. a 아래로 밀기(Ctrl+A)로 전체가 선택되었고 `x`가 선택 영역을 바꿨다. z 아래로 밀기(Ctrl+Z)로 "한글 "이 되돌아왔다.
   - 가로로 돌리자 분할 배열이 나왔고, 앱이 전체 화면 추출 모드로 바뀌지 않았다.
 - **0.2.0 자동 테스트.** 테스트는 123개다. 새로 넣은 것은 Fn 기호 53개의 배열별 중복·누락 검사, 한글 문장 부호 포함 검사, Insert, Termux 제어 문자 대응, 터미널 입력 기록(`EchoBuffer`), 클립보드 기록(중복, 개수, 1시간 만료), 가운데 패널과 복제 키 폭, 반쪽 올림, 스페이스 위아래 끌기, 길게 누르기 반복, 엄지 범위 계산, 측정 화면의 저장이다. Robolectric으로 서비스를 띄워 클립 변경 알림, 민감 클립 제외, 비밀번호 입력창의 표시 제외도 확인했다.
+- **0.3.0 자동 테스트.** 새로 넣은 것은 다음과 같다.
+  - 클립 기록의 고정 순서·만료 제외·고정 해제·삭제·고정 한도·개수 축소, 고정 저장 파일의 왕복·손상·삭제
+  - 서비스 재시작 뒤 고정 유지, 지운 클립이 다시 기록되지 않는지, 기록 개수 설정 반영, 터미널에서 편집 버튼 숨김
+  - 가운데 패널의 탭 붙여넣기·끌어 넘기기·길게 눌러 고정·삭제·메뉴 닫기, 상단 줄 버튼 순서
+  - `EditText`에서 모두 선택과 복사, 처리하고도 false를 돌려주는 입력창에서 붙여넣기가 한 번만 되는지
+  - 하단 insets: insets 배분이 끝난 IME 창에 붙인 키보드 뷰가 IME 내비게이션 바 위에 놓이는지(`BottomInsetTest`)
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.

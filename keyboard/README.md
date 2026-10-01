@@ -59,7 +59,7 @@ adb shell ime set io.github.patissiermongs.foldkey/.ime.FoldKeyService
 
 밀기 동작은 손을 떼기 전에 결과(`^C`, `F5`, `(` 등)를 팝업으로 보여 준다. 손가락을 처음 자리로 되돌리면 일반 탭이 된다.
 
-상단 줄에는 현재 언어, 켜진 수정키, 조합 중인 한글(터미널에서), 최근에 보낸 특수키(`Esc`, `^C`, `M-b`(Alt+b), `Tab`, `⏎`, 방향키)와 붙여넣기·분할·키보드 전환·설정·숨김 버튼이 있다.
+상단 줄에는 현재 언어, 켜진 수정키, 조합 중인 한글(터미널에서), 최근에 보낸 특수키(`Esc`, `^C`, `M-b`(Alt+b), `Tab`, `⏎`, 방향키)와 모두 선택·복사·붙여넣기·분할·키보드 전환·설정·숨김 버튼이 있다. 모두 선택, 복사, 붙여넣기는 입력창이 가진 같은 동작(`performContextMenuAction`)을 부른다. 그래서 비밀번호 입력창처럼 앱이 복사를 막은 곳에서는 복사되지 않는다. 터미널 입력창에서는 모두 선택과 복사를 숨기고, 붙여넣기는 클립 글자를 그대로 보낸다.
 
 ## 특수문자(Fn 레이어)
 
@@ -86,7 +86,12 @@ ASCII(American Standard Code for Information Interchange) 95자는 Fn 없이 모
 
 가로 분할 배열에서 두 반쪽 사이를 두 칸으로 나눠 쓴다. 엄지에서 가장 먼 자리라서 자주 누르는 키는 두지 않고, 보기만 하는 정보와 가끔 누르는 항목만 둔다.
 
-- 위 두 줄: 최근에 복사한 글. 누르면 그 글을 붙여 넣는다. 여러 줄이면 미리보기에 ⏎가 보인다. 기록은 메모리에만 두고 다섯 개까지, 1시간까지 보관한다. 키보드가 꺼지면 사라진다. 비밀번호 관리 앱처럼 `ClipDescription`에 민감 표시(`android.content.extra.IS_SENSITIVE`)를 붙인 클립은 기록하지 않는다.
+- 위 두 줄: 복사한 글 기록. 누르면 그 글을 붙여 넣고, 위아래로 끌면 다음 기록으로 넘어간다. 기록이 두 칸보다 많으면 오른쪽에 위치 막대가 보인다. 여러 줄이면 미리보기에 ⏎가 보인다.
+- 기록을 길게 누르면 그 칸이 고정·삭제 두 버튼으로 바뀐다. 다른 곳을 누르면 닫힌다.
+  - 고정한 글은 📌와 함께 맨 위에 오고, 시간이 지나도 지워지지 않는다. 앱 저장소의 백업 제외 영역(`noBackupFilesDir`)에 저장되며 20개까지 고정할 수 있다. 고정을 풀면 일반 기록의 맨 위로 돌아간다.
+  - 고정하지 않은 글은 메모리에만 두고 기본 20개, 24시간까지 보관한다(설정에서 5–50개, 1–72시간). 키보드 프로세스가 끝나면 사라진다.
+  - 지운 글이 시스템 클립보드의 현재 클립이면 시스템 클립보드도 비운다. 그러지 않으면 다음에 키보드를 띄울 때 같은 클립이 다시 기록된다.
+- 비밀번호 관리 앱처럼 `ClipDescription`에 민감 표시(`android.content.extra.IS_SENSITIVE`)를 붙인 클립은 기록하지 않으므로 고정할 수도 없다.
 - 아래 세 줄: 커서 앞 글자. 일반 입력창은 커서가 있는 줄의 끝부분을 보여 주고, 조합 중인 한글은 밑줄로 표시한다. 비밀번호 입력창에서는 보여 주지 않는다.
 - 터미널은 화면 내용을 키보드에 넘겨주지 않으므로, FoldKey가 보낸 글자와 키를 Enter 전까지 보여 준다. 터미널의 비밀번호 프롬프트를 키보드가 구별할 수 없어서 이 표시는 기본으로 꺼져 있다(설정 "터미널에서 친 글자도 표시"). 꺼져 있을 때는 조합 중인 한글만 보여 준다.
 - 터미널에서 여러 줄 클립을 붙이면 셸이 줄마다 실행할 수 있다. 붙이기 전에 미리보기의 ⏎를 확인한다.
@@ -123,6 +128,8 @@ ASCII(American Standard Code for Information Interchange) 95자는 Fn 없이 모
 | 분할 배열 키 너비 | 8.5 mm(7.0–11.0), 화면에 맞지 않으면 줄어듦. 엄지 범위 측정으로도 정한다 |
 | 분할 반쪽 올림 높이 | 0 mm(0–15.0) |
 | 가운데에 복사한 글 표시 | 켬 |
+| 복사 기록 개수 | 20개(5–50), 고정한 글은 따로 20개까지 |
+| 복사 기록 보관 시간 | 24시간(1–72) |
 | 가운데에 커서 앞 글자 표시 | 켬 |
 | 터미널에서 친 글자도 표시 | 끔 |
 | 한글 키에 영문 글자 함께 표시 | 켬 |
@@ -152,7 +159,8 @@ ASCII(American Standard Code for Information Interchange) 95자는 Fn 없이 모
 | `layout/Layouts.kt`, `layout/Geometry.kt` | 전체·분할·compact 배열과 mm 단위 배치 |
 | `ime/FoldKeyService.kt` | `InputMethodService` |
 | `ime/InputConnectionEditor.kt` | `InputConnection` 호출, 키 이벤트 생성 |
-| `ime/ClipboardHistory.kt` | 클립보드 기록(메모리, 5개, 1시간) |
+| `ime/ClipboardHistory.kt` | 클립보드 기록(메모리, 개수·보관 시간 설정, 고정·삭제) |
+| `ime/PinStore.kt` | 고정한 클립 저장(백업 제외 영역) |
 | `ui/KeyboardView.kt` | 그리기, 터치 처리, 상단 줄 |
 | `ui/HapticFeedback.kt` | 햅틱과 소리 |
 | `settings/SettingsActivity.kt` | 설정 화면, 입력 시험, 키 이벤트 확인창 |
@@ -164,7 +172,7 @@ ASCII(American Standard Code for Information Interchange) 95자는 Fn 없이 모
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 기호 표시, 가운데 클립보드와 입력 표시, 터미널 입력 표시 포함). `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
+JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 기호 표시, 가운데 클립보드와 입력 표시, 클립 고정·삭제 버튼, 터미널 입력 표시 포함). `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
 
 ## 알려진 한계
 

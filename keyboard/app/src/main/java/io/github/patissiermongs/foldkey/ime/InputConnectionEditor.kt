@@ -58,12 +58,23 @@ class InputConnectionEditor(
 
     override fun paste(raw: Boolean) {
         val ic = connection() ?: return
-        if (!raw && ic.performContextMenuAction(android.R.id.paste)) return
+        if (!raw) {
+            ic.performContextMenuAction(android.R.id.paste)
+            return
+        }
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
         val clip = clipboard.primaryClip ?: return
         if (clip.itemCount == 0) return
         val text = clip.getItemAt(0).coerceToText(context)?.toString() ?: return
         if (text.isNotEmpty()) ic.commitText(text, 1)
+    }
+
+    override fun selectAll() {
+        connection()?.performContextMenuAction(android.R.id.selectAll)
+    }
+
+    override fun copy() {
+        connection()?.performContextMenuAction(android.R.id.copy)
     }
 
     companion object {

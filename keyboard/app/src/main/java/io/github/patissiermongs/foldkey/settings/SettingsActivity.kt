@@ -18,6 +18,7 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import io.github.patissiermongs.foldkey.R
+import io.github.patissiermongs.foldkey.ime.ClipboardHistory
 import io.github.patissiermongs.foldkey.ime.FoldKeyService
 import io.github.patissiermongs.foldkey.ime.Prefs
 
@@ -95,6 +96,10 @@ class SettingsActivity : Activity() {
 
         heading(getString(R.string.settings_center), 18f)
         toggle(getString(R.string.pref_center_clipboard), Prefs.CENTER_CLIPBOARD, true)
+        slider(getString(R.string.pref_clip_count), Prefs.CLIP_COUNT, ClipboardHistory.DEFAULT_CAPACITY, Prefs.CLIP_COUNT_MIN, Prefs.CLIP_COUNT_MAX) { "$it" }
+        slider(getString(R.string.pref_clip_hours), Prefs.CLIP_HOURS, Prefs.DEFAULT_CLIP_HOURS, Prefs.CLIP_HOURS_MIN, Prefs.CLIP_HOURS_MAX) {
+            getString(R.string.hours_value, it)
+        }
         toggle(getString(R.string.pref_center_echo), Prefs.CENTER_ECHO, true)
         toggle(getString(R.string.pref_terminal_echo), Prefs.TERMINAL_ECHO, false)
 

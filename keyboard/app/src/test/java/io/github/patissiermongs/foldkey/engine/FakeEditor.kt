@@ -50,6 +50,14 @@ class FakeEditor : Editor {
         pastes++
     }
 
+    override fun selectAll() {
+        log.add("selectAll")
+    }
+
+    override fun copy() {
+        log.add("copy")
+    }
+
     var depth = 0
     var batches = 0
 

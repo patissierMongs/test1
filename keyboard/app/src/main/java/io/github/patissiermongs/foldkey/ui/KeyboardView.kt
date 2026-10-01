@@ -70,8 +70,18 @@ class KeyboardView(
     private var editorLine = ""
     private var clipPointer = -1
     private var clipIndex = -1
+    private var clipDownText: String? = null
+    private var clipDownY = 0f
+    private var clipScrollAtDown = 0
+    private var clipDragged = false
+    private var clipLongPressed = false
+    private var clipScroll = 0
+    private var clipMenu: String? = null
+    private val clipLongPress = Runnable { onClipLongPress() }
 
-    var clipSource: () -> List<String> = { emptyList() }
+    var clipSource: () -> List<Clip> = { emptyList() }
+    var onClipEdit: (ClipEdit, String) -> Unit = { _, _ -> }
+    var pinsFull: () -> Boolean = { false }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
@@ -110,6 +120,15 @@ class KeyboardView(
             }
         }
 
+    var showEditCommands: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                layoutStrip()
+                invalidate()
+            }
+        }
+
     fun echo(token: String) {
         echoes.addLast(token)
         while (echoes.size > MAX_ECHOES) echoes.removeFirst()
@@ -124,6 +143,14 @@ class KeyboardView(
     val hasPanel: Boolean get() = width > 0 && geometry().panel != null
 
     internal val shownEditorLine: String get() = editorLine
+
+    internal val clipSlots: List<Box> get() = geometry().panel?.let { clipBoxes(it) } ?: emptyList()
+
+    internal val openClipMenu: String? get() = clipMenu
+
+    internal val clipOffset: Int get() = clipScroll
+
+    internal fun stripBox(command: Command): Box? = stripButtons.firstOrNull { it.second == command }?.first
 
     fun setEditorLine(text: String) {
         if (editorLine != text) {
@@ -151,10 +178,20 @@ class KeyboardView(
         tracker.cancelAll(SystemClock.uptimeMillis())
         active.clear()
         stripPointer = -1
-        clipPointer = -1
-        clipIndex = -1
+        resetClipTouch()
+        clipMenu = null
+        clipScroll = 0
         removeCallbacks(tickRunnable)
         invalidate()
+    }
+
+    private fun resetClipTouch() {
+        removeCallbacks(clipLongPress)
+        clipPointer = -1
+        clipIndex = -1
+        clipDownText = null
+        clipDragged = false
+        clipLongPressed = false
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -250,7 +287,9 @@ class KeyboardView(
         stripButtons.clear()
         val h = stripHeightPx
         val commands = Layouts.stripCommands.filter {
-            !(it == Command.SWITCH_IME && !showSwitchKey) && !(it == Command.TOGGLE_SPLIT && currentKind == LayoutKind.COMPACT)
+            !(it == Command.SWITCH_IME && !showSwitchKey) &&
+                !(it == Command.TOGGLE_SPLIT && currentKind == LayoutKind.COMPACT) &&
+                !(it in EDIT_COMMANDS && !showEditCommands)
         }
         val available = width - SIDE_MM * pxPerMmX - STRIP_STATUS_MM * pxPerMmX
         val w = min(STRIP_BUTTON_MM * pxPerMmX, available / commands.size)
@@ -335,6 +374,8 @@ class KeyboardView(
         label.textAlign = Paint.Align.CENTER
         for ((box, cmd) in stripButtons) {
             val text = when (cmd) {
+                Command.SELECT_ALL -> context.getString(R.string.strip_select_all)
+                Command.COPY -> context.getString(R.string.strip_copy)
                 Command.PASTE -> context.getString(R.string.strip_paste)
                 Command.TOGGLE_SPLIT -> context.getString(if (currentKind == LayoutKind.SPLIT) R.string.strip_full else R.string.strip_split)
                 Command.SETTINGS -> context.getString(R.string.strip_settings)
@@ -373,9 +414,48 @@ class KeyboardView(
 
     private fun clipAt(x: Float, y: Float): Int {
         val panel = geometry().panel ?: return -1
+        val boxes = clipBoxes(panel)
         val count = clipSource().size
-        clipBoxes(panel).forEachIndexed { i, b -> if (i < count && b.contains(x, y)) return i }
+        clampClipScroll(count, boxes.size)
+        boxes.forEachIndexed { i, b -> if (clipScroll + i < count && b.contains(x, y)) return clipScroll + i }
         return -1
+    }
+
+    private fun clampClipScroll(count: Int, slots: Int) {
+        clipScroll = clipScroll.coerceIn(0, max(0, count - slots))
+    }
+
+    private fun clipBox(index: Int): Box? {
+        val panel = geometry().panel ?: return null
+        return clipBoxes(panel).getOrNull(index - clipScroll)
+    }
+
+    private fun onClipLongPress() {
+        if (clipPointer < 0 || clipDragged) return
+        val text = clipDownText ?: return
+        if (clipSource().none { it.text == text }) return
+        clipLongPressed = true
+        clipMenu = text
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        invalidate()
+    }
+
+    private fun tapClip(index: Int, x: Float) {
+        val clip = clipSource().getOrNull(index) ?: return
+        if (clip.text != clipDownText) return
+        val menu = clipMenu
+        if (menu == null) {
+            engine.pasteText(clip.text)
+            return
+        }
+        clipMenu = null
+        if (menu != clip.text) return
+        val box = clipBox(index) ?: return
+        when {
+            x >= box.centerX -> onClipEdit(ClipEdit.DELETE, clip.text)
+            clip.pinned -> onClipEdit(ClipEdit.UNPIN, clip.text)
+            !pinsFull() -> onClipEdit(ClipEdit.PIN, clip.text)
+        }
     }
 
     private fun drawPanel(canvas: Canvas, panel: Box) {
@@ -384,6 +464,8 @@ class KeyboardView(
         val boxes = clipBoxes(panel)
         if (boxes.isNotEmpty()) {
             val clips = clipSource()
+            clampClipScroll(clips.size, boxes.size)
+            if (clipMenu != null && clips.none { it.text == clipMenu }) clipMenu = null
             hint.textAlign = Paint.Align.LEFT
             hint.typeface = Typeface.DEFAULT
             hint.textSize = CLIP_TEXT_MM * pxPerMmY
@@ -392,16 +474,67 @@ class KeyboardView(
                 val b = boxes[0]
                 drawFitted(canvas, context.getString(R.string.panel_clip_empty), b.left + 2f * inset, b.centerY, b.width - 4f * inset, hint)
             }
-            for ((i, b) in boxes.withIndex()) {
-                val text = clips.getOrNull(i) ?: break
+            for ((slot, b) in boxes.withIndex()) {
+                val index = clipScroll + slot
+                val clip = clips.getOrNull(index) ?: break
                 rect.set(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset)
-                fill.color = if (clipPointer >= 0 && clipIndex == i) palette.pressed else palette.modKey
+                if (clip.text == clipMenu) {
+                    drawClipMenu(canvas, clip, inset, radius)
+                    continue
+                }
+                val pressed = clipPointer >= 0 && clipIndex == index && !clipDragged
+                fill.color = if (pressed) palette.pressed else palette.modKey
                 canvas.drawRoundRect(rect, radius, radius, fill)
                 hint.color = palette.text
-                drawFitted(canvas, preview(text), rect.left + 2f * inset, rect.centerY(), rect.width() - 4f * inset, hint)
+                val shown = if (clip.pinned) PIN_MARK + preview(clip.text) else preview(clip.text)
+                drawFitted(canvas, shown, rect.left + 2f * inset, rect.centerY(), rect.width() - 4f * inset, hint)
             }
+            if (clips.size > boxes.size) drawClipScrollbar(canvas, boxes, clips.size, inset)
         }
         echoBox(panel)?.let { drawEcho(canvas, it) }
+    }
+
+    private fun drawClipMenu(canvas: Canvas, clip: Clip, inset: Float, radius: Float) {
+        val pinText = context.getString(
+            when {
+                clip.pinned -> R.string.clip_unpin
+                pinsFull() -> R.string.clip_pins_full
+                else -> R.string.clip_pin
+            }
+        )
+        val left = rect.left
+        val right = rect.right
+        val middle = rect.centerX()
+        rect.set(left, rect.top, middle - inset, rect.bottom)
+        drawMenuButton(canvas, pinText, clip.pinned || !pinsFull(), inset, radius)
+        rect.set(middle + inset, rect.top, right, rect.bottom)
+        drawMenuButton(canvas, context.getString(R.string.clip_delete), true, inset, radius)
+    }
+
+    private fun drawMenuButton(canvas: Canvas, text: String, enabled: Boolean, inset: Float, radius: Float) {
+        fill.color = palette.pressed
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        val size = hint.textSize
+        val width = rect.width() - 2f * inset
+        val measured = hint.measureText(text)
+        if (measured > width && measured > 0f) hint.textSize = size * width / measured
+        hint.textAlign = Paint.Align.CENTER
+        hint.color = if (enabled) palette.accent else palette.hint
+        canvas.drawText(text, rect.centerX(), rect.centerY() - (hint.descent() + hint.ascent()) / 2f, hint)
+        hint.textAlign = Paint.Align.LEFT
+        hint.textSize = size
+    }
+
+    private fun drawClipScrollbar(canvas: Canvas, boxes: List<Box>, count: Int, inset: Float) {
+        val top = boxes.first().top + inset
+        val bottom = boxes.last().bottom - inset
+        val track = bottom - top
+        val width = CLIP_BAR_MM * pxPerMmX
+        val x = boxes.first().right - inset / 2f - width
+        val thumbTop = top + track * clipScroll / count
+        val thumbBottom = top + track * (clipScroll + boxes.size).coerceAtMost(count) / count
+        fill.color = palette.hint
+        canvas.drawRect(x, thumbTop, x + width, thumbBottom, fill)
     }
 
     private fun preview(text: String): String =
@@ -600,6 +733,7 @@ class KeyboardView(
                 val x = event.getX(i)
                 val y = event.getY(i)
                 if (y < stripHeightPx) {
+                    clipMenu = null
                     val cmd = stripButtons.firstOrNull { it.first.contains(x, y) }?.second
                     if (cmd != null && stripPointer < 0) {
                         stripPointer = id
@@ -609,17 +743,28 @@ class KeyboardView(
                 } else {
                     val clip = clipAt(x, y)
                     if (clip < 0) {
+                        clipMenu = null
                         tracker.down(id, x, y, t)
                     } else if (clipPointer < 0) {
                         clipPointer = id
                         clipIndex = clip
+                        clipDownText = clipSource().getOrNull(clip)?.text
+                        clipDownY = y
+                        clipScrollAtDown = clipScroll
+                        clipDragged = false
+                        clipLongPressed = false
+                        if (clipMenu == null) postDelayed(clipLongPress, clipLongPressMs())
                         performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                     }
                 }
             }
             MotionEvent.ACTION_MOVE -> for (i in 0 until event.pointerCount) {
                 val id = event.getPointerId(i)
-                if (id != stripPointer && id != clipPointer) tracker.move(id, event.getX(i), event.getY(i), t)
+                if (id == clipPointer) {
+                    dragClips(event.getY(i))
+                } else if (id != stripPointer) {
+                    tracker.move(id, event.getX(i), event.getY(i), t)
+                }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val i = event.actionIndex
@@ -631,17 +776,17 @@ class KeyboardView(
                         stripPointer = -1
                         stripCommand = null
                     } else if (id == clipPointer) {
-                        clipPointer = -1
-                        clipIndex = -1
+                        resetClipTouch()
                     } else {
                         tracker.cancel(id, t)
                     }
                 } else if (id == clipPointer) {
                     val index = clipIndex
-                    val hit = clipAt(event.getX(i), event.getY(i))
-                    clipPointer = -1
-                    clipIndex = -1
-                    if (index >= 0 && index == hit) clipSource().getOrNull(index)?.let { engine.pasteText(it) }
+                    val x = event.getX(i)
+                    val hit = clipAt(x, event.getY(i))
+                    val tapped = !clipDragged && !clipLongPressed
+                    if (tapped && index >= 0 && index == hit) tapClip(index, x)
+                    resetClipTouch()
                 } else if (id == stripPointer) {
                     val cmd = stripCommand
                     val hitCmd = stripButtons.firstOrNull { it.first.contains(event.getX(i), event.getY(i)) }?.second
@@ -655,14 +800,30 @@ class KeyboardView(
             MotionEvent.ACTION_CANCEL -> {
                 tracker.cancelAll(t)
                 stripPointer = -1
-                clipPointer = -1
-                clipIndex = -1
+                resetClipTouch()
             }
         }
         scheduleTick()
         invalidate()
         return true
     }
+
+    private fun dragClips(y: Float) {
+        val panel = geometry().panel ?: return
+        val boxes = clipBoxes(panel)
+        if (boxes.isEmpty()) return
+        val dy = y - clipDownY
+        if (!clipDragged && abs(dy) >= CLIP_DRAG_MM * pxPerMmY) {
+            clipDragged = true
+            removeCallbacks(clipLongPress)
+        }
+        if (!clipDragged || clipLongPressed) return
+        val step = boxes.first().height
+        clipScroll = clipScrollAtDown - (dy / step).toInt()
+        clampClipScroll(clipSource().size, boxes.size)
+    }
+
+    private fun clipLongPressMs(): Long = prefs.longPressMs.takeIf { it > 0L } ?: CLIP_LONG_PRESS_MS
 
     private fun onTick() {
         tracker.tick(SystemClock.uptimeMillis())
@@ -762,7 +923,7 @@ class KeyboardView(
     companion object {
         const val MM_PER_INCH = 25.4f
         const val STRIP_MM = 6.5f
-        const val STRIP_BUTTON_MM = 17f
+        const val STRIP_BUTTON_MM = 13f
         const val STRIP_STATUS_MM = 16f
         const val GAP_MM = 0.9f
         const val SIDE_MM = 0.5f
@@ -773,6 +934,11 @@ class KeyboardView(
         const val PANEL_MIN_MM = 16f
         const val CLIP_ROWS = 2
         const val CLIP_TEXT_MM = 2.3f
+        const val CLIP_DRAG_MM = 2.0f
+        const val CLIP_BAR_MM = 0.6f
+        const val CLIP_LONG_PRESS_MS = 400L
+        const val PIN_MARK = "📌 "
+        val EDIT_COMMANDS = setOf(Command.SELECT_ALL, Command.COPY)
         const val ECHO_TEXT_MM = 2.6f
         const val PREVIEW_CHARS = 200
         const val SWIPE_MM = 4.0f

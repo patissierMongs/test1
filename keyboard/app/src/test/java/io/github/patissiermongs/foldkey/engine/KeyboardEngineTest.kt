@@ -466,4 +466,23 @@ class KeyboardEngineTest {
         engine.perform(KeyAction.Cmd(Command.PASTE))
         assertEquals(listOf("paste:true"), editor.log.filter { it.startsWith("paste") })
     }
+
+    @Test
+    fun selectAllAndCopyCommitTheSyllableFirstAndSkipTerminals() {
+        engine.perform(KeyAction.Lang)
+        type("gks")
+        engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
+        engine.perform(KeyAction.Cmd(Command.COPY))
+        assertEquals("한", editor.text.toString())
+        assertEquals("", editor.composing)
+        assertEquals(listOf("selectAll", "copy"), editor.log.filter { it == "selectAll" || it == "copy" })
+        assertTrue(listener.commands.isEmpty())
+        engine.startInput(EditorContext(raw = true))
+        editor.log.clear()
+        engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
+        engine.perform(KeyAction.Cmd(Command.COPY))
+        assertEquals(emptyList<String>(), editor.log.filter { it == "selectAll" || it == "copy" })
+        assertTrue(editor.keys.isEmpty())
+    }
 }
+

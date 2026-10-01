@@ -19,6 +19,8 @@ class Prefs(context: Context) {
     val centerEcho: Boolean get() = sp.getBoolean(CENTER_ECHO, true)
     val centerClipboard: Boolean get() = sp.getBoolean(CENTER_CLIPBOARD, true)
     val terminalEcho: Boolean get() = sp.getBoolean(TERMINAL_ECHO, false)
+    val clipCount: Int get() = sp.getInt(CLIP_COUNT, ClipboardHistory.DEFAULT_CAPACITY).coerceIn(CLIP_COUNT_MIN, CLIP_COUNT_MAX)
+    val clipHours: Int get() = sp.getInt(CLIP_HOURS, DEFAULT_CLIP_HOURS).coerceIn(CLIP_HOURS_MIN, CLIP_HOURS_MAX)
     val haptic: Boolean get() = sp.getBoolean(HAPTIC, true)
     val hapticLevel: Int get() = sp.getInt(HAPTIC_LEVEL, 0)
     val sound: Boolean get() = sp.getBoolean(SOUND, false)
@@ -55,6 +57,13 @@ class Prefs(context: Context) {
         const val CENTER_ECHO = "center_echo"
         const val CENTER_CLIPBOARD = "center_clipboard"
         const val TERMINAL_ECHO = "terminal_echo"
+        const val CLIP_COUNT = "clip_history_count"
+        const val CLIP_COUNT_MIN = 5
+        const val CLIP_COUNT_MAX = 50
+        const val CLIP_HOURS = "clip_history_hours"
+        const val DEFAULT_CLIP_HOURS = 24
+        const val CLIP_HOURS_MIN = 1
+        const val CLIP_HOURS_MAX = 72
         const val HAPTIC = "haptic"
         const val HAPTIC_LEVEL = "haptic_level"
         const val SOUND = "sound"

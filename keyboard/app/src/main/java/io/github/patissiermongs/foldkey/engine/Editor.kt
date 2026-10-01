@@ -21,6 +21,10 @@ interface Editor {
 
     fun paste(raw: Boolean)
 
+    fun selectAll()
+
+    fun copy()
+
     fun beginBatch() {}
 
     fun endBatch() {}

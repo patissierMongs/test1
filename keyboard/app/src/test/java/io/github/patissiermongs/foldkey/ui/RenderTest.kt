@@ -1,11 +1,14 @@
 package io.github.patissiermongs.foldkey.ui
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.EngineSettings
@@ -19,10 +22,13 @@ import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.layout.Key
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Duration
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -136,7 +142,7 @@ class RenderTest {
     @Test
     fun renderSplitLandscapeCenterPanel() {
         val (view, engine, _) = setup(split = true, widthPx = 2184)
-        view.clipSource = { listOf("git status --short", "ssh fold@192.168.0.7\nls -la") }
+        view.clipSource = { listOf(Clip("git status --short"), Clip("ssh fold@192.168.0.7\nls -la")) }
         engine.startInput(EditorContext())
         engine.perform(KeyAction.Lang)
         type(engine, "gks")
@@ -160,6 +166,29 @@ class RenderTest {
         engine.perform(KeyAction.Lang)
         type(engine, "gksrmf")
         assertTrue(save(view, "split_landscape_terminal_echo.png").length() > 0)
+    }
+
+    @Test
+    @Config(qualifiers = "w832dp-h750dp-land-420dpi")
+    fun renderSplitLandscapeClipMenu() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val dm = activity.resources.displayMetrics
+        dm.xdpi = FOLD7_PPI
+        dm.ydpi = FOLD7_PPI
+        val prefs = Prefs(activity)
+        prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_LANDSCAPE, true).commit()
+        val view = KeyboardView(activity, KeyboardEngine(FakeEditor(), RecordingListener()), prefs, Silent)
+        view.clipSource = {
+            listOf(Clip("ssh fold@192.168.0.7", pinned = true), Clip("git status --short"), Clip("make test"), Clip("tmux attach"))
+        }
+        activity.setContentView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        shadowOf(Looper.getMainLooper()).idle()
+        val slot = view.clipSlots[1]
+        touch(view, MotionEvent.ACTION_DOWN, slot.centerX, slot.centerY)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
+        touch(view, MotionEvent.ACTION_UP, slot.centerX, slot.centerY)
+        assertTrue(view.openClipMenu == "git status --short")
+        assertTrue(save(view, "split_landscape_clip_menu.png").length() > 0)
     }
 
     companion object {

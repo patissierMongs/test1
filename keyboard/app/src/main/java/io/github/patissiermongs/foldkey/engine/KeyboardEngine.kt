@@ -309,11 +309,14 @@ class KeyboardEngine(private val editor: Editor, private val listener: EngineLis
 
     private fun command(command: Command) {
         flushComposition()
-        if (command == Command.PASTE) {
-            editor.paste(context.raw)
-            if (recording) typed.token(PASTE_TOKEN)
-        } else {
-            listener.onCommand(command)
+        when (command) {
+            Command.PASTE -> {
+                editor.paste(context.raw)
+                if (recording) typed.token(PASTE_TOKEN)
+            }
+            Command.SELECT_ALL -> if (!context.raw) editor.selectAll()
+            Command.COPY -> if (!context.raw) editor.copy()
+            else -> listener.onCommand(command)
         }
     }
 

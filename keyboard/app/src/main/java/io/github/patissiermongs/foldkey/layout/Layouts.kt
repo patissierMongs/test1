@@ -189,5 +189,13 @@ object Layouts {
         LayoutKind.COMPACT -> compact.size
     }
 
-    val stripCommands = listOf(Command.PASTE, Command.TOGGLE_SPLIT, Command.SWITCH_IME, Command.SETTINGS, Command.HIDE)
+    val stripCommands = listOf(
+        Command.SELECT_ALL,
+        Command.COPY,
+        Command.PASTE,
+        Command.TOGGLE_SPLIT,
+        Command.SWITCH_IME,
+        Command.SETTINGS,
+        Command.HIDE,
+    )
 }

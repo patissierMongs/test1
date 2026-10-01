@@ -2,7 +2,7 @@ package io.github.patissiermongs.foldkey.engine
 
 enum class Modifier { SHIFT, CTRL, ALT, FN }
 
-enum class Command { SETTINGS, SWITCH_IME, HIDE, PASTE, TOGGLE_SPLIT }
+enum class Command { SETTINGS, SWITCH_IME, HIDE, PASTE, TOGGLE_SPLIT, SELECT_ALL, COPY }
 
 enum class Gesture { TAP, UP, DOWN, LONG, REPEAT }
 

@@ -4,6 +4,8 @@
     <string name="subtype_en">English (US)</string>
     <string name="subtype_ko">Korean</string>
 
+    <string name="strip_select_all">Select all</string>
+    <string name="strip_copy">Copy</string>
     <string name="strip_paste">Paste</string>
     <string name="strip_split">Split</string>
     <string name="strip_full">Full</string>
@@ -67,12 +69,19 @@
     <string name="long_press_shift">upper symbol (same as swipe up)</string>
     <string name="long_press_repeat">repeat the key (vim hjkl, x)</string>
     <string name="settings_center">Center of the split layout</string>
-    <string name="pref_center_clipboard">Show copied text (tap to paste, kept in memory for 1 hour, sensitive clips skipped)</string>
+    <string name="pref_center_clipboard">Show copied text (tap to paste, drag to scroll, long-press to pin or delete; pinned text is saved on the device, the rest stays in memory; sensitive clips skipped)</string>
+    <string name="pref_clip_count">Clipboard history items</string>
+    <string name="pref_clip_hours">Keep copied text for</string>
+    <string name="hours_value">%1$d h</string>
     <string name="pref_center_echo">Show the text before the cursor (not in password fields)</string>
     <string name="pref_terminal_echo">Also show what you type in terminals (passwords typed at prompts become visible)</string>
     <string name="pref_split_lift">Raise the split halves from the bottom edge</string>
     <string name="settings_reach">Measure thumb reach and set the split key width</string>
     <string name="panel_clip_empty">Copied text</string>
+    <string name="clip_pin">Pin</string>
+    <string name="clip_unpin">Unpin</string>
+    <string name="clip_delete">Delete</string>
+    <string name="clip_pins_full">Full</string>
     <string name="reach_title">Thumb reach</string>
     <string name="reach_instructions">Hold the device with both hands. Keep each thumb comfortably stretched and draw one stroke through all five shaded keyboard rows. Three strokes per thumb.</string>
     <string name="reach_progress">Left %1$d/%3$d · right %2$d/%3$d</string>

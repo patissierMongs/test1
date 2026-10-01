@@ -1,12 +1,16 @@
 package io.github.patissiermongs.foldkey.ime
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.os.Looper
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnectionWrapper
 import android.widget.EditText
+import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
@@ -121,4 +125,43 @@ class EditorIntegrationTest {
             log,
         )
     }
+
+    @Test
+    fun selectAllAndCopyUseTheEditorsOwnActions() {
+        val (edit, engine, _) = editTextSetup(multiLine = false)
+        engine.startInput(EditorContext())
+        "git log".forEach { engine.perform(if (it == ' ') KeyAction.Space else ch(it)) }
+        idle()
+        engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
+        idle()
+        assertEquals(0, edit.selectionStart)
+        assertEquals(7, edit.selectionEnd)
+        engine.perform(KeyAction.Cmd(Command.COPY))
+        idle()
+        val cm = edit.context.getSystemService(ClipboardManager::class.java)
+        assertEquals("git log", cm.primaryClip?.getItemAt(0)?.text?.toString())
+    }
+
+    @Test
+    fun pasteRunsOnceWhenTheEditorHandlesItButReportsFalse() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val edit = EditText(activity)
+        activity.setContentView(edit)
+        edit.requestFocus()
+        focusWindow(edit)
+        val inner = edit.onCreateInputConnection(EditorInfo())!!
+        val reportsFalse = object : InputConnectionWrapper(inner, false) {
+            override fun performContextMenuAction(id: Int): Boolean {
+                super.performContextMenuAction(id)
+                return false
+            }
+        }
+        activity.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("c", "make test"))
+        val engine = KeyboardEngine(InputConnectionEditor(activity) { reportsFalse }, RecordingListener())
+        engine.startInput(EditorContext())
+        engine.perform(KeyAction.Cmd(Command.PASTE))
+        idle()
+        assertEquals("make test", edit.text.toString())
+    }
 }
+
