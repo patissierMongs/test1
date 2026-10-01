@@ -264,7 +264,7 @@ class KeyboardView(
         val g = when (kind) {
             LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec, Layouts.pad)
             LayoutKind.FULL -> KeyboardGeometry.full(Layouts.full, spec, Layouts.pad)
-            LayoutKind.COMPACT -> KeyboardGeometry.full(Layouts.compact, spec)
+            LayoutKind.COMPACT -> KeyboardGeometry.full(Layouts.compact, spec, Layouts.pad)
         }
         tracker.params = TouchParams(
             swipeThresholdPx = SWIPE_MM * pxPerMmY,
@@ -870,7 +870,7 @@ class KeyboardView(
     override fun modifierUp(key: Key, t: Long) = engine.release(key.def.action, t)
 
     override fun fire(key: Key, gesture: Gesture, t: Long) {
-        val r = ActionResolver.resolve(key.def, gesture, fnOn, prefs.swipeDownCtrl)
+        val r = ActionResolver.resolve(key.def, gesture, prefs.swipeDownCtrl)
         lastWasBackspace = r.action == KeyAction.Backspace
         lastFireTime = t
         if (lastWasBackspace) pending = null else confirmPending()

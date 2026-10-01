@@ -12,7 +12,6 @@ data class KeyDef(
     val upLabel: String? = null,
     val down: KeyAction? = null,
     val downLabel: String? = null,
-    val fn: KeyAction? = null,
     val fnLabel: String? = null,
     val repeat: Boolean = false,
     val style: KeyStyle = KeyStyle.NORMAL,

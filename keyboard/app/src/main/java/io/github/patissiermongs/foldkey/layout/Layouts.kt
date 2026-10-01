@@ -13,21 +13,6 @@ object Layouts {
 
     private fun ch(c: Char, width: Float = 1f) = KeyDef(KeyAction.Char(c, UsKeyMap.shiftedOf(c)), width = width)
 
-    private val NAV = mapOf(
-        'h' to (KeyEvent.KEYCODE_DPAD_LEFT to "←"),
-        'j' to (KeyEvent.KEYCODE_DPAD_DOWN to "↓"),
-        'k' to (KeyEvent.KEYCODE_DPAD_UP to "↑"),
-        'l' to (KeyEvent.KEYCODE_DPAD_RIGHT to "→"),
-        'y' to (KeyEvent.KEYCODE_MOVE_HOME to "Home"),
-        'o' to (KeyEvent.KEYCODE_MOVE_END to "End"),
-        'u' to (KeyEvent.KEYCODE_PAGE_DOWN to "PgDn"),
-        'i' to (KeyEvent.KEYCODE_PAGE_UP to "PgUp"),
-    )
-
-    private fun navLetters(s: String) = s.map { c ->
-        NAV[c]?.let { (keyCode, label) -> ch(c).copy(fn = code(keyCode), fnLabel = label) } ?: ch(c)
-    }
-
     private fun fkey(c: Char, f: Int) = KeyDef(
         KeyAction.Char(c, UsKeyMap.shiftedOf(c)),
         down = code(KeyEvent.KEYCODE_F1 + f - 1),
@@ -43,9 +28,6 @@ object Layouts {
 
     private fun backspace(width: Float) =
         KeyDef(KeyAction.Backspace, width = width, label = "⌫", repeat = true, style = KeyStyle.MOD)
-
-    private fun backspaceWithDelete(width: Float) =
-        backspace(width).copy(fn = code(KeyEvent.KEYCODE_FORWARD_DEL), fnLabel = "Del")
 
     private fun tab(width: Float) = KeyDef(code(KeyEvent.KEYCODE_TAB), width = width, label = "Tab", style = KeyStyle.MOD)
 
@@ -117,9 +99,9 @@ object Layouts {
     val compact: List<RowDef> = listOf(
         RowDef(listOf(escCtrl(1f), tab(1f), ch('`'), fkey('-', 11), fkey('=', 12)) + letters("[]\\;'")),
         RowDef(digits(1..10)),
-        RowDef(navLetters("qwertyuiop")),
-        RowDef(navLetters("asdfghjkl") + enter(1f)),
-        RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcvbnm") + backspaceWithDelete(1.5f)),
+        RowDef(letters("qwertyuiop")),
+        RowDef(letters("asdfghjkl") + enter(1f)),
+        RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcvbnm") + backspace(1.5f)),
         RowDef(
             listOf(mod(Modifier.CTRL, "Ctrl", 1.5f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), lang(1f), space(2.5f)) +
                 letters(",./")

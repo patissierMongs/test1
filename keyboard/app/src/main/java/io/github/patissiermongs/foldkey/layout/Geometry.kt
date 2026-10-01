@@ -82,7 +82,7 @@ class KeyboardGeometry(
                 }
             }
             val height = spec.topPx + rows.size * rowH + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, fnKeys = padLayer(keys, pad, spec))
+            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, fnKeys = padLayer(keys, pad, spec, unit))
         }
 
         fun split(rows: List<SplitRow>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
@@ -147,38 +147,33 @@ class KeyboardGeometry(
                 }
             }
             val height = spec.topPx + rows.size * rowH + spec.liftPx + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel, padLayer(keys, pad, spec))
+            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel, padLayer(keys, pad, spec, unit))
         }
 
-        private fun padLayer(keys: List<Key>, pad: List<List<KeyDef>>, spec: GeometrySpec): List<Key> {
+        private fun padLayer(keys: List<Key>, pad: List<List<KeyDef>>, spec: GeometrySpec, unit: Float): List<Key> {
             if (pad.isEmpty()) return keys
             val gapX = spec.gapMm * spec.pxPerMmX / 2f
             val gapY = spec.gapMm * spec.pxPerMmY / 2f
             val anchor = keys.firstOrNull { !it.ghost && (it.def.action as? KeyAction.Char)?.base == Layouts.PAD_ANCHOR }
                 ?: return keys
-            val x0 = anchor.face.left - gapX
-            val x1 = keys.filter { !it.ghost }.maxOf { it.face.right + gapX }
-            val covered = keys.filterTo(HashSet()) { it.row < pad.size && (it.ghost || it.face.right + gapX > x0 + EDGE_SLACK_PX) }
+            val hideFrom = anchor.face.left - gapX
+            val end = keys.filter { !it.ghost }.maxOf { it.face.right + gapX }
+            val covered = keys.filterTo(HashSet()) { it.row < pad.size && (it.ghost || it.face.right + gapX > hideFrom + EDGE_SLACK_PX) }
             val padKeys = ArrayList<Key>()
             pad.forEachIndexed { r, row ->
                 val ref = keys.first { it.row == r && !it.ghost }
                 val top = ref.face.top - gapY
                 val bottom = ref.face.bottom + gapY
-                val start = covered.filter { it.row == r && !it.ghost }.minOfOrNull { it.face.left - gapX } ?: x0
-                val w = (x1 - x0) / row.size
+                val w = minOf(unit, (end - hideFrom) / row.size)
+                val start = end - row.size * w
                 row.forEachIndexed { c, def ->
-                    val left = x0 + c * w
+                    val left = start + c * w
                     val right = left + w
                     padKeys.add(
                         Key(
                             def,
                             Box(left + gapX, top + gapY, right - gapX, bottom - gapY),
-                            Box(
-                                if (c == 0) minOf(start, left) else left,
-                                ref.touch.top,
-                                if (c == row.lastIndex) spec.widthPx else right,
-                                ref.touch.bottom,
-                            ),
+                            Box(left, ref.touch.top, if (c == row.lastIndex) spec.widthPx else right, ref.touch.bottom),
                             r,
                             r * spec.zonesPerRow + zoneColumn((left + right) / 2f, spec.widthPx, spec.zonesPerRow),
                             pad = true,

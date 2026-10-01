@@ -61,8 +61,7 @@
 • 스페이스를 꾹 누른 뒤 끌기: 선택 (터미널에서는 커서 이동)
 • Esc/Ctrl 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl. Fn + Esc: Insert
 • Ctrl·Alt·Shift·Fn: 한 번 누르면 다음 키 한 번에 적용, 빠르게 두 번 누르면 고정, 누른 채 입력하면 조합
-• Fn: 오른쪽에 숫자판 (7 8 9 / ⌫ … 0 . = + ⏎). 숫자판 ⌫를 위로 밀면 Del. 여러 자리는 Fn을 고정하거나 누른 채 입력
-• 커버 화면: Fn + h j k l: 방향키, Fn + y o: Home End, Fn + u i: PgDn PgUp, Fn + ⌫: Del
+• Fn: 오른쪽 끝에 숫자판 (7 8 9 / ⌫ … 0 . = + ⏎). 숫자판 ⌫를 위로 밀면 Del. 여러 자리는 Fn을 고정하거나 누른 채 입력
 • 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복
 • 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
     <string name="pref_long_press_action">길게 누르기 동작</string>

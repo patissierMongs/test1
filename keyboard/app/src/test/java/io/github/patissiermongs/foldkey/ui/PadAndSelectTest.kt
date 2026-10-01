@@ -47,12 +47,13 @@ class PadAndSelectTest {
     private lateinit var view: KeyboardView
     private var pxPerMm = 0f
 
-    private fun setup(raw: Boolean = false) {
+    private fun setup(raw: Boolean = false, coverScreen: Boolean = false) {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val dm = activity.resources.displayMetrics
-        dm.xdpi = 368f
-        dm.ydpi = 368f
-        pxPerMm = 368f / 25.4f
+        val ppi = if (coverScreen) 422f else 368f
+        dm.xdpi = ppi
+        dm.ydpi = ppi
+        pxPerMm = ppi / 25.4f
         val prefs = Prefs(activity)
         prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_PORTRAIT, true).commit()
         editor = FakeEditor()
@@ -101,8 +102,39 @@ class PadAndSelectTest {
         assertTrue(engine.modifiers.isLocked(Modifier.FN))
         tap(fnKey())
         assertFalse(engine.modifiers.isActive(Modifier.FN))
-        tap(pad("4"))
-        assertEquals("74+(0.5)u", editor.text.toString())
+        tap(pad("1"))
+        assertEquals("74+(0.5)l", editor.text.toString())
+    }
+
+    @Test
+    fun oneShotFnEndsAfterAPadKeyButStaysOnThroughBackspace() {
+        setup()
+        for (label in listOf("7", "+", "4")) {
+            tap(fnKey())
+            assertTrue(engine.modifiers.isActive(Modifier.FN))
+            tap(pad(label))
+            assertFalse(engine.modifiers.isActive(Modifier.FN))
+        }
+        tap(fnKey())
+        tap(pad("⌫"))
+        assertTrue(engine.modifiers.isActive(Modifier.FN))
+        tap(pad("("))
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        tap(pad("1"))
+        assertEquals("7+(l", editor.text.toString())
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-420dpi")
+    fun coverScreenGetsTheNumpadOnTheRightHalf() {
+        setup(coverScreen = true)
+        assertTrue(view.fnLayoutKeys.filter { it.pad }.all { it.face.left >= view.width / 2f - 1f })
+        tap(fnKey())
+        save("cover_compact_fn_touch.png")
+        tap(pad("9"))
+        tap(fnKey())
+        tap(pad("0"))
+        assertEquals("90", editor.text.toString())
     }
 
     @Test
@@ -110,8 +142,8 @@ class PadAndSelectTest {
         setup()
         tap(fnKey())
         tap(pad("4"))
-        tap(pad("4"))
-        assertEquals("4u", editor.text.toString())
+        tap(pad("1"))
+        assertEquals("4l", editor.text.toString())
         val fn = fnKey()
         touch(MotionEvent.ACTION_DOWN, fn.centerX, fn.centerY)
         val two = pad("2")
@@ -130,7 +162,7 @@ class PadAndSelectTest {
         assertTrue(engine.modifiers.isHeld(Modifier.FN))
         touch(MotionEvent.ACTION_UP, fn.centerX, fn.centerY)
         assertFalse(engine.modifiers.isActive(Modifier.FN))
-        assertEquals("4u2", editor.text.toString())
+        assertEquals("4l2", editor.text.toString())
     }
 
     private fun space(): Box = view.layoutKeys.filter { it.def.isSpace }.maxBy { it.face.left }.face

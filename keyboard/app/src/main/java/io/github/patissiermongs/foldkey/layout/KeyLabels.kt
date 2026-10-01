@@ -46,7 +46,7 @@ object KeyLabels {
     }
 
     fun popup(def: KeyDef, gesture: Gesture, s: LabelState): String? {
-        val r = ActionResolver.resolve(def, gesture, s.fn, s.swipeDownCtrl)
+        val r = ActionResolver.resolve(def, gesture, s.swipeDownCtrl)
         return when (val a = r.action) {
             is KeyAction.Char -> when {
                 r.forceCtrl -> "^" + a.base.uppercaseChar()

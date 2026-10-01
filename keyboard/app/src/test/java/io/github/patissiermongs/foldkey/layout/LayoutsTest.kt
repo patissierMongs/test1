@@ -30,7 +30,7 @@ class LayoutsTest {
 
     private fun defsOf(rows: List<RowDef>) = rows.flatMap { it.keys }
 
-    private fun checkCoverage(defs: List<KeyDef>, name: String, pad: List<KeyDef>) {
+    private fun checkCoverage(defs: List<KeyDef>, name: String, arrows: Boolean = true) {
         val chars = defs.mapNotNull { (it.action as? KeyAction.Char)?.base }
         for (c in ('a'..'z') + ('0'..'9') + symbols.toList()) {
             assertEquals("$name: '$c'", 1, chars.count { it == c })
@@ -44,14 +44,15 @@ class LayoutsTest {
         assertTrue(name, KeyAction.Lang in actions)
         assertTrue(name, KeyAction.Code(KeyEvent.KEYCODE_TAB) in actions)
         for (m in Modifier.entries) assertTrue("$name $m", KeyAction.Mod(m) in actions)
-        val reachable = actions + (defs + pad).flatMap { listOfNotNull(it.fn, it.up, it.down) }
-        for (code in listOf(
+        val reachable = actions + (defs + Layouts.pad.flatten()).flatMap { listOfNotNull(it.up, it.down) }
+        val navigation = listOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_MOVE_END, KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN,
-            KeyEvent.KEYCODE_FORWARD_DEL,
-        ) + (KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12)) {
+        )
+        for (code in listOf(KeyEvent.KEYCODE_FORWARD_DEL) + (KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12)) {
             assertTrue("$name keycode $code", KeyAction.Code(code) in reachable)
         }
+        for (code in navigation) assertEquals("$name keycode $code", arrows, KeyAction.Code(code) in reachable)
     }
 
     private val splitDefs = Layouts.split.flatMap { it.left.keys + it.right.keys }
@@ -64,23 +65,17 @@ class LayoutsTest {
 
     @Test
     fun everyLayoutReachesTheSameKeySet() {
-        checkCoverage(defsOf(Layouts.full), "full", Layouts.pad.flatten())
-        checkCoverage(splitDefs, "split", Layouts.pad.flatten())
-        checkCoverage(defsOf(Layouts.compact), "compact", emptyList())
+        checkCoverage(defsOf(Layouts.full), "full")
+        checkCoverage(splitDefs, "split")
+        checkCoverage(defsOf(Layouts.compact), "compact", arrows = false)
     }
 
     @Test
     fun fnLayerHasNoSymbolsLeftOnTheLetterKeys() {
-        for ((name, defs) in listOf("full" to defsOf(Layouts.full), "split" to splitDefs)) {
+        for ((name, defs) in listOf("full" to defsOf(Layouts.full), "split" to splitDefs, "compact" to defsOf(Layouts.compact))) {
             assertTrue(name, defs.none { it.action is KeyAction.Text })
-            assertTrue(name, defs.none { it.fn != null })
             assertEquals(name, listOf(KeyAction.EscCtrl), defs.filter { it.fnLabel != null }.map { it.action })
         }
-        val compact = defsOf(Layouts.compact)
-        assertTrue(compact.none { it.action is KeyAction.Text })
-        assertTrue(compact.mapNotNull { it.fn }.none { it is KeyAction.Text })
-        assertEquals("yuiohjkl".toSet(), compact.filter { it.fn != null }.mapNotNull { (it.action as? KeyAction.Char)?.base }.toSet())
-        assertEquals(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL), compact.first { it.action == KeyAction.Backspace }.fn)
     }
 
     @Test
@@ -243,17 +238,21 @@ class LayoutsTest {
     fun touchAreasTileEachRowWithoutOverlapOrHoles() {
         val layouts = listOf(
             KeyboardGeometry.full(Layouts.full, spec(1968, 368f), Layouts.pad),
-            KeyboardGeometry.full(Layouts.compact, spec(1080, 422f)),
+            KeyboardGeometry.full(Layouts.compact, spec(1080, 422f), Layouts.pad),
         )
         for (g in layouts) {
             for (fn in listOf(false, true)) {
                 val keys = g.layer(fn)
+                val padLeft = keys.filter { it.pad }.minOfOrNull { it.touch.left } ?: Float.MAX_VALUE
                 var y = 1f
                 while (y < g.heightPx - 1f) {
+                    val row = keys.first { y >= it.touch.top && y < it.touch.bottom }.row
+                    val visibleEnd = keys.filter { it.row == row && !it.pad }.maxOf { it.touch.right }
                     var x = 0.5f
                     while (x < keys.maxOf { it.touch.right } - 0.5f) {
                         val hits = keys.count { it.touch.contains(x, y) }
-                        assertEquals("fn=$fn ($x,$y)", 1, hits)
+                        val empty = fn && row < 4 && x >= visibleEnd && x < padLeft
+                        assertEquals("fn=$fn ($x,$y)", if (empty) 0 else 1, hits)
                         x += 7f
                     }
                     y += 11f
@@ -262,20 +261,22 @@ class LayoutsTest {
         }
     }
 
-    private fun checkPad(g: KeyboardGeometry, rows: Int, pxPerMm: Float, padUnits: Float) {
+    private fun checkPad(g: KeyboardGeometry, rows: Int, pxPerMm: Float) {
         val pad = g.fnKeys.filter { it.pad }
         assertEquals(20, pad.size)
         assertEquals(listOf("789/⌫", "456*(", "123-)", "0.=+⏎"), (0 until 4).map { r -> pad.filter { it.row == r }.sortedBy { it.face.left }.joinToString("") { it.def.label ?: "" } })
         val columns = pad.groupBy { (it.face.left * 10).roundToInt() }
         assertEquals(5, columns.size)
         assertTrue(columns.values.all { col -> col.map { it.row }.sorted() == listOf(0, 1, 2, 3) })
-        assertTrue(pad.all { abs((slotRight(it, pxPerMm) - slotLeft(it, pxPerMm)) - padUnits * g.unitPx) < 0.5f })
+        assertTrue(pad.all { abs((slotRight(it, pxPerMm) - slotLeft(it, pxPerMm)) - g.unitPx) < 0.5f })
+        val end = g.keys.filter { !it.ghost }.maxOf { slotRight(it, pxPerMm) }
+        assertEquals(end, pad.maxOf { slotRight(it, pxPerMm) }, 0.5f)
+        assertEquals(end - 5f * g.unitPx, pad.minOf { slotLeft(it, pxPerMm) }, 0.5f)
         val hText = g.keys.first { base(it) == Layouts.PAD_ANCHOR }
-        assertEquals(slotLeft(hText, pxPerMm), pad.minOf { slotLeft(it, pxPerMm) }, 0.5f)
         val others = g.fnKeys.filter { !it.pad }
         assertTrue(others.all { k -> g.keys.any { it === k } })
         assertTrue(others.none { it.ghost && it.row < 4 })
-        assertTrue(others.filter { it.row < 4 }.all { slotRight(it, pxPerMm) <= pad.minOf { p -> slotLeft(p, pxPerMm) } + 0.5f })
+        assertTrue(others.filter { it.row < 4 }.all { slotRight(it, pxPerMm) <= slotLeft(hText, pxPerMm) + 0.5f })
         for (r in 4 until rows) assertEquals(g.keys.filter { it.row == r && !it.ghost }.toSet(), others.filter { it.row == r && !it.ghost }.toSet())
         val leftOfPad = g.keys.filter { it.row < 4 && !it.ghost && slotRight(it, pxPerMm) <= slotLeft(hText, pxPerMm) + 0.5f }
         assertTrue(leftOfPad.isNotEmpty())
@@ -285,28 +286,31 @@ class LayoutsTest {
     @Test
     fun fnSwapsTheRightPartOfTheTopFourRowsForAStraightNumpad() {
         val pxPerMm = 368f / 25.4f
-        checkPad(KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad), Layouts.split.size, pxPerMm, 1.65f)
-        checkPad(KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm), Layouts.pad), Layouts.split.size, pxPerMm, 1.65f)
-        checkPad(KeyboardGeometry.full(Layouts.full, spec(1968, 368f), Layouts.pad), Layouts.full.size, pxPerMm, 1.65f)
-        val cover = KeyboardGeometry.full(Layouts.compact, spec(1080, 422f))
-        assertTrue(cover.fnKeys === cover.keys)
+        checkPad(KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad), Layouts.split.size, pxPerMm)
+        checkPad(KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm), Layouts.pad), Layouts.split.size, pxPerMm)
+        checkPad(KeyboardGeometry.full(Layouts.full, spec(1968, 368f), Layouts.pad), Layouts.full.size, pxPerMm)
+        val cover = KeyboardGeometry.full(Layouts.compact, spec(1080, 422f), Layouts.pad)
+        checkPad(cover, Layouts.compact.size, 422f / 25.4f)
+        val coverH = cover.keys.first { base(it) == Layouts.PAD_ANCHOR }
+        assertEquals(coverH.face.left, cover.fnKeys.filter { it.pad }.minOf { it.face.left }, 0.5f)
     }
 
     @Test
-    fun splitNumpadKeysAreAbout13mmWideInPortraitAndTheGapStaysDead() {
+    fun splitNumpadSitsAtTheRightEdgeWithLetterSizedKeys() {
         val pxPerMm = 368f / 25.4f
         val g = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad)
         val seven = g.fnKeys.first { it.pad && it.def.label == "7" }
-        assertEquals(13.09f, (slotRight(seven, pxPerMm) - slotLeft(seven, pxPerMm)) / pxPerMm, 0.02f)
-        val t = g.keys.first { base(it) == 't' }
+        assertEquals(7.93f, (slotRight(seven, pxPerMm) - slotLeft(seven, pxPerMm)) / pxPerMm, 0.02f)
+        assertEquals(40.16f, (1968f - slotLeft(seven, pxPerMm)) / pxPerMm, 0.05f)
+        assertEquals(36.2f, (1968f - seven.face.centerX) / pxPerMm, 0.05f)
         val y = g.keys.first { base(it) == 'y' }
         val ghostY = g.keys.first { it.ghost && (it.def.action as? KeyAction.Char)?.base == 'y' }
         assertEquals(ghostY, g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY))
         assertNull(g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY, fn = true))
-        assertNull(g.keyAt((t.touch.right + y.touch.left) / 2f, y.touch.centerY, fn = true))
+        assertNull(g.keyAt(y.touch.centerX, y.touch.centerY, fn = true))
+        assertEquals(y, g.keyAt(y.touch.centerX, y.touch.centerY))
         val four = g.fnKeys.first { it.pad && it.def.label == "4" }
-        assertEquals(four, g.keyAt(y.touch.left + 1f, y.touch.centerY, fn = true))
-        assertEquals(y, g.keyAt(y.touch.left + 1f, y.touch.centerY))
+        assertEquals(four, g.keyAt(four.touch.centerX, four.touch.centerY, fn = true))
         val backspace = g.fnKeys.first { it.pad && it.def.action == KeyAction.Backspace }
         assertEquals(backspace, g.keyAt(1967f, 1f, fn = true))
         assertNull(g.keyAt(1967f, 1f))
