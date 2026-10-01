@@ -47,7 +47,7 @@ class Modifiers(var doubleTapMs: Long = 350L) {
         if (toggle) {
             val previousTap = lastTap[m]
             states[m] = when (states.getValue(m)) {
-                ModState.OFF -> ModState.ONESHOT
+                ModState.OFF -> if (m.latches) ModState.LOCKED else ModState.ONESHOT
                 ModState.ONESHOT ->
                     if (previousTap != null && now - previousTap <= doubleTapMs) ModState.LOCKED else ModState.OFF
                 ModState.LOCKED -> ModState.OFF

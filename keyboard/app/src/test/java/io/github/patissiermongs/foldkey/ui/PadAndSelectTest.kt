@@ -89,9 +89,8 @@ class PadAndSelectTest {
     }
 
     @Test
-    fun lockedFnTypesOnTheNumpadUntilFnIsTappedAgain() {
+    fun fnTapSwitchesToTheNumpadUntilFnIsTappedAgain() {
         setup()
-        tap(fnKey())
         tap(fnKey())
         assertTrue(engine.modifiers.isLocked(Modifier.FN))
         save("split_portrait_fn_locked.png")
@@ -107,18 +106,14 @@ class PadAndSelectTest {
     }
 
     @Test
-    fun oneShotFnEndsAfterAPadKeyButStaysOnThroughBackspace() {
+    fun numpadStaysThroughDigitsAndBackspaceUntilFnIsTappedAgain() {
         setup()
-        for (label in listOf("7", "+", "4")) {
-            tap(fnKey())
-            assertTrue(engine.modifiers.isActive(Modifier.FN))
+        tap(fnKey())
+        for (label in listOf("7", "+", "4", "⌫", "(")) {
             tap(pad(label))
-            assertFalse(engine.modifiers.isActive(Modifier.FN))
+            assertTrue(engine.modifiers.isActive(Modifier.FN))
         }
         tap(fnKey())
-        tap(pad("⌫"))
-        assertTrue(engine.modifiers.isActive(Modifier.FN))
-        tap(pad("("))
         assertFalse(engine.modifiers.isActive(Modifier.FN))
         tap(pad("1"))
         assertEquals("7+(l", editor.text.toString())
@@ -132,16 +127,16 @@ class PadAndSelectTest {
         tap(fnKey())
         save("cover_compact_fn_touch.png")
         tap(pad("9"))
-        tap(fnKey())
         tap(pad("0"))
         assertEquals("90", editor.text.toString())
     }
 
     @Test
-    fun oneShotFnTypesOneDigitAndHeldFnTypesMany() {
+    fun heldFnShowsTheNumpadOnlyWhileHeld() {
         setup()
         tap(fnKey())
         tap(pad("4"))
+        tap(fnKey())
         tap(pad("1"))
         assertEquals("4l", editor.text.toString())
         val fn = fnKey()

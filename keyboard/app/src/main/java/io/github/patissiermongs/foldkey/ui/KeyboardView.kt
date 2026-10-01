@@ -349,8 +349,8 @@ class KeyboardView(
                 Modifier.CTRL -> "Ctrl"
                 Modifier.ALT -> "Alt"
                 Modifier.FN -> "Fn"
-            } + if (st == ModState.LOCKED) "🔒" else ""
-            label.color = if (st == ModState.LOCKED) palette.locked else palette.accent
+            } + if (st == ModState.LOCKED && !m.latches) "🔒" else ""
+            label.color = if (st == ModState.LOCKED && !m.latches) palette.locked else palette.accent
             canvas.drawText(name, x, baseline, label)
             x += label.measureText(name) + 2.5f * pxPerMmX
         }
@@ -645,7 +645,10 @@ class KeyboardView(
         var fg = palette.text
         val action = def.action
         val modState: ModState? = when (action) {
-            is KeyAction.Mod -> if (engine.modifiers.isHeld(action.modifier)) ModState.ONESHOT else engine.modifiers.state(action.modifier)
+            is KeyAction.Mod -> {
+                val m = action.modifier
+                if (engine.modifiers.isHeld(m) || m.latches && engine.modifiers.isLocked(m)) ModState.ONESHOT else engine.modifiers.state(m)
+            }
             KeyAction.EscCtrl -> if (engine.modifiers.isHeld(Modifier.CTRL) && pressed) ModState.ONESHOT else null
             else -> null
         }

@@ -70,7 +70,7 @@ object Layouts {
     val split: List<SplitRow> = listOf(
         SplitRow(
             RowDef(listOf(ch('`')) + digits(1..5)),
-            RowDef(digits(6..10) + listOf(fkey('-', 11), fkey('=', 12))),
+            RowDef(digits(6..10) + listOf(fkey('-', 11), fkey('=', 12), ch('\\'))),
         ),
         SplitRow(
             RowDef(listOf(tab(1.5f)) + letters("qwert")),
@@ -81,7 +81,7 @@ object Layouts {
             RowDef(letters("hjkl;'") + enter(2.25f)),
         ),
         SplitRow(
-            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.25f), ch('\\')) + letters("zxcv")),
+            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcv")),
             RowDef(letters("bnm,./") + mod(Modifier.SHIFT, "⇧", 2.75f)),
         ),
         SplitRow(

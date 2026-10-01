@@ -24,7 +24,7 @@
 | 배열 형태 | 세로(책 자세)는 전체 배열, 가로는 분할 배열, 폭 110 mm 미만 화면(커버 화면)은 10열 compact 배열. 방향별로 사용자가 바꿀 수 있다 | Trudeau 외(2013), Aschim 외(2019), KALQ(2013) |
 | 글자 배치 | QWERTY(윗줄 왼쪽 여섯 글자로 부르는 영문 배열)와 ANSI(American National Standards Institute) 키보드의 기호 위치를 그대로 둔다 | Bi, Smith, Zhai(2010) |
 | 기호 입력 | 숫자 행 상시 표시. 위로 밀기(swipe up)는 PC(personal computer) 키캡의 Shift 글자, 아래로 밀기는 Ctrl(control)+키, 숫자 행의 아래로 밀기는 F1–F12 | 코드 말뭉치 측정(7.1절), Greene 외(2014) |
-| 수정키 | Shift, Ctrl, Alt(alternate), Fn(function) 모두 one-shot(한 번 적용), 빠른 두 번 누르기로 lock(고정), 누른 채 다른 키를 치는 chord(동시 입력) 모두 지원 | Fennedy 외(2020), 기존 프로그래머용 키보드 |
+| 수정키 | Shift, Ctrl, Alt(alternate) 모두 one-shot(한 번 적용), 빠른 두 번 누르기로 lock(고정), 누른 채 다른 키를 치는 chord(동시 입력) 모두 지원. Fn(function)은 0.4.1부터 누를 때마다 숫자판을 켜고 끄는 전환 키 | Fennedy 외(2020), 기존 프로그래머용 키보드, 사용자 요청(7.9절) |
 | Esc(escape) | Caps Lock 자리에 dual-role(이중 역할) 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl | ADM-3A 배열, keyd·xcape·Karabiner 관행 |
 | 키 판정 | 누른 순간(touch-down) 위치로 키를 고르고 뗄 때(touch-up) 확정. 겹친 터치는 누른 순서대로 확정 | AOSP LatinIME, Dhakal 외(2018) |
 | 오타 보정 | 언어 모델 없이 사용자별 터치 편차(offset)를 보이지 않게 학습해 판정 위치를 보정. 키 중심부(±25%)는 항상 그 키로 판정 | Findlater·Wobbrock(2012), Henze 외(2012), Yin 외(2013) |
@@ -88,7 +88,7 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 ### 3.4 반쪽 너비
 
-분할 배열의 목표 키 너비는 8.5 mm다. Parhi 외(2006)에서 연속 입력 과제의 오류율은 7.7 mm 이상에서 유의한 차이가 없었다. 0.4.0에서 배열 폭이 14.25칸에서 15칸으로 늘었다(3.8절). 폴드7 가로 자세에서 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 77.0 mm(숫자 행 `6`의 안쪽 끝)까지 온다. 세로 자세에서는 화면에 맞추느라 키 너비가 7.93 mm로 줄고, 두 반쪽은 각각 54.0 mm, 71.9 mm가 된다(테스트 `fold7SplitHalfSpansFromTheScreenEdges`, `fold7PortraitSplitKeysAreAbout7_9mm`). 7.93 mm는 Parhi 외의 7.7 mm보다 크다. 오른쪽 반쪽이 KALQ의 58 mm보다 넓은 이유는 ANSI 배열의 기호 키(`[ ] ; ' , . /`)와 Enter, Backspace, 오른쪽 Shift가 오른쪽에 몰려 있고, 줄 어긋남 때문에 숫자 행이 오른쪽 반쪽에서 가장 안쪽까지 나오기 때문이다. 오른쪽 반쪽을 58 mm 안에 넣으려면 키 너비가 6.4 mm 아래여야 해서 설정 범위(7.0 mm 이상)로는 들어오지 않는다. 분할 배열에서는 `\` 키를 왼쪽 Shift 옆에 둔다. 영국식 ISO(International Organization for Standardization) 배열이 같은 자리에 `\`를 둔다.
+분할 배열의 목표 키 너비는 8.5 mm다. Parhi 외(2006)에서 연속 입력 과제의 오류율은 7.7 mm 이상에서 유의한 차이가 없었다. 0.4.0에서 배열 폭이 14.25칸에서 15칸으로 늘었다(3.8절). 폴드7 가로 자세에서 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 77.0 mm(숫자 행 `6`의 안쪽 끝)까지 온다. 세로 자세에서는 화면에 맞추느라 키 너비가 7.93 mm로 줄고, 두 반쪽은 각각 54.0 mm, 71.9 mm가 된다(테스트 `fold7SplitHalfSpansFromTheScreenEdges`, `fold7PortraitSplitKeysAreAbout7_9mm`). 7.93 mm는 Parhi 외의 7.7 mm보다 크다. 오른쪽 반쪽이 KALQ의 58 mm보다 넓은 이유는 ANSI 배열의 기호 키(`[ ] ; ' , . /`)와 Enter, Backspace, 오른쪽 Shift가 오른쪽에 몰려 있고, 줄 어긋남 때문에 숫자 행이 오른쪽 반쪽에서 가장 안쪽까지 나오기 때문이다. 오른쪽 반쪽을 58 mm 안에 넣으려면 키 너비가 6.4 mm 아래여야 해서 설정 범위(7.0 mm 이상)로는 들어오지 않는다. 0.4.0까지 분할 배열은 `\` 키를 1.25칸 왼쪽 Shift 옆에 두었다. 영국식 ISO(International Organization for Standardization) 배열이 같은 자리에 `\`를 둔다. 0.4.1부터는 왼쪽 Shift가 작다는 사용자 의견에 따라 Shift를 ANSI·HHKB와 같은 2.25칸으로 넓히고, `\`는 HHKB처럼 숫자 행 `=` 오른쪽으로 옮겼다.
 
 ### 3.5 커버 화면
 
@@ -150,7 +150,7 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 - 엄지 입력에서 줄 어긋남이 곧은 열보다 빠르거나 정확하다는 측정은 찾지 못했다. KALQ의 행 이동 실험에서 가장 나은 조합의 예측 이득은 0.1 wpm이었다(3.7절). Deskthority 위키는 곧은 열(matrix) 배열이 더 낫다는 주장을 뒷받침할 연구를 찾을 수 없다고 적는다. 그래서 이 변경의 근거는 성능 연구가 아니라 사용자가 물리 키보드에서 익힌 키 위치와 맞추는 것이다.
 - 두 반쪽의 키는 ANSI와 같은 가로 위치에 둔다. `1`, `q`, `a`, `z`는 왼쪽 끝에서 1.0, 1.5, 1.75, 2.25칸, `6`, `y`, `h`, `b`는 6.0, 6.5, 6.75, 6.25칸이다(테스트 `splitHalvesKeepTheAnsiRowStagger`). 오른쪽 반쪽은 왼쪽 반쪽의 같은 줄 끝에서 같은 간격만큼 떨어져 있어서 가운데 빈 공간이 계단 모양이 된다. 복제 키도 줄마다 그 줄 끝에 붙는다.
-- ⌫는 HHKB의 Delete 자리인 `]` 오른쪽(⏎ 바로 위)에 HHKB와 같은 1.5칸으로 두고, ⏎는 HHKB와 같은 2.25칸으로 늘린다(PFU 설명서 P3PC-6661-01EN). 원래 ⌫ 자리에는 ANSI와 같은 2.75칸 오른쪽 Shift를 둔다(테스트 `splitBackspaceSitsAboveEnterWithHhkbWidths`). HHKB 숫자 행 오른쪽 끝의 `\`와 `` ` ``는 FoldKey에서 왼쪽 Shift 옆과 왼쪽 위에 있으므로, 숫자 행 오른쪽 끝 2칸은 비워 둔다. 이 자리를 눌러도 아무 키도 입력되지 않는다.
+- ⌫는 HHKB의 Delete 자리인 `]` 오른쪽(⏎ 바로 위)에 HHKB와 같은 1.5칸으로 두고, ⏎는 HHKB와 같은 2.25칸으로 늘린다(PFU 설명서 P3PC-6661-01EN). 원래 ⌫ 자리에는 ANSI와 같은 2.75칸 오른쪽 Shift를 둔다(테스트 `splitUsesHhkbPlacesAndWidthsForBackspaceEnterShiftAndBackslash`). 0.4.1부터 `\`는 HHKB와 같은 숫자 행 `=` 오른쪽에 있고, HHKB의 마지막 키인 `` ` ``는 FoldKey에서 왼쪽 위에 있으므로 숫자 행 오른쪽 끝 1칸은 비워 둔다. 이 자리를 눌러도 아무 키도 입력되지 않는다.
 - 오른쪽 스페이스를 2.5칸에서 3.5칸으로 늘려 스페이스 줄의 간격도 다른 줄과 같게 했다.
 - 비용: 배열 폭이 14.25칸에서 15칸으로 늘어 폴드7 세로 분할의 키 너비가 8.3 mm에서 7.93 mm로 줄었다. 오른쪽 반쪽의 가장 안쪽 키(숫자 행 `6`)는 오른쪽 끝에서 세로 71.9 mm, 가로 77.0 mm에 있다. 0.3.0에서 오른쪽 반쪽의 안쪽 끝은 각각 62.8 mm, 64.3 mm였다. ANSI 어긋남은 왼쪽 반쪽의 위쪽 안쪽 키(5, T)를 왼손 엄지 쪽으로 당기고, 오른쪽 반쪽의 6, Y는 같은 양만큼 오른손 엄지에서 멀어지게 한다. Microsoft가 공개한 Windows 8 thumb keyboard 그림에서 글자 위치를 재면 오른쪽 반쪽은 왼쪽과 거울 대칭으로 어긋나 있다(그림에서 잰 값, 설계 이유는 글에 없음).
 - 키 위치가 바뀌었으므로 분할 배열에서 학습한 터치 편차는 새 이름(`split_ansi_…`)으로 처음부터 다시 쌓는다. 전체 배열과 커버 화면 배열의 학습값은 그대로 쓴다.
@@ -254,7 +254,7 @@ Bi, Smith, Zhai(2010)의 초보자 첫 단어 입력 시간은 QWERTY 2,110 ms, 
 
 Fennedy 외(2020)의 소프트 키보드 단축키 실험에서 두 손 선택 시간은 "Once"(수정키를 한 번 탭하고 키 누르기) 0.85초, 누른 채 입력 0.98초, 수정키에서 밀기 1.04초였다. 정확도는 각각 99.5%, 99.5%, 95.0%였고, 자유 선택에서 86.2%가 Once를 골랐다.
 
-FoldKey의 Shift, Ctrl, Alt, Fn은 상태 3가지를 가진다.
+FoldKey의 Shift, Ctrl, Alt는 상태 3가지를 가진다. Fn은 0.4.1부터 다르게 동작한다(7.9절).
 
 - 한 번 탭하면 다음 키 한 번에 적용된다(one-shot).
 - 350 ms 안에 두 번 탭하면 고정된다(lock). 다시 탭하면 풀린다.
@@ -331,8 +331,9 @@ Lertvittayakumjorn 외(2024)에서 언어 모델은 영어 문장의 문자 오�
 - 배치는 PC 숫자 패드처럼 7이 위에 온다. `7 8 9 / ⌫`, `4 5 6 * (`, `1 2 3 - )`, `0 . = + ⏎`이다(테스트 `numpadIsSevenEightNineOnTopWithOperatorsAndEnter`).
 - 숫자판은 위 네 줄의 오른쪽 끝 다섯 칸에 글자 키와 같은 폭으로 놓인다(폴드7 세로 분할 7.93 mm). 같은 줄에서 `h` 키부터 오른쪽 끝까지의 키는 숨기고, 숫자판과 왼쪽 부분 사이는 비워 둔다. 맨 아래 줄(스페이스, 한/A, 방향키)과 왼쪽 부분은 그대로다(테스트 `fnSwapsTheRightPartOfTheTopFourRowsForAStraightNumpad`).
 - 처음에는 `h` 키부터 오른쪽 끝까지를 숫자판으로 채웠다(키 폭 1.65칸, 13.1 mm). 사용자가 렌더링을 보고 숫자판이 가운데에 너무 가까워 치기 힘들다고 알려, 오른쪽 끝으로 옮기고 키 폭을 글자 키와 같게 줄였다. `7 4 1 0` 열의 중심은 폴드7 세로 분할에서 오른쪽 끝으로부터 59.4 mm에서 36.2 mm가 되었다(테스트 `splitNumpadSitsAtTheRightEdgeWithLetterSizedKeys`).
-- 키 판정은 누른 순간의 Fn 상태로 정한다. Fn을 누른 채 숫자를 치다가 Fn을 먼저 떼도 그 숫자가 들어간다. Fn을 한 번 누르면 숫자 하나 뒤 원래 배열로 돌아오므로, 여러 자리는 Fn을 두 번 눌러 고정하거나 누른 채 친다(테스트 `lockedFnTypesOnTheNumpadUntilFnIsTappedAgain`, `oneShotFnTypesOneDigitAndHeldFnTypesMany`).
-- 숫자판 ⌫는 한 번 켠 Fn을 끄지 않는다. 엔진은 수정키 상태가 붙지 않은 ⌫에서 one-shot 수정키를 쓰지 않고, Fn은 키 이벤트의 수정키 상태에 들어가지 않기 때문이다. 그래서 숫자를 지운 뒤 숫자판이 남아 있어 바로 고쳐 칠 수 있다(테스트 `oneShotFnEndsAfterAPadKeyButStaysOnThroughBackspace`). 첫 에뮬레이터 시험은 ⌫ 뒤에 Fn을 다시 누르는 순서였다. 이때 Fn이 꺼져 다음 두 탭이 일반 배열의 ⌫와 `u`로 들어갔고, 결과가 `7+(u`가 아니라 `7u`였다. 같은 순서를 이 테스트로 옮겨 원인을 확인했다.
+- 키 판정은 누른 순간의 Fn 상태로 정한다. Fn을 누른 채 숫자를 치다가 Fn을 먼저 떼도 그 숫자가 들어간다.
+- 0.4.0에서는 Fn이 다른 수정키처럼 one-shot이라 숫자 하나 뒤 원래 배열로 돌아왔고, 여러 자리는 두 번 눌러 고정해야 했다. Fn의 역할이 숫자판뿐이므로 사용자 요청에 따라 0.4.1부터 Fn은 누를 때마다 숫자판을 켜고 끄는 전환 키다. 누른 채 치면 손을 뗄 때 꺼진다(테스트 `fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot`, `fnTapSwitchesToTheNumpadUntilFnIsTappedAgain`, `numpadStaysThroughDigitsAndBackspaceUntilFnIsTappedAgain`, `heldFnShowsTheNumpadOnlyWhileHeld`). 숫자판이 켜져 있는 동안 Esc 자리는 Insert다.
+- 0.4.0의 첫 에뮬레이터 시험에서는 one-shot Fn과 숫자판 ⌫의 조합 때문에 결과가 어긋났다. ⌫는 수정키 상태가 붙지 않으면 one-shot 수정키를 쓰지 않으므로 Fn이 켜진 채 남았고, 시험 순서가 그 뒤에 Fn을 다시 눌러 Fn을 껐다. 다음 두 탭이 일반 배열의 ⌫와 `u`로 들어가 `7+(u` 대신 `7u`가 되었다. 0.4.1의 전환 방식에서는 이 순서가 생기지 않는다.
 - 숫자판 키는 Shift·Ctrl·Alt와 상관없이 표시된 글자를 `commitText`로 보낸다. 밀기와 길게 누르기 동작이 없으므로 빠르게 치다 손가락이 미끄러져도 Ctrl+숫자가 나가지 않는다. 숫자판 ⌫는 누르고 있으면 반복하고, 위로 밀면 Del이다.
 - 분할 배열에서는 숫자판이 나온 줄의 복제 키를 없애 가운데 빈 공간을 눌러도 아무것도 입력되지 않게 했다. 숫자판 왼쪽의 빈 자리도 같다. 오른쪽 끝 열의 판정 영역만 화면 끝까지 넓힌다.
 - 숫자판을 누른 위치는 터치 편차 학습에 넣지 않는다. 키 폭이 글자 키와 달라서 같은 구역의 글자 키 학습값이 흐려지기 때문이다.
@@ -433,6 +434,10 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 키보드 뷰를 직접 터치해 Fn 고정·한 번·누른 채 입력, 숫자판 ⌫ 뒤 Fn 유지, ⏎, 커버 화면 숫자판
   - 스페이스 꾹 눌러 선택: 터치 추적 단계(축 고정, 움직이지 않고 떼기, 시간 전 끌기, 다른 키와 겹침), 엔진(일반 입력창은 Shift, 터미널은 Shift 없음), 키보드 뷰, `EditText` 선택
   - 0.3.0까지의 Fn 특수문자 테스트는 특수문자가 남지 않았는지 보는 테스트로 바꿨다.
+- **0.4.1 자동 테스트.** 테스트는 166개다. 새로 넣거나 바꾼 것은 다음과 같다.
+  - 엔진: Fn은 한 번 누르면 다시 누를 때까지 켜져 있고, 같은 조건에서 Shift·Ctrl·Alt는 one-shot으로 남는지(`fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot`)
+  - 키보드 뷰: Fn을 한 번 누른 뒤 숫자·⌫·⏎를 여러 번 쳐도 숫자판이 남고 Fn을 다시 누르면 돌아오는지, Fn을 누른 채 치면 뗄 때 꺼지는지
+  - 분할 배열의 왼쪽 Shift 2.25칸과 `=` 오른쪽의 `\`
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.

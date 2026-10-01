@@ -1,6 +1,6 @@
 package io.github.patissiermongs.foldkey.engine
 
-enum class Modifier { SHIFT, CTRL, ALT, FN }
+enum class Modifier(val latches: Boolean = false) { SHIFT, CTRL, ALT, FN(latches = true) }
 
 enum class Command { SETTINGS, SWITCH_IME, HIDE, PASTE, TOGGLE_SPLIT, SELECT_ALL, COPY }
 

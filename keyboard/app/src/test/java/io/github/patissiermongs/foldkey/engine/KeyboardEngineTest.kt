@@ -284,6 +284,28 @@ class KeyboardEngineTest {
     }
 
     @Test
+    fun fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot() {
+        tapMod(Modifier.FN)
+        assertTrue(engine.modifiers.isLocked(Modifier.FN))
+        engine.perform(KeyAction.Text("7"))
+        engine.perform(KeyAction.Text("8"))
+        assertTrue(engine.modifiers.isLocked(Modifier.FN))
+        now += 1_000
+        tapMod(Modifier.FN)
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        tapMod(Modifier.FN)
+        tapMod(Modifier.FN)
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        engine.press(KeyAction.Mod(Modifier.FN), now)
+        engine.perform(KeyAction.Text("9"))
+        engine.release(KeyAction.Mod(Modifier.FN), now + 50)
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        tapMod(Modifier.SHIFT)
+        assertEquals(ModState.ONESHOT, engine.modifiers.state(Modifier.SHIFT))
+        assertEquals("789", editor.text.toString())
+    }
+
+    @Test
     fun selectionDragHoldsShiftInEditorsButSendsPlainArrowsToTerminals() {
         engine.perform(KeyAction.Lang)
         type("gk")
@@ -390,12 +412,13 @@ class KeyboardEngineTest {
         engine.press(KeyAction.EscCtrl, now)
         engine.release(KeyAction.EscCtrl, now + 100)
         now += 200
-        assertFalse(engine.modifiers.isActive(Modifier.FN))
-        tapMod(Modifier.FN)
+        assertTrue(engine.modifiers.isLocked(Modifier.FN))
         tapMod(Modifier.SHIFT)
         engine.press(KeyAction.EscCtrl, now)
         engine.release(KeyAction.EscCtrl, now + 100)
         now += 200
+        tapMod(Modifier.FN)
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
         engine.press(KeyAction.EscCtrl, now)
         engine.release(KeyAction.EscCtrl, now + 100)
         assertEquals(

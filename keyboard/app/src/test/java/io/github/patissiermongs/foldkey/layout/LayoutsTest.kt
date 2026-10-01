@@ -116,7 +116,7 @@ class LayoutsTest {
     }
 
     @Test
-    fun splitBackspaceSitsAboveEnterWithHhkbWidths() {
+    fun splitUsesHhkbPlacesAndWidthsForBackspaceEnterShiftAndBackslash() {
         val pxPerMm = 368f / 25.4f
         val g = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f))
         val u = g.unitPx
@@ -129,7 +129,14 @@ class LayoutsTest {
         assertEquals(1.5f * u, width(backspace), 0.5f)
         assertEquals(2.25f * u, width(enter), 0.5f)
         assertEquals(listOf(3, 3), shifts.map { it.row })
+        assertEquals(2.25f * u, width(shifts[0]), 0.5f)
         assertEquals(2.75f * u, width(shifts[1]), 0.5f)
+        val z = g.keys.first { base(it) == 'z' }
+        assertEquals(slotRight(shifts[0], pxPerMm), slotLeft(z, pxPerMm), 0.5f)
+        val backslash = g.keys.single { base(it) == '\\' }
+        val equals = g.keys.first { base(it) == '=' }
+        assertEquals(0, backslash.row)
+        assertEquals(slotRight(equals, pxPerMm), slotLeft(backslash, pxPerMm), 0.5f)
         assertEquals(enter.face.right, backspace.face.right, 0.5f)
         assertEquals(shifts[1].face.right, enter.face.right, 0.5f)
         assertEquals(1968f, backspace.touch.right, 0.01f)
@@ -184,7 +191,7 @@ class LayoutsTest {
     fun rowWidthsAreConsistent() {
         Layouts.full.forEach { assertEquals(15f, it.units, 1e-4f) }
         Layouts.compact.forEach { assertEquals(10f, it.units, 1e-4f) }
-        assertEquals(listOf(13f, 15f, 15f, 15f, 15f), Layouts.split.map { it.left.units + it.right.units })
+        assertEquals(listOf(14f, 15f, 15f, 15f, 15f), Layouts.split.map { it.left.units + it.right.units })
         assertEquals(listOf(6f, 6.5f, 6.75f, 6.25f, 6.5f), Layouts.split.map { it.left.units })
         assertEquals(15f, Layouts.splitUnits, 1e-4f)
         assertEquals(6.75f, Layouts.splitLeftUnits, 1e-4f)
