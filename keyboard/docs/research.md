@@ -24,10 +24,10 @@
 | 배열 형태 | 세로(책 자세)는 전체 배열, 가로는 분할 배열, 폭 110 mm 미만 화면(커버 화면)은 10열 compact 배열. 방향별로 사용자가 바꿀 수 있다 | Trudeau 외(2013), Aschim 외(2019), KALQ(2013) |
 | 글자 배치 | QWERTY(윗줄 왼쪽 여섯 글자로 부르는 영문 배열)와 ANSI(American National Standards Institute) 키보드의 기호 위치를 그대로 둔다 | Bi, Smith, Zhai(2010) |
 | 기호 입력 | 숫자 행 상시 표시. 위로 밀기(swipe up)는 PC(personal computer) 키캡의 Shift 글자, 아래로 밀기는 Ctrl(control)+키, 숫자 행의 아래로 밀기는 F1–F12 | 코드 말뭉치 측정(7.1절), Greene 외(2014) |
-| 수정키 | Shift, Ctrl, Alt(alternate) 모두 one-shot(한 번 적용), 빠른 두 번 누르기로 lock(고정), 누른 채 다른 키를 치는 chord(동시 입력) 모두 지원. Fn(function)은 0.4.1부터 누를 때마다 숫자판을 켜고 끄는 전환 키 | Fennedy 외(2020), 기존 프로그래머용 키보드, 사용자 요청(7.9절) |
-| Esc(escape) | Caps Lock 자리에 dual-role(이중 역할) 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl | ADM-3A 배열, keyd·xcape·Karabiner 관행 |
-| 키 판정 | 누른 순간(touch-down) 위치로 키를 고르고 뗄 때(touch-up) 확정. 겹친 터치는 누른 순서대로 확정 | AOSP LatinIME, Dhakal 외(2018) |
-| 오타 보정 | 언어 모델 없이 사용자별 터치 편차(offset)를 보이지 않게 학습해 판정 위치를 보정. 키 중심부(±25%)는 항상 그 키로 판정 | Findlater·Wobbrock(2012), Henze 외(2012), Yin 외(2013) |
+| 수정키 | Shift, Ctrl, Alt(alternate) 모두 one-shot(한 번 적용), 빠른 두 번 누르기로 lock(고정), 누른 채 다른 키를 치는 chord(동시 입력) 모두 지원. 수정키를 먼저 떼도 누르고 있던 동안 눌린 키는 조합으로 들어간다(0.6.0). Fn(function)은 0.4.1부터 누를 때마다 숫자판을 켜고 끄는 전환 키 | Fennedy 외(2020), 기존 프로그래머용 키보드, 사용자 요청(7.9절), QMK tap-hold 문서(5.1절) |
+| Esc(escape) | Caps Lock 자리에 dual-role(이중 역할) 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl. 누르고 150 ms 안에 누른 다음 키보다 먼저 떼면 Esc 다음에 그 키 | ADM-3A 배열, keyd·xcape·Karabiner 관행, QMK tap-hold 문서 |
+| 키 판정 | 누른 순간(touch-down) 위치로 키를 고르고 뗄 때(touch-up) 확정. 겹친 터치는 누른 순서대로 확정. 시스템이 취소한 터치는 수정키를 포함해 아무것도 하지 않는다. 터미널의 Enter·Tab과 여러 줄 입력창의 Enter는 글자로 보내 뒤에 친 글자가 앞지르지 못하게 한다(5.2절) | AOSP LatinIME, Dhakal 외(2018), AOSP 16 `ViewRootImpl` |
+| 오타 보정 | 언어 모델 없이 사용자별 터치 편차(offset)를 보이지 않게 학습해 판정 위치를 보정. 모든 키의 중심부(±25%)는 항상 그 키로 판정 | Findlater·Wobbrock(2012), Henze 외(2012), Yin 외(2013) |
 | 자동 수정 | 없음 | Lertvittayakumjorn 외(2024) |
 | 햅틱 | 누르는 순간 `HapticFeedbackConstants.KEYBOARD_TAP`. 반복 입력에는 햅틱 없음 | Ma 외(2015), Kaaresoja 외(2014), AOSP 16 소스 |
 | 소리 | 기본 꺼짐 | Ma 외(2015) |
@@ -233,7 +233,7 @@ D의 평균 거리는 빠진 키를 뺀 값이다. 빠지는 키는 CPython 입�
 - Yin 외(2013): 언어 모델 없이 사용자·자세별 모델이 문자 오류율을 8.64%에서 7.50%로 낮췄다(−13.2%).
 - Findlater·Wobbrock(2012): 화면에 보이지 않게 판정 영역만 바꾸는 개인화 키보드가 속도를 12.9% 높였고(3회차 15.2%) 오류율 차이는 없었다. 키를 눈에 보이게 움직이는 방식은 정적 키보드보다 빠르지 않았다. 이 키보드는 backspace 직후 한 번의 입력과, 초당 1타보다 느린 입력에서는 학습 모델을 끄고 보이는 키 경계로 판정했다. 지워진 입력은 학습 데이터에서 뺐다.
 
-**구현.** `OffsetModel`은 키 행과 화면 가로 4구역으로 나눈 zone(구역)마다 평균 편차를 mm 단위로 학습한다. 드물게 쓰는 키도 같은 구역의 표본을 공유한다. 표본 20개까지는 보정량을 비례해서 줄이고, 보정량은 키 크기의 35%를 넘지 않는다. 키 크기의 50%를 넘게 벗어난 표본은 버린다. Findlater·Wobbrock의 방식을 따라 backspace로 지워진 입력은 학습하지 않고, backspace 직후나 1초 넘게 쉬었다가 누른 입력에는 보정을 쓰지 않는다. 학습값은 배열 종류와 화면 너비별로 따로 저장하고 설정에서 초기화한다. 고정 보정값은 쓰지 않는다(Henze의 10 dp 결과, AOSP LatinIME의 `config_keyboard_vertical_correction`이 현재 0.0 dp).
+**구현.** `OffsetModel`은 키 행과 화면 가로 4구역으로 나눈 zone(구역)마다 평균 편차를 mm 단위로 학습한다. 드물게 쓰는 키도 같은 구역의 표본을 공유한다. 표본 20개까지는 보정량을 비례해서 줄이고, 보정량은 키 크기의 35%를 넘지 않는다. 키 크기의 50%를 넘게 벗어난 표본은 버린다. Findlater·Wobbrock의 방식을 따라 backspace로 지워진 입력은 학습하지 않는다. 최근 8번의 탭 위치는 바로 학습하지 않고 대기열에 두고, ⌫가 나갈 때마다 가장 최근 것을 하나씩 버린다. 0.5.x는 마지막 한 번만 보류해서, 두 글자를 친 뒤 ⌫를 두 번 누르면 앞 글자의 위치가 학습되었다(테스트 `tapsUndoneWithBackspaceAreNotLearned`). backspace 직후나 1초 넘게 쉬었다가 누른 입력에는 보정을 쓰지 않는다. 학습값은 배열 종류와 화면 너비별로 따로 저장하고 설정에서 초기화한다. 초기화하면 실행 중인 키보드가 메모리에 들고 있던 학습값도 버린다. 0.5.x는 저장본만 지워서 키보드가 다음에 저장할 때 예전 값이 되살아났다(테스트 `resetInSettingsAlsoResetsTheRunningKeyboard`). 고정 보정값은 쓰지 않는다(Henze의 10 dp 결과, AOSP LatinIME의 `config_keyboard_vertical_correction`이 현재 0.0 dp).
 
 ### 4.3 판정 시점과 영역
 
@@ -242,7 +242,9 @@ D의 평균 거리는 빠진 키를 뺀 값이다. 빠지는 키는 CPython 입�
 - Lertvittayakumjorn 외(2024)는 키 중심에서 가로·세로 ±25% 안의 탭을 모델 없이 그 키로 판정했다.
 - LatinIME은 키 사이 간격의 절반씩을 양옆 키에 나눠 주고, 가장자리 키의 판정 영역을 화면 끝까지 넓힌다. Parhi 외(2006)도 오른쪽 열 키를 화면 끝까지 넓히라고 권했다.
 
-**구현.** 누른 순간의 좌표로 키를 정하고 뗄 때 확정한다. 키 중심 ±25% 안의 터치는 보정과 관계없이 그 키다. 키 사이 간격과 줄 사이 간격은 가까운 키에 속하고, 각 행의 첫 키와 마지막 키는 화면 끝까지 판정 영역을 넓힌다(테스트 `touchAreasTileEachRowWithoutOverlapOrHoles`). 시스템 탐색 막대 영역에는 키를 두지 않는다. Android 문서가 일반 탭 전달을 보장하는 범위가 system window insets 바깥이기 때문이다. Android 13부터 들어온 `MotionEvent.FLAG_CANCELED`(손바닥·쥔 손가락 오인식 취소)가 붙은 터치는 입력하지 않는다.
+**구현.** 누른 순간의 좌표로 키를 정하고 뗄 때 확정한다. 키 중심 ±25% 안의 터치는 보정과 관계없이 그 키다. 0.5.x는 이 규칙을 글자 키에만 적용해서, 아래로 치우친 학습값이 ⏎ 중심부를 누른 터치를 위쪽 ⌫로 옮겼다. 0.6.0부터는 모든 키에 적용한다(테스트 `learnedOffsetNeverMovesATouchOutOfAKeyCentre`). 보정한 좌표가 가운데 복제 키에 떨어져도 누른 자리가 보이는 키 위면 보이는 키를 쓴다(`learnedOffsetNeverTurnsAVisibleKeyIntoAGhost`). 키 사이 간격과 줄 사이 간격은 가까운 키에 속하고, 각 행의 첫 키와 마지막 키는 화면 끝까지 판정 영역을 넓힌다(테스트 `touchAreasTileEachRowWithoutOverlapOrHoles`). 시스템 탐색 막대 영역에는 키를 두지 않는다. Android 문서가 일반 탭 전달을 보장하는 범위가 system window insets 바깥이기 때문이다. Android 13부터 들어온 `MotionEvent.FLAG_CANCELED`(손바닥·쥔 손가락 오인식 취소)가 붙은 터치와 `ACTION_CANCEL`로 끝난 터치는 입력하지 않는다. 0.6.0부터는 수정키도 같다. 0.5.x에서는 취소된 Esc/Ctrl 터치가 Esc를 보냈고, 취소된 Ctrl 터치가 one-shot Ctrl을 켜서 다음에 친 `d`가 Ctrl+D(셸에서 입력 끝, 대개 셸 종료)로 나갔다(테스트 `canceledModifierTouchesDoNothing`).
+
+⌫는 예외다. FoldKey는 ⌫를 누르는 순간 지우므로 취소 표시가 나중에 와도 되돌리지 못한다. AOSP LatinIME의 `PointerTracker`는 반복 키를 누를 때 반복 타이머만 걸고, 짧게 누르면 뗄 때, 오래 누르면 반복 시작 시간에 첫 입력을 보낸다. LatinIME은 일반 입력창에서 글자를 `deleteSurroundingText`로 지우므로 이 시점 차이가 순서 문제를 만들지 않는다. FoldKey는 모든 입력창에서 `KEYCODE_DEL` 키 이벤트로 지우는데, 뗄 때 지우게 하면 ⌫를 누른 채 다음 글자를 치고 그 글자를 먼저 뗄 때 두 입력이 한 터치 이벤트에서 나가 글자가 먼저 도착할 수 있다(5.2절). 그래서 누를 때 지우는 쪽을 유지했다.
 
 ## 5. 두 엄지 rollover 처리
 
@@ -252,7 +254,37 @@ rollover(키 겹침)는 앞 키를 떼기 전에 다음 키가 눌리는 현상�
 - 터치스크린 두 엄지 입력에서 rollover 빈도를 측정한 연구는 찾지 못했다. Palin 외(2019)는 브라우저 이벤트가 rollover 때 첫 키의 key-up을 두 번째 손가락이 닿는 순간 보내 버려서 타이밍을 분석하지 못했다고 적었다.
 - AOSP LatinIME은 어떤 포인터가 떨어질 때 그보다 먼저 눌린 포인터를 모두 확정한다(`PointerTrackerQueue.releaseAllPointersOlderThan`). 수정키는 이 처리에서 빠진다. 수정키가 눌리면 다른 포인터를 먼저 확정한다.
 
-**구현.** `TouchTracker`가 같은 방식을 쓴다. 뒤에 눌린 손가락이 먼저 떨어져도 출력 순서는 누른 순서를 따른다(테스트 `rolloverKeepsTouchDownOrderWhenSecondFingerLiftsFirst`, `threeFingerRolloverCommitsOlderPointersFirst`). Shift, Ctrl, Alt, Fn, Esc/Ctrl은 누른 채 유지되어 chord 입력이 된다.
+**구현.** `TouchTracker`가 같은 방식을 쓴다. 뒤에 눌린 손가락이 먼저 떨어져도 출력 순서는 누른 순서를 따른다(테스트 `rolloverKeepsTouchDownOrderWhenSecondFingerLiftsFirst`, `threeFingerRolloverCommitsOlderPointersFirst`). Shift, Ctrl, Alt, Fn, Esc/Ctrl은 누른 채 유지되어 chord 입력이 된다. 상단 줄 버튼과 가운데 클립을 누르면 그 전에 누르고 있던 키를 먼저 확정한다. 0.5.x에서는 `a`를 누른 채 붙여넣기를 누르면 붙여넣기가 먼저 실행되었다(테스트 `stripCommandRunsAfterAKeyPressedBeforeIt`, `clipIsPastedAfterAKeyPressedBeforeIt`).
+
+물리 키보드처럼 새 키를 누르면 반복 중이던 다른 키는 멈춘다. 아직 떼지 않은 다른 키의 길게 누르기와 스페이스 선택 대기 시간도 취소되어, 그 키는 탭으로 확정된다. 0.5.x에서는 스페이스를 누른 채 다음 글자를 치는 동안 선택 대기 시간(400 ms)이 지나면 스페이스가 선택 모드로 바뀌어 입력되지 않았다(테스트 `spaceHoldIsDisarmedByAKeyPressedDuringIt`, `newKeyStopsTheRepeatOfAnotherKey`).
+
+### 5.1 수정키를 먼저 뗀 경우(0.6.0)
+
+수정키와 다른 키를 함께 누르고 수정키를 먼저 떼는 경우가 있다. 이때 조합을 뜻했는지, 수정키를 짧게 친 뒤 다음 키를 빠르게 이어 친 것(roll)인지는 누르고 뗀 순서만으로 가릴 수 없다.
+
+- QMK 문서(tap-hold 설정)는 dual-role 키와 다른 키의 순서를 세 가지로 나눈다. 다른 키를 눌렀다 뗀 뒤 dual-role 키를 떼는 nested tap(중첩 탭), 다른 키를 누른 뒤 dual-role 키를 먼저 떼는 rolling press(굴려 누르기), 그리고 dual-role 키를 tapping term(탭 판정 시간, 기본 200 ms)보다 오래 누른 경우다. 기본 모드는 tapping term 안의 nested tap과 rolling press를 모두 탭으로 보고, `PERMISSIVE_HOLD`는 nested tap만 누름(수정키)으로, `HOLD_ON_OTHER_KEY_PRESS`는 둘 다 누름으로 본다. tapping term을 넘기면 어느 모드든 누름이다.
+- xcape와 Karabiner-Elements의 `to_if_alone`은 누르는 동안 다른 키가 눌리면 Esc를 취소한다(7.4절). QMK의 `HOLD_ON_OTHER_KEY_PRESS`와 같은 쪽이다.
+- 0.5.x의 FoldKey는 수정키를 뗄 때 그 뒤에 눌려 아직 떼지 않은 키를 기다리지 않고 수정키 탭으로 처리했다. Esc/Ctrl을 누르고 `c`를 누른 뒤 Esc/Ctrl을 먼저 떼면 Esc와 `c`가 나갔다. Esc/Ctrl을 누른 채 `l`을 친 뒤 `u`를 누르고 Esc/Ctrl을 먼저 떼면 `u`에서 Ctrl이 빠졌다. Shift를 누른 채 `HI`를 치다 Shift를 먼저 떼면 `Hi`가 되었다.
+
+**구현.** 수정키를 뗄 때 그 뒤에 눌려 아직 떼지 않은 키가 있으면 다음처럼 정한다.
+
+- 수정키를 누르고 있는 동안 이미 다른 키가 입력되었으면 조합이다. 남은 키를 수정키가 눌린 상태에서 먼저 확정한 뒤 수정키를 뗀다(테스트 `heldCtrlAppliesToEveryKeyPressedDuringTheHold`, `heldShiftAppliesToEveryKeyPressedDuringTheHold`).
+- 아직 아무 키도 입력되지 않았어도, 남은 키가 수정키를 누른 지 150 ms 넘게 지나서 눌렸으면 조합이다(`escCtrlHeldBeforeTheLetterIsCtrlEvenWhenReleasedFirst`, `fnHeldForAPadKeyClosesTheNumpad`).
+- 150 ms 안에 눌렸으면 roll로 보고 수정키를 탭으로 처리한다. Esc/Ctrl은 Esc를 먼저 보내고, Shift·Ctrl·Alt는 one-shot이 되어 남은 키에 적용되고, Fn은 숫자판을 켠 채 둔다(`escCtrlRolledIntoTheNextKeySendsEscapeFirst`, `fnRolledIntoAPadKeyKeepsTheNumpad`).
+- 다른 키를 수정키보다 먼저 떼는 nested tap은 0.5.x처럼 조합이다. QMK의 `PERMISSIVE_HOLD`와 같다.
+
+150 ms는 사람 대상으로 재서 정하지 않았다. roll은 다음 키가 앞 키가 떨어지기 전에 닿아야 생기므로 두 키를 누른 시각의 차이가 탭 한 번의 길이보다 짧고, 수정키를 누르고 기다렸다 치는 조합은 그보다 길다는 가정에 따른 값이다. QMK는 빠른 타자 중의 수정키 오작동을 줄이는 Flow Tap 기능의 시작값으로 150 ms를 권한다. Flow Tap이 재는 간격은 앞 키에서 dual-role 키까지이고, FoldKey가 재는 간격은 수정키에서 다음 키까지다.
+
+### 5.2 출력 순서(0.6.0)
+
+- `BaseInputConnection.sendKeyEvent`는 `InputMethodManager.dispatchKeyEventFromInputMethod`를 거쳐 `ViewRootImpl.dispatchKeyFromIme`를 부르고, 이 메서드는 키 이벤트를 비동기 메시지로 다시 메시지 큐에 넣는다(AOSP 16). `commitText`는 앱의 메인 스레드가 그 호출을 꺼낼 때 바로 처리된다. 그래서 IME가 키 이벤트를 보내고 곧바로 글자를 보내면, 두 호출이 앱 쪽 큐에 함께 쌓였을 때 글자가 먼저 처리된다.
+- AOSP LatinIME의 `InputLogic.sendDownUpKeyEvent` 주석은 이 메서드를 되도록 쓰지 말라고 하며, 키 이벤트가 다른 비동기 binder를 거쳐 텍스트 뷰와 온갖 race condition(경쟁 상태)을 만들고 batch edit(묶음 편집)도 키 이벤트에는 적용되지 않는다고 적는다. LatinIME은 Jelly Bean 이후 앱에서 Enter를 `commitText("\n")`으로 보낸다. delete는 TYPE_NULL 입력창이거나 커서 위치를 모를 때 키 이벤트로, 그 밖에는 `deleteSurroundingText`로 보낸다.
+- Termux의 `commitText` 처리 주석은 AOSP 키보드와 그 후손이 Enter를 누르면 `\n`을 글자로 보내는 것 같다고 적고, 이 `\n`을 CR로 바꿔 터미널에 쓴다.
+- 리뷰 과정에서 만든 Robolectric 테스트가 이 순서 역전을 재현했다. 터미널에서 ⏎를 누른 채 `c`를 누르고 `c`를 먼저 떼면 두 키가 한 터치 이벤트에서 나가는데, 키 이벤트인 Enter가 글자 `c`보다 늦게 도착했다.
+
+**구현.** 터미널(raw 모드)에서 수정키 없는 Enter와 Tab은 `\n`, `\t` 글자로 보낸다. Termux는 이것을 Enter(CR)와 Tab으로 받고, 키 이벤트만 다루는 `BaseInputConnection` fallback 모드는 `Virtual.kcm`으로 `KEYCODE_ENTER`, `KEYCODE_TAB` 이벤트를 만든다(테스트 `terminalEnterRolledIntoALetterArrivesFirst`, `terminalTabRolledIntoALetterArrivesFirst`). 여러 줄 일반 입력창(`TYPE_TEXT_FLAG_MULTI_LINE`)의 Enter도 `\n` 글자다. 한 줄 입력창의 Tab은 `TextView`가 포커스 이동에 쓰므로 키 이벤트로 둔다.
+
+Esc, ⌫, 방향키, F키, Ctrl·Alt 조합은 대응하는 글자가 없거나 터미널이 커서 키 모드에 따라 다르게 바꾸므로 키 이벤트로 남는다. ⌫는 누르는 순간 보내므로 그보다 먼저 눌린 키(글자)가 앞서 나가고(4.3절), 방향키와 ⏎·⌫는 모두 오른쪽 엄지가 맡아 서로 겹쳐 누르는 경우가 드물다. 글자를 모두 키 이벤트로 보내 한 경로로 맞추는 방법도 검토했다. Termux의 `onKeyDown`에는 여러 글자를 담은 `ACTION_MULTIPLE` 이벤트를 터미널에 그대로 쓰는 분기가 있지만, `KeyEvent.dispatch`는 `KEYCODE_UNKNOWN`의 `ACTION_MULTIPLE`을 `onKeyMultiple`에만 넘기고 Termux는 이 메서드를 재정의하지 않아 그 분기에 닿지 않는다. 한글 음절은 키 이벤트로 보낼 수 없으므로 이 방법은 쓰지 않았다.
 
 ## 6. 피드백: 햅틱, 소리, 화면 표시
 
@@ -272,7 +304,7 @@ rollover(키 겹침)는 앞 키를 떼기 전에 다음 키가 눌리는 현상�
 - `performHapticFeedback`은 VIBRATE 권한이 필요 없고 사용자 설정을 따른다. `FLAG_IGNORE_GLOBAL_SETTING`은 API 33에서 폐기되었다.
 - AOSP LatinIME은 햅틱과 소리를 touch-down에서 내고, 키 반복 중에는 햅틱을 내지 않는다.
 
-**구현.** 기본값은 touch-down 처리의 첫 단계에서 `performHapticFeedback(KEYBOARD_TAP)`을 부르는 것이다. 사용자의 시스템 키보드 진동 설정을 그대로 따른다. 설정에서 "틱", "클릭"을 고르면 `Vibrator`로 `EFFECT_TICK`, `EFFECT_CLICK`을 직접 재생한다(VIBRATE 권한 사용). 반복 입력에는 햅틱이 없다. 밀기 결과가 바뀔 때와 스페이스 드래그로 커서가 움직일 때는 `CLOCK_TICK`을 쓰고, 커서 이동 중에는 40 ms에 한 번으로 제한한다. 소리는 기본 꺼짐이고, 켜면 일반 벨소리 모드에서만 `FX_KEYPRESS_*`를 재생한다.
+**구현.** 기본값은 touch-down 처리의 첫 단계에서 `performHapticFeedback(KEYBOARD_TAP)`을 부르는 것이다. 사용자의 시스템 키보드 진동 설정을 그대로 따른다. 설정에서 "틱", "클릭"을 고르면 `Vibrator`로 `EFFECT_TICK`, `EFFECT_CLICK`을 직접 재생한다(VIBRATE 권한 사용). 반복 입력에는 햅틱이 없다. 밀기 결과가 바뀔 때와 스페이스 드래그로 커서가 움직일 때는 `CLOCK_TICK`을 쓰고, 커서 이동 중에는 40 ms에 한 번으로 제한한다. 소리는 기본 꺼짐이고, 켜면 일반 벨소리 모드에서만 `FX_KEYPRESS_*`를 재생한다. 상단 줄 버튼과 가운데 클립도 같은 설정을 따른다. 0.5.x에서는 이 둘이 `performHapticFeedback`을 직접 불러, "키 누름 햅틱"을 꺼도 진동했다(테스트 `stripButtonsFollowTheHapticSetting`).
 
 ### 6.3 화면 표시
 
@@ -319,9 +351,13 @@ FoldKey의 Shift, Ctrl, Alt는 상태 3가지를 가진다. Fn은 0.4.1부터 �
 
 - 한 번 탭하면 다음 키 한 번에 적용된다(one-shot).
 - 350 ms 안에 두 번 탭하면 고정된다(lock). 다시 탭하면 풀린다.
-- 누른 채 다른 키를 치면 그 동안만 적용된다(chord). 이때는 손을 떼도 one-shot으로 남지 않는다.
+- 누른 채 다른 키를 치면 그 동안만 적용된다(chord). 이때는 손을 떼도 one-shot으로 남지 않는다. ⌫, 한/A처럼 수정키 정보가 붙지 않는 키도 조합으로 친다. 0.5.x는 이런 키를 조합으로 기록하지 않아서, Fn을 누른 채 숫자판 ⌫만 누르고 떼면 숫자판이 켜진 채 남았고 Shift를 누른 채 한글 자모를 지우고 떼면 one-shot Shift가 켜졌다(테스트 `modifierHeldThroughAnyKeyIsNotArmedOnRelease`).
+- 누른 채 친 키는 수정키를 먼저 떼도 조합으로 들어간다. 수정키를 짧게 친 직후 겹쳐 누른 키와의 구별은 5.1절에 있다.
+- one-shot이 켜진 것을 모르고 한 번 더 눌러 끈 뒤 350 ms 안에 다시 누르면 고정된다. 0.5.x는 이 순서를 다시 one-shot으로 처리해서, 고정하려고 두 번 누른 결과가 one-shot이었다(테스트 `doubleTapLocksShiftEvenFromAStaleOneShot`).
+- 키를 누르고 있어 반복될 때는 첫 입력에 적용된 one-shot 수정키가 반복 내내 적용된다. one-shot Shift 뒤 ←를 누르고 있으면 반복하는 동안 선택이 계속 늘어난다. 0.5.x는 첫 입력 뒤 Shift를 풀어 두 번째부터 커서만 움직였다(테스트 `oneShotShiftCoversTheWholeAutoRepeat`).
+- 시스템이 취소한 터치는 수정키 상태를 바꾸지 않는다(4.3절).
 
-고정된 Shift는 글자에만 적용되는 Caps Lock으로 동작한다. `MAX_SIZE_2` 같은 상수를 칠 때 숫자가 기호로 바뀌지 않게 하려는 선택이다. 한글 모드에서는 고정 Shift가 쌍자음을 만들지 않는다. libhangul 문서도 Caps Lock을 Shift처럼 다루지 말라고 적는다.
+고정된 Shift는 글자에만 적용되는 Caps Lock으로 동작한다. `MAX_SIZE_2` 같은 상수를 칠 때 숫자가 기호로 바뀌지 않게 하려는 선택이다. Ctrl·Alt 조합에는 고정된 Shift를 더하지 않는다. 0.5.x에서는 Caps Lock 상태에서 친 Ctrl+Z가 Ctrl+Shift+Z(다시 실행)로 나갔다(테스트 `capsLockAddsNoShiftToCtrlShortcuts`). Android의 물리 Caps Lock도 `META_SHIFT_ON`이 아니라 `META_CAPS_LOCK_ON`을 켠다. 한글 모드에서는 고정 Shift가 쌍자음을 만들지 않는다. libhangul 문서도 Caps Lock을 Shift처럼 다루지 말라고 적는다.
 
 ### 7.4 Esc와 Ctrl의 자리
 
@@ -329,7 +365,7 @@ FoldKey의 Shift, Ctrl, Alt는 상태 3가지를 가진다. Fn은 0.4.1부터 �
 - Linux의 xkeyboard-config는 `ctrl:nocaps`(Caps Lock을 Ctrl로), `caps:escape`(Caps Lock을 Esc로) 옵션을 제공한다. keyd README의 `capslock = overload(control, esc)`는 "tapped면 escape, held면 control"이다. xcape와 Karabiner-Elements의 `to_if_alone`도 같은 동작이며, 누르는 동안 다른 키가 눌리면 Esc를 취소한다.
 - Hacker's Keyboard는 Caps Lock 자리에 Ctrl을 둔다.
 
-**구현.** Caps Lock 자리의 키는 dual-role이다. 500 ms 안에 다른 키 없이 떼면 Esc, 누른 채 다른 키를 치면 Ctrl이다. Tab은 셸 자동 완성에 자주 쓰므로 원래 자리에 둔다. 한 손으로 Ctrl 조합을 치려면 맨 아래 행의 Ctrl(one-shot)이나 아래로 밀기를 쓴다. Esc는 Ctrl+[로도 보낼 수 있다. ASCII(American Standard Code for Information Interchange)에서 제어 문자는 문자 코드와 0x1F의 AND로 만들고, `[`(0x5B) & 0x1F = 0x1B(ESC)이기 때문이다.
+**구현.** Caps Lock 자리의 키는 dual-role이다. 500 ms 안에 다른 키 없이 떼면 Esc, 누른 채 다른 키를 치면 Ctrl이다. 다른 키를 누른 뒤 이 키를 먼저 떼는 경우는 5.1절 규칙을 따른다. 누르고 150 ms 안에 다음 키를 눌렀으면 Esc 다음에 그 키가 나가고, 그보다 늦게 눌렀으면 Ctrl 조합이다. Tab은 셸 자동 완성에 자주 쓰므로 원래 자리에 둔다. 한 손으로 Ctrl 조합을 치려면 맨 아래 행의 Ctrl(one-shot)이나 아래로 밀기를 쓴다. Esc는 Ctrl+[로도 보낼 수 있다. ASCII(American Standard Code for Information Interchange)에서 제어 문자는 문자 코드와 0x1F의 AND로 만들고, `[`(0x5B) & 0x1F = 0x1B(ESC)이기 때문이다.
 
 ### 7.5 터미널이 키보드 입력을 받는 방식(Termux 소스 확인)
 
@@ -344,11 +380,12 @@ Android 키보드 앱은 IME(Input Method Editor)라는 서비스로 동작하�
 
 **구현.** `(inputType & TYPE_MASK_CLASS) == TYPE_NULL`이거나 설정의 터미널 앱 목록(기본: `com.termux`, `org.connectbot`, `com.sonelli.juicessh`, `jackpal.androidterm`)에 있는 앱이면 raw(가공하지 않은 입력) 모드로 다룬다.
 
-- 글자는 `commitText`로 보낸다.
-- Esc, Tab, Enter, 방향키, F키, Backspace는 keycode로 보낸다.
+- 글자와 수정키 없는 Enter·Tab은 `commitText`로 보낸다. Enter는 `\n`, Tab은 `\t`다(0.6.0, 5.2절).
+- Esc, 방향키, F키, Backspace와 수정키가 붙은 Enter·Tab은 keycode로 보낸다.
 - Ctrl과 Alt는 `META_CTRL_ON | META_CTRL_LEFT_ON`, `META_ALT_ON | META_ALT_LEFT_ON`을 붙인 KeyEvent로 보내고, Hacker's Keyboard와 Unexpected Keyboard처럼 `KEYCODE_CTRL_LEFT` 등 수정키 자체의 down/up으로 감싼다.
-- raw 모드에서 Ctrl+Alt+글자는 ESC와 제어 문자를 이어 붙인 문자열로 commit(확정 전송)한다. Termux가 Ctrl+Alt 키 이벤트를 가져가기 때문이다.
-- raw 모드의 Enter는 편집기 동작(`performEditorAction`)이 아니라 `KEYCODE_ENTER`다.
+- raw 모드에서 Ctrl+Alt+글자는 ESC와 제어 문자를 이어 붙인 문자열로 commit(확정 전송)한다. Termux가 Ctrl+Alt 키 이벤트를 가져가기 때문이다. Termux가 commit된 글자에서 다른 문자로 바꾸는 NUL과 LF(line feed, 0x0A, Ctrl+J)는 ESC만 글자로 보내고 Ctrl+Space, Ctrl+J 키 이벤트를 잇는다. 글자 다음 키 이벤트 순서는 5.2절의 역전이 생기지 않는 방향이다. 0.5.x는 NUL까지 글자로 보내 Ctrl+Alt+Space가 Termux에서 ESC와 백틱이 되었고, Ctrl+Alt+J는 ESC와 CR이 되었다(테스트 `ctrlAltDigitsSpaceAndSlashFollowTermuxControlMapping`).
+- raw 모드의 Enter는 편집기 동작(`performEditorAction`)이 아니라 줄바꿈 글자다.
+- 터미널 앱의 입력창이 비밀번호 입력창(password variation)이면 "터미널에서 친 글자도 표시"를 켜도 기록하지 않고, 조합 중인 한글도 상단 줄에 보여 주지 않는다. 0.5.x는 JuiceSSH처럼 목록에 있는 앱의 로그인 비밀번호 칸에서도 친 글자를 가운데 칸에 그렸다(테스트 `terminalPasswordFieldIsNeitherRecordedNorShown`, `passwordFieldOfATerminalAppIsNotRecorded`).
 
 일반 입력창에서의 Ctrl 조합도 확인했다. AOSP 16 `KeyCharacterMap::matchesMetaState`는 이벤트에 Ctrl, Alt, Meta가 있으면 키 동작 정의가 그 수정키를 정확히 포함해야 문자를 돌려준다. `Virtual.kcm`의 글자 키에는 ctrl 정의가 없다. 그래서 Ctrl+A는 글자를 만들지 않고 `ViewRootImpl`의 단축키 단계로 넘어가며, `TextView.onKeyShortcut`이 Ctrl+A/Z/X/C/V/Y를 전체 선택, 실행 취소, 잘라내기, 복사, 붙여넣기, 다시 실행으로 처리한다.
 
@@ -393,7 +430,7 @@ Lertvittayakumjorn 외(2024)에서 언어 모델은 영어 문장의 문자 오�
 - 숫자판은 위 네 줄의 오른쪽 끝 다섯 칸에 글자 키와 같은 폭으로 놓인다(폴드7 세로 분할 7.93 mm). 같은 줄에서 `h` 키부터 오른쪽 끝까지의 키는 숨기고, 숫자판과 왼쪽 부분 사이는 비워 둔다. 맨 아래 줄(스페이스, 한/A, 방향키)과 왼쪽 부분은 그대로다(테스트 `fnSwapsTheRightPartOfTheTopFourRowsForAStraightNumpad`).
 - 처음에는 `h` 키부터 오른쪽 끝까지를 숫자판으로 채웠다(키 폭 1.65칸, 13.1 mm). 사용자가 렌더링을 보고 숫자판이 가운데에 너무 가까워 치기 힘들다고 알려, 오른쪽 끝으로 옮기고 키 폭을 글자 키와 같게 줄였다. `7 4 1 0` 열의 중심은 폴드7 세로 분할에서 오른쪽 끝으로부터 59.4 mm에서 36.2 mm가 되었다(테스트 `splitNumpadSitsAtTheRightEdgeWithLetterSizedKeys`).
 - 키 판정은 누른 순간의 Fn 상태로 정한다. Fn을 누른 채 숫자를 치다가 Fn을 먼저 떼도 그 숫자가 들어간다.
-- 0.4.0에서는 Fn이 다른 수정키처럼 one-shot이라 숫자 하나 뒤 원래 배열로 돌아왔고, 여러 자리는 두 번 눌러 고정해야 했다. Fn의 역할이 숫자판뿐이므로 사용자 요청에 따라 0.4.1부터 Fn은 누를 때마다 숫자판을 켜고 끄는 전환 키다. 누른 채 치면 손을 뗄 때 꺼진다(테스트 `fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot`, `fnTapSwitchesToTheNumpadUntilFnIsTappedAgain`, `numpadStaysThroughDigitsAndBackspaceUntilFnIsTappedAgain`, `heldFnShowsTheNumpadOnlyWhileHeld`). 숫자판이 켜져 있는 동안 Esc 자리는 Insert다.
+- 0.4.0에서는 Fn이 다른 수정키처럼 one-shot이라 숫자 하나 뒤 원래 배열로 돌아왔고, 여러 자리는 두 번 눌러 고정해야 했다. Fn의 역할이 숫자판뿐이므로 사용자 요청에 따라 0.4.1부터 Fn은 누를 때마다 숫자판을 켜고 끄는 전환 키다. 누른 채 치면 손을 뗄 때 꺼진다(테스트 `fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot`, `fnTapSwitchesToTheNumpadUntilFnIsTappedAgain`, `numpadStaysThroughDigitsAndBackspaceUntilFnIsTappedAgain`, `heldFnShowsTheNumpadOnlyWhileHeld`). 숫자를 누른 채 Fn을 먼저 떼는 경우는 5.1절 규칙을 따른다. Fn을 누르고 150 ms 안에 숫자를 눌렀으면 탭으로 보고 숫자판을 켜 두고, 그보다 늦게 눌렀으면 조합으로 보고 끈다(0.5.x는 항상 켜 두었다). 숫자판이 켜져 있는 동안 Esc 자리는 Insert다.
 - 0.4.0의 첫 에뮬레이터 시험에서는 one-shot Fn과 숫자판 ⌫의 조합 때문에 결과가 어긋났다. ⌫는 수정키 상태가 붙지 않으면 one-shot 수정키를 쓰지 않으므로 Fn이 켜진 채 남았고, 시험 순서가 그 뒤에 Fn을 다시 눌러 Fn을 껐다. 다음 두 탭이 일반 배열의 ⌫와 `u`로 들어가 `7+(u` 대신 `7u`가 되었다. 0.4.1의 전환 방식에서는 이 순서가 생기지 않는다.
 - 숫자판 키는 Shift·Ctrl·Alt와 상관없이 표시된 글자를 `commitText`로 보낸다. 밀기와 길게 누르기 동작이 없으므로 빠르게 치다 손가락이 미끄러져도 Ctrl+숫자가 나가지 않는다. 숫자판 ⌫는 누르고 있으면 반복하고, 위로 밀면 Del이다.
 - 분할 배열에서는 숫자판이 나온 줄의 복제 키를 없애 가운데 빈 공간을 눌러도 아무것도 입력되지 않게 했다. 숫자판 왼쪽의 빈 자리도 같다. 오른쪽 끝 열의 판정 영역만 화면 끝까지 넓힌다.
@@ -406,7 +443,7 @@ Lertvittayakumjorn 외(2024)에서 언어 모델은 영어 문장의 문자 오�
 사용자 요청에 따라 스페이스를 꾹 누른 뒤 끌면 글자를 선택한다.
 
 - 길게 누르기 시간(기본 400 ms, 설정이 0이면 400 ms)이 지나면 스페이스 키 색이 바뀌고 햅틱이 한 번 울린다. 그 뒤 처음 움직인 방향으로 축이 고정되고, 좌우는 2.5 mm마다 Shift+←/→, 위아래는 4 mm마다 Shift+↑/↓를 보낸다. 움직이지 않고 떼면 아무것도 입력하지 않는다(테스트 `spaceHeldStillThenDraggedSelectsInsteadOfTyping`, `spaceHeldAndReleasedWithoutMovingTypesNothing`).
-- 시간이 지나기 전에 3 mm 넘게 움직이면 0.3.0과 같이 선택 없이 커서만 움직인다. 시간이 지나기 전에 다른 키를 누르면 스페이스가 먼저 입력된다(테스트 `spaceDragBeforeTheHoldMovesTheCursorAndNeverStartsSelecting`, `anotherKeyPressedDuringTheHoldTypesSpaceFirst`).
+- 시간이 지나기 전에 3 mm 넘게 움직이면 0.3.0과 같이 선택 없이 커서만 움직인다. 시간이 지나기 전에 다른 키를 누르면 스페이스가 먼저 입력된다(테스트 `spaceDragBeforeTheHoldMovesTheCursorAndNeverStartsSelecting`, `anotherKeyPressedDuringTheHoldTypesSpaceFirst`). 0.6.0부터는 다른 키를 누르는 순간 선택 대기 시간이 취소되어, 스페이스를 오래 누른 채 다음 글자를 쳐도 스페이스가 입력된다(5절).
 - 축을 처음 방향으로 고정하는 방식은 0.2.0의 커서 끌기와 같다. 두 축을 함께 받으면 좌우로 끄는 동안 생기는 위아래 흔들림이 줄 선택으로 들어간다.
 - 일반 입력창에서는 Shift를 붙인 방향키 이벤트를 보낸다. Robolectric(Android 16 프레임워크 코드)의 `EditText`에서 Shift+← 6번이 6글자를 선택했고, 이어 입력한 글자가 선택 영역을 바꿨다(테스트 `selectionDragExtendsTheEditTextSelection`). Robolectric의 기본 그래픽 모드에서는 글자 폭을 재지 못해 Shift+← 한 번에 줄 처음까지 선택되었으므로, 이 테스트는 네이티브 그래픽 모드로 돈다.
 - 터미널(TYPE_NULL)에서는 Shift 없이 방향키만 보낸다. Termux `KeyHandler.java`는 Shift+←를 `ESC [1;2D`로 바꿔 보내는데, 기본 설정의 셸은 이 순서열을 선택으로 쓰지 않는다.
@@ -444,7 +481,9 @@ Unicode 표준 3.12절의 식을 쓴다. 음절 = 0xAC00 + (초성 × 21 + 중�
 - 조합 중에 키 이벤트를 먼저 보내면 셸에는 키가 음절보다 먼저 도착한다. Windows Terminal 이슈 #20038("Arrow key during composition inserts character at wrong position")이 같은 종류의 문제였다.
 - 터미널 글자 폭: glibc `wcwidth`는 호환 자모(U+3131–U+318E)와 완성형 음절을 2칸, 조합형 중성·종성(U+1160–U+11FF)을 0칸으로 계산한다. Termux의 `WcWidth.java`는 U+1160–11FF를 넓은 문자로 보지 않는다. 그래서 터미널에는 완성형 음절과 호환 자모만 보내야 한다.
 
-**구현.** raw 모드에서는 `setComposingText`를 쓰지 않는다. 조합 중인 음절은 키보드 상단 줄에 밑줄과 함께 표시하고, 음절이 확정될 때 `commitText`로 보낸다. Enter, 방향키, Esc, Ctrl 조합 같은 키 이벤트를 보내기 전에는 조합 중인 음절을 먼저 확정한다(테스트 `hangulInTerminalUsesPreeditStripAndCommitsFinishedSyllables`). 일반 입력창에서는 `setComposingText`와 `commitText`로 조합을 보여 준다. 커서가 앱 쪽에서 움직이면(`onUpdateSelection`) 조합을 끝낸다.
+**구현.** raw 모드에서는 `setComposingText`를 쓰지 않는다. 조합 중인 음절은 키보드 상단 줄에 밑줄과 함께 표시하고, 음절이 확정될 때 `commitText`로 보낸다. Enter, 방향키, Esc, Ctrl 조합을 보내기 전에는 조합 중인 음절을 먼저 확정한다(테스트 `hangulInTerminalUsesPreeditStripAndCommitsFinishedSyllables`). 화면 회전이나 접기로 키보드가 다시 만들어질 때도 먼저 확정한다(9절). 일반 입력창에서는 `setComposingText`와 `commitText`로 조합을 보여 준다. 커서가 앱 쪽에서 움직이면(`onUpdateSelection`) 조합을 끝낸다.
+
+`onUpdateSelection`을 전하는 `IInputMethodSession`은 oneway(응답을 기다리지 않는) AIDL(Android Interface Definition Language) 인터페이스다. 앱은 FoldKey가 보낸 편집을 처리한 뒤 그 결과를 알려 오므로, 보고가 FoldKey의 다음 편집보다 늦게 도착할 수 있다. 스페이스와 다음 자모를 겹쳐 누르면 두 입력이 한 번에 나가고, 스페이스 직후 상태(조합 영역 없음)의 보고가 다음 자모를 조합하기 시작한 뒤에 도착한다. 0.5.x는 이 보고를 커서 이동으로 읽고 조합을 끊어 `가 나`가 `가 ㄴㅏ`가 되었다. 0.6.0은 AOSP LatinIME의 `RichInputConnection.isBelatedExpectedUpdate`와 같은 방법을 쓴다. FoldKey가 보낸 commit, 조합, 삭제로 커서가 있을 자리를 계산해 두고, 보고된 새 커서가 이전 보고 위치와 예상 위치 사이에 있으면 늦게 온 보고로 보고 무시한다. 예상 위치를 계산할 수 없는 동작(방향키, 붙여넣기, 편집기 동작) 뒤에는 다음 보고를 그대로 따른다(테스트 `belatedSelectionReportKeepsTheNewSyllable`, `cursorMovedAwayStillFinishesTheSyllable`, `belatedSelectionReportKeepsTheHangulSyllable`).
 
 ### 8.4 vim과 한글 모드
 
@@ -462,9 +501,13 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 
 - **IME 창과 insets(가장자리 점유 영역).** `InputMethodService.onCreate()`는 IME 창에 `Gravity.BOTTOM`, `setFitInsetsTypes(statusBars() | navigationBars())`, `setFitInsetsSides(Side.all() & ~Side.BOTTOM)`을 설정한다. 창이 아래쪽 탐색 막대 밑까지 내려간다는 뜻이다. targetSdk 35 이상에서는 edge-to-edge(화면 끝까지 그리기)가 강제되어 콘텐츠 뷰가 insets를 그대로 받는다. FoldKey는 `systemBars().bottom`만큼 아래를 비우고 그 영역에는 키를 두지 않는다. 좌우는 `displayCutout()`을 반영한다. 키보드 배경이 밝으면 `APPEARANCE_LIGHT_NAVIGATION_BARS`를 설정한다.
 - **전체 화면 모드.** 기본 `onEvaluateFullscreenMode()`는 가로 방향이면 전체 화면 추출 모드를 켠다. 폴드7 내부 화면 가로 자세에서 앱이 가려지므로 항상 `false`를 돌려준다.
-- **구성 변경.** Android 문서에 따르면 UPSIDE_DOWN_CAKE부터 CINNAMON_BUN 사이 버전에서는 IME가 선언한 `configChanges`가 XML(Extensible Markup Language) 파싱 오류로 무시된다. 화면 전환(내부 ↔ 커버) 때 입력 뷰가 다시 만들어지므로 `onCreateInputView`에서 매번 새 뷰를 만든다.
+- **구성 변경.** Android 문서에 따르면 UPSIDE_DOWN_CAKE부터 CINNAMON_BUN 사이 버전에서는 IME가 선언한 `configChanges`가 XML(Extensible Markup Language) 파싱 오류로 무시된다. 화면 전환(내부 ↔ 커버) 때 입력 뷰가 다시 만들어지므로 `onCreateInputView`에서 매번 새 뷰를 만든다. `InputMethodService.resetStateForNewConfiguration`은 뷰를 다시 만든 뒤 `startViews`에서 `onStartInputView(info, false)`를 부르고, 그 사이에 `onFinishInputView`는 부르지 않는다. 0.5.x는 이 호출을 새 입력창으로 보고 터미널의 조합 중 음절을 버렸다. 0.6.0은 `onConfigurationChanged`에서 먼저 확정한다(테스트 `terminalSyllableSurvivesAConfigurationChange`).
+- **입력 다시 시작.** 앱이 같은 입력창에서 입력을 다시 시작하면(`setText` 뒤의 `restartInput` 등) `onStartInputView(info, true)`가 온다. 0.5.x는 이때도 누르고 있던 터치를 취소해서, 키를 누른 사이에 앱이 입력을 다시 시작하면 그 키가 사라졌다. 0.6.0은 다른 입력창으로 옮길 때(`restarting = false`)만 터치를 취소하고 수정키 상태를 지운다. 같은 입력창이면 누르고 있던 키와 수정키를 그대로 둔다(테스트 `keyHeldWhileTheAppRestartsInputIsStillTyped`, `restartOnTheSameFieldKeepsHeldModifiers`). 새 입력창으로 옮기면서 끊긴 수정키 터치는 Esc를 보내거나 one-shot을 켜지 않는다(`escCtrlHeldWhenANewFieldStartsSendsNothing`, `releaseAfterANewFieldStartsIsIgnored`).
+- **잠금 화면과 클립보드.** AOSP 16 `ClipboardService.getPrimaryClip`은 `KeyguardManager.isDeviceLocked`가 참이면 기본 IME를 포함한 모든 호출자에게 null을 돌려준다. FoldKey는 복사 기록을 자체 메모리에 들고 있어서 0.5.x는 잠금 화면의 비밀번호 입력창에서도 기록을 보여 주고 붙여 넣었다. 0.6.0은 입력이 시작될 때 기기가 잠겨 있으면 기록을 숨기고 새로 기록하지도 않는다(테스트 `clipboardHistoryIsHiddenWhileTheDeviceIsLocked`).
+- **IME subtype(하위 유형).** 0.5.x는 ko_KR과 en_US 두 subtype을 선언했다. AOSP 16 `InputMethodSubtypeSwitchingController`의 다음 입력기 계산은 같은 IME의 다른 subtype도 다음 후보로 돌려주므로, 두 subtype이 모두 켜져 있으면 키보드 전환 버튼이 FoldKey 안에서 subtype만 바꿀 수 있었다. FoldKey의 언어 전환은 한/A 키가 맡고 subtype을 읽지 않으므로 0.6.0은 ko_KR 하나만 선언한다.
 - **뒤로 가기.** Android 16에서 targetSdk 36 앱은 predictive back(예측형 뒤로 가기)이 기본이다. `InputMethodService`가 자체 콜백으로 키보드를 닫으므로 추가 코드가 없다.
-- **Enter.** `EditorInfo.IME_FLAG_NO_ENTER_ACTION`이 없고 동작이 `IME_ACTION_NONE`이 아니면 `performEditorAction`을 부른다. `TextView`는 여러 줄 입력창에 이 플래그를 자동으로 붙이므로 줄바꿈이 된다.
+- **Enter.** `EditorInfo.IME_FLAG_NO_ENTER_ACTION`이 없고 동작이 `IME_ACTION_NONE`이 아니면 `performEditorAction`을 부른다. `TextView`는 여러 줄 입력창에 이 플래그를 자동으로 붙이므로 줄바꿈이 된다. 0.6.0부터 여러 줄 입력창의 줄바꿈은 `KEYCODE_ENTER`가 아니라 `\n` 글자로 보낸다(5.2절, 테스트 `enterInsertsANewlineOnlyInMultiLineFields`).
+- **설정 저장.** `AbsSeekBar`는 방향키와 접근성 동작(TalkBack의 조절)으로 값을 바꿀 때 `onStartTrackingTouch`·`onStopTrackingTouch`를 부르지 않는다. 0.5.x는 슬라이더 값을 `onStopTrackingTouch`에서만 저장해서 이런 변경이 저장되지 않았고, 터미널 앱 목록은 입력란이 포커스를 잃을 때만 저장해서 바로 설정 화면을 나가면 사라졌다. 0.6.0은 터치로 끄는 중이 아닐 때의 값 변경과 화면을 떠날 때(`onPause`)도 저장한다(테스트 `sliderMovedWithKeysOrAccessibilityIsSaved`, `terminalAppListIsSavedWhenLeavingSettings`).
 - **도구 버전.** AGP(Android Gradle Plugin) 9.4.1은 Gradle 9.6.0 이상이 필요하다. 저장소의 Gradle wrapper는 9.8.0이다. Robolectric 4.17은 API 23–37을 지원하며 API 36·37에는 JDK(Java Development Kit) 21이 필요하다.
 
 ## 10. 검증 방법과 한계
@@ -504,6 +547,12 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 두벌식 자음은 모두 왼쪽, ㅠ를 뺀 모음은 모두 오른쪽
   - 폴드7 반쪽 범위(가로 8.5 mm 키 62.1·68.5 mm, 7.0 mm 키 51.25·56.5 mm, 세로 8.17 mm 키 59.7·65.9 mm), 가운데 패널 칸 폭(18.0·26.5 mm), 복제 키 짝(6·7, t·y, g·h, b·n), 숫자판 위치
   - 엄지 범위 측정: 같은 측정값(왼쪽 61 mm, 오른쪽 69 mm)에서 키 너비 8.3 mm
+- **0.6.0 자동 테스트.** 테스트는 214개다. 0.5.x 코드를 세 차례 따로 검토해 찾은 결함을 테스트로 먼저 재현하고 고쳤다. 키보드 뷰·서비스·설정 수준의 새 테스트 25개를 0.5.x 코드에 그대로 돌리자 23개가 실패했다. 통과한 2개는 0.5.x에서도 맞게 동작하던 roll 경우(`escCtrlRolledIntoTheNextKeySendsEscapeFirst`, `fnRolledIntoAPadKeyKeepsTheNumpad`)이고, 바꾼 규칙이 roll을 조합으로 잘못 읽지 않는지 지킨다. 엔진과 터치 추적의 새 테스트는 새로 만든 API를 써서 0.5.x 코드로는 컴파일되지 않는다.
+  - 엔진: 오래된 one-shot에서의 두 번 누르기 고정, Caps Lock과 Ctrl 조합, 아무 키로나 조합 처리, 조합 중 ⌫의 one-shot 소비, 새 입력창 뒤의 수정키 떼기 무시, 같은 입력창 재시작에서 수정키 유지, 취소된 수정키, 반복 중 one-shot 유지, 늦게 온 커서 보고, 터미널 Enter·Tab 글자, 여러 줄 입력창 Enter, Ctrl+Alt의 NUL·LF, 터미널 비밀번호 입력창
+  - 터치 추적: roll과 조합 판정 순서, 이미 쓴 수정키, 취소, 새 키가 반복과 대기 시간을 멈추는지, 대기 중 키 확정
+  - 키보드 뷰(`ModifierTouchTest`, `LearnedOffsetTest`, `OutputOrderTest`): 실제 시간 간격을 둔 터치로 roll·조합·취소, 반복 중 one-shot, 상단 줄과 클립의 순서와 햅틱, 학습값의 중심부·복제 키·⌫·초기화, 터미널에 도착하는 순서
+  - 서비스와 설정(`ServiceInputTest`, `SettingsSaveTest`): 늦게 온 커서 보고와 `EditText`, 입력 다시 시작, 새 입력창, 화면 회전 중 터미널 음절, 터미널 앱 비밀번호 입력창, 잠금 화면 클립 기록, 슬라이더와 터미널 앱 목록 저장
+  - 배열 기하(`GeometrySweepTest`): 화면 폭 50–260 mm, 300·368·422 ppi, 키 너비 7·8.5·11 mm, 올림, 가운데 패널, 측면 insets 조합에서 보이는 키 중심이 자기 자신으로 판정되는지, 판정 영역이 겹치거나 설계하지 않은 구멍이 있는지
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.
@@ -537,10 +586,11 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 
 ### 10.2 이 환경에서 확인하지 못한 것
 
-- **Robolectric과 실제 Android의 차이.** Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 `'a'`를 돌려준다(실험으로 확인). AOSP는 0을 돌려주므로 Ctrl+A가 단축키 단계로 넘어간다. 그래서 일반 입력창의 Ctrl 단축키는 Robolectric이 아니라 에뮬레이터에서 확인했다. Robolectric에서는 `commitText`가 즉시 반영되고 키 이벤트가 나중에 처리되어 순서가 바뀌는 현상도 있었다. 에뮬레이터에서는 보낸 순서대로 처리되었다.
+- **Robolectric과 실제 Android의 차이.** Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 `'a'`를 돌려준다(실험으로 확인). AOSP는 0을 돌려주므로 Ctrl+A가 단축키 단계로 넘어간다. 그래서 일반 입력창의 Ctrl 단축키는 Robolectric이 아니라 에뮬레이터에서 확인했다. Robolectric에서는 `commitText`가 즉시 반영되고 키 이벤트가 나중에 처리되어 순서가 바뀌는 현상도 있었다. 0.5.0까지 이 문서는 이것을 Robolectric의 특성으로 보았고 에뮬레이터에서는 보낸 순서대로 처리되었다고 적었다. AOSP 16의 `ViewRootImpl.dispatchKeyFromIme`가 키 이벤트를 비동기 메시지로 다시 넣는 것을 확인했으므로 이 판단은 고친다. 실제 Android에서도 두 호출이 앱의 메시지 큐에 함께 쌓이면 순서가 바뀐다(5.2절). 에뮬레이터 시험은 탭 하나에 10초 넘게 걸려 호출이 함께 쌓일 일이 없었다.
 - **에뮬레이터에서 본 이상 현상.** 첫 시험에서 "ㅎㅏㄴㄱㅡㄹ 스페이스"가 "한ㅡ "로 들어갔다. 당시 시스템 UI 응답 없음 대화상자가 떠 있었고 로그를 남기지 않아 원인을 확정하지 못했다. 입력 연결이 다시 시작되면 조합기만 비워지고 입력창의 조합 영역은 남아, 다음 자모가 그 영역을 덮어쓸 수 있다는 점을 코드에서 찾았다. 그래서 입력이 다시 시작될 때 조합 중이던 글자를 먼저 확정하도록 고쳤다(`restartDuringCompositionKeepsTypedJamo`). 수정 뒤 같은 순서(터미널 확인창에서 입력한 뒤 `EditText`로 이동)는 "한글 "이 되었다. 알림창을 여닫은 직후에 친 ㅡ가 빠져 "한ㄱㄹ "이 된 경우도 한 번 있었다. 이 결과는 ㅡ 탭이 키보드에 도달하지 않았을 때 조합기가 내는 출력과 같고, 임시로 넣은 디버그 로그에 조합 초기화 기록이 없었다. 그래서 키보드 밖에서 사라진 입력으로 판단했다.
 - **에뮬레이터의 한계.** 소프트웨어 에뮬레이션이라 탭 하나를 처리하는 데 10초 넘게 걸렸다. 길게 누르기 반복도 2.5초 동안 7번만 나와 설계값(400 ms 뒤 50 ms마다)과 맞지 않았다. 앱을 `am force-stop`으로 멈추면 Android 11은 기본 입력 방법을 LatinIME으로 되돌렸다. 그래서 타이밍(두 엄지 rollover, 길게 누르기, 반복 입력)은 에뮬레이터 결과로 판단하지 않았다. 이미지가 Android 11이라 Android 15 이상의 edge-to-edge 처리도 여기서는 확인되지 않는다.
 - **실기기 동작.** 폴드7 실기기가 없다. 햅틱 강도와 느낌, One UI가 서드파티 IME의 `KEYBOARD_TAP`을 시스템 키보드 진동 설정에 연결하는지, `xdpi` 값의 정확도, 작업 표시줄(taskbar)과 IME의 상호작용, Android 16에서의 하단 insets 처리는 기기에서 확인해야 한다.
+- **0.6.0 판정 값.** 수정키 roll과 조합을 가르는 150 ms(5.1절)와 터치 편차 학습을 미루는 8탭(4.2절)은 사람 대상으로 재지 않았다. 실제 출력 순서 역전은 Robolectric과 AOSP 소스로만 확인했고, 실기기에서 겹쳐 누른 두 입력이 한 터치 이벤트에서 나갈 때 얼마나 자주 뒤바뀌는지는 재지 않았다. Esc, 방향키, Ctrl 조합 같은 키 이벤트와 바로 뒤의 글자 사이에는 이 역전이 남아 있다.
 - **사용자 실험.** 입력 속도와 오류율을 사람으로 측정한 적이 없다. 이 문서의 수치는 모두 인용한 연구의 값이다. 평가할 때는 Soukoreff·MacKenzie(2003)의 전체·수정·미수정 오류율과 KSPC(keystrokes per character, 문자당 키 입력 수)를 쓰고, 명령어와 식별자 같은 사전 밖 문자열을 과제에 넣어야 한다. Palin 외(2019)의 두 엄지 평균(38 WPM, 미수정 오류 2.3%)이 휴대폰 입력의 참고값이다.
 
 ### 10.3 기기에서 확인할 항목
@@ -558,6 +608,10 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 11. 세로 분할에서 HHKB 습관대로 쳤을 때 0.3.0보다 오타가 줄었는지, 오른쪽 반쪽 안쪽 키(7, Y, H, N)가 편하게 닿는지 본다.
 12. 0.5.0 가로 분할에서 오른쪽 엄지가 0.4.1보다 덜 뻗는지, 1칸이 된 ⌫를 놓치지 않는지, 왼쪽으로 옮긴 `b`·`6`(ㅠ)에 손이 적응하는지 본다. 엄지 범위 측정을 다시 하면 키 너비가 얼마나 커지는지 본다.
 13. 스페이스를 꾹 누른 뒤 끌어 일반 입력창에서 선택이 되는지, One UI의 텍스트 선택 도구 막대와 겹치지 않는지 본다.
+14. vim에서 Esc/Ctrl을 짧게 누르고 바로 `j`, `u` 같은 오른쪽 키를 겹쳐 눌렀을 때 Esc 다음 그 키로 들어가는지, Termux 셸에서 Esc/Ctrl을 누른 채 `l`, `u`를 치다 Esc/Ctrl을 먼저 떼도 Ctrl+L, Ctrl+U가 되는지 본다. 어느 쪽이든 자주 틀리면 150 ms를 바꿔야 한다.
+15. Termux에서 Enter와 Tab이 글자(`\n`, `\t`)로 와도 셸 실행, 자동 완성, vim insert mode의 줄바꿈과 들여쓰기, ssh 접속 안의 셸이 키 이벤트일 때와 같은지 `cat -v`와 함께 본다. 빠르게 `ls⏎cd` 같은 순서를 쳐서 다음 명령의 첫 글자가 Enter보다 먼저 들어가지 않는지 본다.
+16. 기기를 쥔 손바닥이 화면 끝의 수정키를 건드렸을 때(One UI의 손바닥 오인식 취소) Esc나 one-shot이 켜지지 않는지 본다.
+17. 잠금 화면의 비밀번호 입력창에서 가운데 클립 칸이 비어 있는지, 잠금을 푼 뒤 다시 보이는지 본다.
 
 ## 11. 얽힌 이야기들
 
@@ -574,6 +628,7 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **₩와 역슬래시.** KS X 1003(옛 KS C 5636)은 ASCII의 0x5C 자리에 ₩를 둔다. 한국어 Windows 키보드의 ₩ 키는 U+005C를 보내고, 맑은 고딕은 U+005C를 ₩ 모양으로 그린다 `[2차]`. FoldKey는 코드 입력을 위해 `\` 키에서 U+005C를 보낸다. 0.2.0–0.3.0에서는 Fn을 켜면 같은 키에서 U+20A9(₩)를 보냈고, 0.4.0에서 Fn 특수문자와 함께 뺐다.
 - **가운데를 두고 갈린 선택.** Windows 8 thumb keyboard는 2011년 첫 Windows 8 시연에서 공개되었고, 당시 사용자 블로그는 "가운데에 숫자 패드가 있는 옛 인체공학 키보드"로 묘사했다 `[2차]`. 2012년 Microsoft 설계 글의 댓글에는 가운데 숫자가 없는 분할 키보드와 빈 공간을 투명하게 해 달라는 요청이 함께 달렸다. Apple은 iPad 분할 키보드의 가운데로 본문이 보이게 출시했지만(Trudeau 외가 시험한 iOS 6), 2010년 우선일의 특허 명세서에는 가운데에 두 번째 입력란을 두는 형태도 적었다.
 - **Microsoft 문서의 오타.** Microsoft의 한국어 IME 문서는 "여름"을 입력하는 키를 "O, U, F, M, and A"로 적는다. ㅇ은 D 키이므로 D, U, F, M, A가 맞다.
+- **Enter 하나를 두고 맞물린 두 주석.** AOSP LatinIME의 `sendKeyCodePoint`는 Jelly Bean 이전 앱에서만 Enter를 키 이벤트로 보내고, 주석에 키 이벤트가 commit과 경쟁 상태를 만든다고 적었다. Termux의 `commitText` 처리에는 "AOSP 키보드와 그 후손은 Enter를 누르면 \n을 글자로 보내는 것 같다"는 주석과 함께 `\n`을 CR로 바꾸는 코드가 있다. 한 키보드가 순서 문제를 피하려고 고른 방식이 터미널 쪽 호환 코드로 남았고, FoldKey 0.6.0의 터미널 Enter는 이 호환 코드 위에서 동작한다.
 
 ## 12. 참고 자료
 
@@ -629,8 +684,9 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - libhangul: https://github.com/libhangul/libhangul
 - ibus-hangul: https://github.com/libhangul/ibus-hangul
 - 구름 입력기: https://github.com/gureum/gureum
-- AOSP frameworks/base, frameworks/native(android-16.0.0_r1): `InputMethodService.java`, `View.java`, `HapticFeedbackVibrationProvider.java`, `KeyCharacterMap.cpp`, `Virtual.kcm`
-- AOSP LatinIME: `PointerTracker.java`, `PointerTrackerQueue.java`, `config-per-form-factor.xml`
+- AOSP frameworks/base, frameworks/native(android-16.0.0_r1): `InputMethodService.java`, `View.java`, `HapticFeedbackVibrationProvider.java`, `KeyCharacterMap.cpp`, `Virtual.kcm`, `ViewRootImpl.java`(`dispatchKeyFromIme`), `BaseInputConnection.java`, `KeyEvent.java`(`dispatch`), `IInputMethodSession.aidl`, `AbsSeekBar.java`, `InputMethodSubtypeSwitchingController.java`
+- AOSP LatinIME: `PointerTracker.java`, `PointerTrackerQueue.java`, `config-per-form-factor.xml`, `InputLogic.java`(`sendDownUpKeyEvent`, `sendKeyCodePoint`, android-16.0.0_r1), `RichInputConnection.java`(`isBelatedExpectedUpdate`)
+- QMK Firmware, Tap-Hold Configuration Options(2026-10-01 확인): https://github.com/qmk/qmk_firmware/blob/master/docs/tap_hold.md
 - Termux: https://github.com/termux/termux-app (`TerminalView.java`, `KeyHandler.java`, `TermuxPropertyConstants.java`, `ExtraKeysConstants.java`)
 - Hacker's Keyboard: https://github.com/klausw/hackerskeyboard
 - Unexpected Keyboard: https://github.com/Julow/Unexpected-Keyboard (`srcs/compose/fn.json`, `KeyModifier.java`, `res/xml/split_middle_column.xml`)

@@ -51,11 +51,11 @@ adb shell ime set io.github.patissiermongs.foldkey/.ime.FoldKeyService
 | 길게 누르기(기본 400 ms) | 위로 밀기와 같음. 설정에서 반복 입력으로 바꾸면 vim의 `j`처럼 누르고 있는 동안 반복 |
 | 스페이스에서 끌기 | 좌우는 커서 이동(2.5 mm마다 한 칸), 위아래는 ↑/↓(4 mm마다 한 줄). 처음 움직인 방향으로 고정된다. Shift를 켜고 끌면 선택 |
 | 스페이스를 꾹 누른 뒤 끌기 | 선택(Shift+방향키). 길게 누르기 시간(기본 400 ms)이 지나면 스페이스 키 색이 바뀐다. 처음 움직인 방향으로 고정된다. 움직이지 않고 떼면 아무것도 입력하지 않는다. 터미널에서는 Shift 없이 커서만 움직인다 |
-| Esc/Ctrl 키(Caps Lock 자리) | 짧게 누르면 Esc(escape), 누른 채 다른 키를 치면 Ctrl. Fn을 켜고 누르면 Insert(Shift도 켜면 Shift+Insert) |
-| Shift, Ctrl, Alt(alternate) | 한 번 누르면 다음 키 한 번에 적용, 350 ms 안에 두 번 누르면 고정, 누른 채 치면 조합 |
+| Esc/Ctrl 키(Caps Lock 자리) | 짧게 누르면 Esc(escape), 누른 채 다른 키를 치면 Ctrl. 누르고 0.15초 안에 다음 키를 눌러 Esc/Ctrl을 먼저 떼면 Esc 다음에 그 키가 나가고, 그보다 늦게 누른 키는 Esc/Ctrl을 먼저 떼도 Ctrl 조합이다. Fn을 켜고 누르면 Insert(Shift도 켜면 Shift+Insert) |
+| Shift, Ctrl, Alt(alternate) | 한 번 누르면 다음 키 한 번에 적용, 350 ms 안에 두 번 누르면 고정, 누른 채 치면 조합. 누른 채 친 키는 수정키를 먼저 떼도 조합으로 들어간다. 고정한 Shift(Caps Lock)는 Ctrl·Alt 조합에 Shift를 더하지 않는다 |
 | Fn(function) | 누를 때마다 숫자판을 켜고 끈다. 누른 채 치면 손을 뗄 때 꺼진다([숫자판](#숫자판fn)) |
 | 방향키 위로 밀기 | Home, PgDn, PgUp, End |
-| 방향키·`⌫` 누르고 있기 | 반복 입력 |
+| 방향키·`⌫` 누르고 있기 | 반복 입력. 첫 입력에 붙은 one-shot 수정키가 반복 내내 붙고, 다른 키를 누르면 반복이 멈춘다 |
 | `한/A` | 한글·영문 전환 |
 
 밀기 동작은 손을 떼기 전에 결과(`^C`, `F5`, `(` 등)를 팝업으로 보여 준다. 손가락을 처음 자리로 되돌리면 일반 탭이 된다.
@@ -93,8 +93,9 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
   - 고정하지 않은 글은 메모리에만 두고 기본 20개, 24시간까지 보관한다(설정에서 5–50개, 1–72시간). 키보드 프로세스가 끝나면 사라진다.
   - 지운 글이 시스템 클립보드의 현재 클립이면 시스템 클립보드도 비운다. 그러지 않으면 다음에 키보드를 띄울 때 같은 클립이 다시 기록된다.
 - 비밀번호 관리 앱처럼 `ClipDescription`에 민감 표시(`android.content.extra.IS_SENSITIVE`)를 붙인 클립은 기록하지 않으므로 고정할 수도 없다.
+- 기기가 잠겨 있는 동안(잠금 화면의 비밀번호 입력창 등)에는 기록을 보여 주지 않는다. Android도 잠긴 동안에는 시스템 클립보드를 어느 앱에도 넘기지 않는다.
 - 아래 세 줄: 커서 앞 글자. 일반 입력창은 커서가 있는 줄의 끝부분을 보여 주고, 조합 중인 한글은 밑줄로 표시한다. 비밀번호 입력창에서는 보여 주지 않는다.
-- 터미널은 화면 내용을 키보드에 넘겨주지 않으므로, FoldKey가 보낸 글자와 키를 Enter 전까지 보여 준다. 터미널의 비밀번호 프롬프트를 키보드가 구별할 수 없어서 이 표시는 기본으로 꺼져 있다(설정 "터미널에서 친 글자도 표시"). 꺼져 있을 때는 조합 중인 한글만 보여 준다.
+- 터미널은 화면 내용을 키보드에 넘겨주지 않으므로, FoldKey가 보낸 글자와 키를 Enter 전까지 보여 준다. 터미널의 비밀번호 프롬프트를 키보드가 구별할 수 없어서 이 표시는 기본으로 꺼져 있다(설정 "터미널에서 친 글자도 표시"). 꺼져 있을 때는 조합 중인 한글만 보여 준다. 터미널 앱의 입력창이 비밀번호 입력창(`inputType`의 password variation)이면 설정과 관계없이 기록하지도, 조합 중인 한글을 보여 주지도 않는다.
 - 터미널에서 여러 줄 클립을 붙이면 셸이 줄마다 실행할 수 있다. 붙이기 전에 미리보기의 ⏎를 확인한다.
 
 ## 반쪽 높이와 크기
@@ -105,19 +106,20 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 ## 터미널과 vim
 
 - 입력창의 `inputType` class가 `TYPE_NULL`이면 터미널로 다룬다. Termux, ConnectBot, JuiceSSH, Android Terminal Emulator는 설정의 목록으로도 지정된다.
-- 터미널에서는 조합 중인 한글을 앱에 보내지 않고 상단 줄에 표시한다. 음절이 완성되면 보낸다. Enter, 방향키, Esc, Ctrl 조합을 보내기 전에는 조합 중인 음절을 먼저 보낸다.
+- 터미널에서는 조합 중인 한글을 앱에 보내지 않고 상단 줄에 표시한다. 음절이 완성되면 보낸다. Enter, 방향키, Esc, Ctrl 조합을 보내기 전에는 조합 중인 음절을 먼저 보낸다. 화면을 돌리거나 접어도 조합 중인 음절은 보낸 뒤 키보드를 다시 그린다.
+- 터미널에서 수정키 없는 Enter와 Tab은 키 이벤트가 아니라 글자(`\n`, `\t`)로 보낸다. Android는 IME가 보낸 키 이벤트를 앱의 메시지 큐에 한 번 더 넣은 뒤 처리하고 글자는 바로 처리해서, 두 엄지로 겹쳐 누르면 뒤 글자가 Enter보다 먼저 도착할 수 있다. Termux는 `\n`을 Enter(CR, carriage return)로, `\t`를 Tab으로 받는다. 여러 줄 일반 입력창의 Enter도 `\n` 글자다.
 - Ctrl과 Alt는 `META_CTRL_ON | META_CTRL_LEFT_ON`, `META_ALT_ON | META_ALT_LEFT_ON`을 붙인 키 이벤트로 보낸다. Termux의 Alt+글자(ESC(escape) 문자 접두어)와 일반 입력창의 Ctrl+A/C/V/X/Z가 이 방식으로 동작한다.
-- Termux는 Ctrl+Alt 키 이벤트를 자체 단축키로 가져가므로, 터미널에서 Ctrl+Alt+글자는 ESC와 제어 문자를 이어 붙인 문자열로 보낸다.
+- Termux는 Ctrl+Alt 키 이벤트를 자체 단축키로 가져가므로, 터미널에서 Ctrl+Alt+글자는 ESC와 제어 문자를 이어 붙인 문자열로 보낸다. 제어 문자 대응은 Termux와 같다(Space·2·@ → NUL, 3 → ESC, 4 → FS, 5 → GS, 6 → RS, 7·/ → US, 8·? → DEL). Termux가 글자로 받으면 다른 문자로 바꾸는 NUL과 LF(line feed, Ctrl+J)는 ESC만 글자로 보내고 Ctrl+Space, Ctrl+J 키 이벤트를 잇는다.
 - 한글 모드에서 Esc나 Ctrl+[를 보내면 영문 모드로 바뀐다(설정에서 끌 수 있음). vim에서 normal mode(일반 모드)로 돌아갈 때 한글로 명령이 들어가는 일을 막는다.
-- 터미널에서 Ctrl+Alt+글자는 ESC와 제어 문자를 이어 붙인 문자열로 보낸다. 제어 문자 대응은 Termux와 같다(Space·2·@ → NUL, 3 → ESC, 4 → FS, 5 → GS, 6 → RS, 7·/ → US, 8·? → DEL).
 - Termux의 extra keys 줄은 FoldKey와 기능이 겹친다. 필요 없으면 `~/.termux/termux.properties`에 `extra-keys = []`를 넣고 `termux-reload-settings`를 실행한다.
 
 ## 오타를 줄이는 장치
 
-- 키 판정은 손가락이 닿은 순간의 좌표로 하고, 입력 확정은 뗄 때 한다. 두 엄지가 겹쳐 눌러도 누른 순서대로 입력된다.
-- 사용자의 체계적인 터치 편차를 화면에 보이지 않게 학습해서 판정 위치를 보정한다. 키 중심부(가로·세로 ±25%)는 보정과 관계없이 그 키다. backspace 직후나 1초 넘게 쉬었다가 누른 키에는 보정을 쓰지 않는다. 설정에서 끄거나 초기화한다. 0.4.0에서 분할 배열의 키 위치가 바뀌어 분할 배열의 학습값은 처음부터 다시 쌓는다.
+- 키 판정은 손가락이 닿은 순간의 좌표로 하고, 입력 확정은 뗄 때 한다. 두 엄지가 겹쳐 눌러도 누른 순서대로 입력된다. 상단 줄 버튼과 가운데 클립도 그보다 먼저 누르고 있던 키를 입력한 뒤 동작한다. ⌫는 누르는 순간 지운다.
+- 시스템이 손바닥이나 쥔 손가락으로 보고 취소한 터치(`FLAG_CANCELED`, `ACTION_CANCEL`)와 다른 입력창으로 옮겨 가며 끊긴 터치는 입력하지 않고 수정키도 켜지 않는다. 누르는 순간 지운 ⌫는 되돌리지 못한다.
+- 사용자의 체계적인 터치 편차를 화면에 보이지 않게 학습해서 판정 위치를 보정한다. 모든 키의 중심부(가로·세로 ±25%)는 보정과 관계없이 그 키다. 보정이 보이는 키를 누른 터치를 가운데 복제 키로 옮기지는 않는다. backspace 직후나 1초 넘게 쉬었다가 누른 키에는 보정을 쓰지 않고, 최근 8번 안에서 ⌫로 지운 입력은 학습하지 않는다. 설정에서 끄거나 초기화하고, 초기화는 실행 중인 키보드에도 바로 반영된다. 0.4.0에서 분할 배열의 키 위치가 바뀌어 분할 배열의 학습값은 처음부터 다시 쌓는다.
 - 자동 수정과 단어 예측은 없다. 명령어와 식별자는 사전 단어가 아니기 때문이다.
-- 햅틱은 누르는 순간 시스템 키보드 진동(`KEYBOARD_TAP`)으로 낸다. 설정에서 "틱"이나 "클릭"을 고르면 진동 효과를 직접 재생한다.
+- 햅틱은 누르는 순간 시스템 키보드 진동(`KEYBOARD_TAP`)으로 낸다. 설정에서 "틱"이나 "클릭"을 고르면 진동 효과를 직접 재생한다. 상단 줄 버튼과 가운데 클립도 같은 설정을 따른다.
 
 ## 설정
 
@@ -152,9 +154,10 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 | `hangul/Dubeolsik.kt` | KS(Korean Industrial Standards) X 5002 자판 배치 |
 | `engine/KeyboardEngine.kt` | 수정키, 언어, 조합, 터미널/일반 입력창 분기 |
 | `engine/Modifiers.kt` | one-shot, lock, chord 상태, Fn 전환 |
+| `engine/ExpectedSelection.kt` | FoldKey가 보낸 편집으로 예상한 커서 위치(앱이 늦게 보낸 커서 위치 보고를 가려낸다) |
 | `engine/UsKeyMap.kt` | 문자 → US 배열 keycode와 Shift |
 | `engine/EchoBuffer.kt` | 터미널에서 보낸 글자와 키 기록(가운데 표시용) |
-| `input/TouchTracker.kt` | 다중 터치, 밀기 판정, 반복, 길게 누르기, 스페이스 커서 이동과 선택 |
+| `input/TouchTracker.kt` | 다중 터치, 밀기 판정, 반복, 길게 누르기, 스페이스 커서 이동과 선택, 수정키 roll·조합 판정 |
 | `input/OffsetModel.kt` | 터치 편차 학습 |
 | `input/ReachCalibration.kt` | 엄지 도달 거리 계산, 세 획 일치 검사, 키 너비 계산 |
 | `layout/Layouts.kt`, `layout/Geometry.kt` | 전체·분할·compact 배열, Fn 숫자판, mm 단위 배치 |
@@ -173,12 +176,14 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드와 입력 표시, 클립 고정·삭제 버튼, 터미널 입력 표시 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
+JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드와 입력 표시, 클립 고정·삭제 버튼, 터미널 입력 표시 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. `ModifierTouchTest`는 실제 시간 간격을 둔 터치로 수정키 roll과 조합, 취소된 터치를 확인하고, `OutputOrderTest`는 겹쳐 누른 Enter·Tab과 글자가 터미널에 도착하는 순서를, `ServiceInputTest`는 입력 다시 시작, 화면 회전, 잠금 화면, 늦게 온 커서 위치 보고를 확인한다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
 
 ## 알려진 한계
 
 - 폴드7 실기기에서 시험하지 않았다. Android 11 에뮬레이터(폴드7 내부 화면 해상도와 밀도)에서 키 이벤트, 한글 조합, Ctrl 단축키, 가로 분할 배열을 확인했다. 햅틱 느낌, One UI(삼성 user interface)의 키보드 진동 설정 연동, `xdpi` 정확도, 작업 표시줄과의 상호작용, Android 16의 하단 insets 처리는 기기 확인이 필요하다.
 - 접근성 서비스(TalkBack)용 가상 뷰 구조를 제공하지 않는다.
 - 하드웨어 키보드의 키는 처리하지 않는다. 앱이 직접 받는다.
+- Esc, 방향키, Ctrl 조합처럼 키 이벤트로 보내는 키는 같은 순간에 보낸 글자보다 늦게 도착할 수 있다. 터미널의 Enter·Tab과 여러 줄 입력창의 Enter는 글자로 보내 이 경우를 피했고, ⌫는 누르는 순간 보내 앞뒤 키와 한 번에 나가지 않게 했다.
+- 수정키를 빠르게 이어 친 것(roll)과 조합을 가르는 0.15초는 사람 대상으로 재서 정한 값이 아니다.
 - 한자 변환은 없다. 사전 데이터가 필요해서 넣지 않았다.
 - 분할 배열 가운데에 입력 내용을 보여 주는 형태는 Apple 특허 US 8,547,354(우선일 2010-11-05) 명세서에도 나온다. 이 특허의 청구항이 이 기능을 포함하는지는 검토하지 않았다.
