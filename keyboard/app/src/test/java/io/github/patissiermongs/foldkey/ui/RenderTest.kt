@@ -115,6 +115,28 @@ class RenderTest {
     }
 
     @Test
+    fun renderSplitPortrait() {
+        val (view, _, _) = setup(split = true, widthPx = 1968)
+        assertTrue(save(view, "split_portrait.png").length() > 0)
+    }
+
+    @Test
+    fun renderFullPortraitFn() {
+        val (view, engine, _) = setup(split = false, widthPx = 1968)
+        engine.press(KeyAction.Mod(Modifier.FN), 0)
+        engine.release(KeyAction.Mod(Modifier.FN), 50)
+        assertTrue(save(view, "full_portrait_fn.png").length() > 0)
+    }
+
+    @Test
+    fun renderCoverScreenCompactFn() {
+        val (view, engine, _) = setup(split = false, widthPx = 1080, ppi = COVER_PPI)
+        engine.press(KeyAction.Mod(Modifier.FN), 0)
+        engine.release(KeyAction.Mod(Modifier.FN), 50)
+        assertTrue(save(view, "cover_compact_fn.png").length() > 0)
+    }
+
+    @Test
     fun renderCoverScreenCompact() {
         val (view, _, _) = setup(split = false, widthPx = 1080, ppi = COVER_PPI)
         assertTrue(save(view, "cover_compact.png").length() > 0)
@@ -151,7 +173,7 @@ class RenderTest {
     }
 
     @Test
-    fun renderSplitLandscapeFnSymbols() {
+    fun renderSplitLandscapeFn() {
         val (view, engine, _) = setup(split = true, widthPx = 2184)
         engine.press(KeyAction.Mod(Modifier.FN), 0)
         engine.release(KeyAction.Mod(Modifier.FN), 50)

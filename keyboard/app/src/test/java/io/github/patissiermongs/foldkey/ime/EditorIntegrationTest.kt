@@ -26,6 +26,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowViewRootImpl
 
@@ -140,6 +141,24 @@ class EditorIntegrationTest {
         idle()
         val cm = edit.context.getSystemService(ClipboardManager::class.java)
         assertEquals("git log", cm.primaryClip?.getItemAt(0)?.text?.toString())
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun selectionDragExtendsTheEditTextSelection() {
+        val (edit, engine, _) = editTextSetup(multiLine = false)
+        engine.startInput(EditorContext())
+        "git status".forEach { engine.perform(if (it == ' ') KeyAction.Space else ch(it)) }
+        idle()
+        assertEquals(10, edit.selectionEnd)
+        engine.moveCursor(-6, select = true)
+        engine.endCursorMove()
+        idle()
+        assertEquals(4, minOf(edit.selectionStart, edit.selectionEnd))
+        assertEquals(10, maxOf(edit.selectionStart, edit.selectionEnd))
+        engine.perform(KeyAction.Text("7"))
+        idle()
+        assertEquals("git 7", edit.text.toString())
     }
 
     @Test

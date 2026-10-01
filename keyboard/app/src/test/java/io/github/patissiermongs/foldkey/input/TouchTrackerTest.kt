@@ -44,10 +44,15 @@ class TouchTrackerTest {
             events.add("fire:${label(key)}:$gesture@$t")
             fired.add(key to gesture)
         }
-        override fun variant(pointer: Int, key: Key, gesture: Gesture) {}
+        override fun variant(pointer: Int, key: Key, gesture: Gesture) {
+            if (gesture == Gesture.LONG) events.add("hold:${label(key)}")
+        }
         override fun released(pointer: Int) {}
-        override fun cursor(steps: Int) { cursorSteps += steps; events.add("cursor:$steps") }
-        override fun cursorRows(steps: Int) { events.add("rows:$steps") }
+        override fun cursor(steps: Int, select: Boolean) {
+            cursorSteps += steps
+            events.add((if (select) "select:" else "cursor:") + steps)
+        }
+        override fun cursorRows(steps: Int, select: Boolean) { events.add((if (select) "selectRows:" else "rows:") + steps) }
         override fun cursorEnd() { events.add("cursorEnd") }
         override fun sample(key: Key, x: Float, y: Float) { events.add("sample:${label(key)}") }
 
@@ -58,7 +63,7 @@ class TouchTrackerTest {
         }
     }
 
-    private fun tracker(sink: Sink, longPress: Long = 0L, repeats: Boolean = false) = TouchTracker(
+    private fun tracker(sink: Sink, longPress: Long = 0L, repeats: Boolean = false, hold: Long = 400L) = TouchTracker(
         sink,
         TouchParams(
             swipeThresholdPx = 30f,
@@ -67,6 +72,7 @@ class TouchTrackerTest {
             cursorRowStepPx = 16f,
             longPressMs = longPress,
             longPressRepeats = repeats,
+            selectHoldMs = hold,
         ),
     )
 
@@ -270,6 +276,75 @@ class TouchTrackerTest {
         t.tick(400)
         t.up(0, 50f, 10f, 450)
         assertEquals(listOf(Gesture.UP), s.fired.map { it.second })
+    }
+
+    @Test
+    fun spaceHeldStillThenDraggedSelectsInsteadOfTyping() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        assertEquals(400L, t.nextDeadline())
+        t.move(0, 455f, 53f, 200)
+        t.tick(400)
+        assertNull(t.nextDeadline())
+        t.move(0, 470f, 53f, 450)
+        t.move(0, 486f, 55f, 500)
+        t.move(0, 464f, 52f, 550)
+        t.up(0, 464f, 52f, 600)
+        assertEquals(listOf("down:Space", "hold:Space", "select:1", "select:-2", "cursorEnd"), s.events)
+        assertEquals(0, s.fired.size)
+    }
+
+    @Test
+    fun spaceHeldThenDraggedDownSelectsRows() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.tick(400)
+        t.move(0, 452f, 90f, 450)
+        t.move(0, 460f, 69f, 500)
+        t.up(0, 460f, 69f, 550)
+        assertEquals(listOf("down:Space", "hold:Space", "selectRows:1", "selectRows:-1", "cursorEnd"), s.events)
+    }
+
+    @Test
+    fun spaceHeldAndReleasedWithoutMovingTypesNothing() {
+        val s = Sink(keys)
+        val t = tracker(s, longPress = 300L, repeats = true, hold = 500L)
+        t.down(0, 450f, 50f, 0)
+        assertEquals(500L, t.nextDeadline())
+        t.tick(300)
+        assertEquals(0, s.events.count { it.startsWith("hold") })
+        t.tick(500)
+        t.tick(550)
+        t.up(0, 450f, 50f, 900)
+        assertEquals(listOf("down:Space", "hold:Space"), s.events)
+    }
+
+    @Test
+    fun spaceDragBeforeTheHoldMovesTheCursorAndNeverStartsSelecting() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.move(0, 475f, 50f, 100)
+        assertNull(t.nextDeadline())
+        t.tick(400)
+        t.move(0, 485f, 50f, 500)
+        t.up(0, 485f, 50f, 600)
+        assertEquals(listOf("down:Space", "cursor:1", "cursorEnd"), s.events)
+    }
+
+    @Test
+    fun anotherKeyPressedDuringTheHoldTypesSpaceFirst() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.down(1, 50f, 50f, 100)
+        t.up(1, 50f, 50f, 150)
+        t.tick(400)
+        t.up(0, 450f, 50f, 500)
+        assertEquals(listOf(Gesture.TAP, Gesture.TAP), s.fired.map { it.second })
+        assertEquals(listOf(space, a), s.fired.map { it.first })
     }
 
     @Test

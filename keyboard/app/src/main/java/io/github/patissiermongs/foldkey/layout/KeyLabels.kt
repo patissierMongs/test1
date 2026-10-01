@@ -25,10 +25,7 @@ object KeyLabels {
     }
 
     fun top(def: KeyDef, s: LabelState): String? {
-        if (s.fn) {
-            def.fnUpLabel?.let { return it }
-            if (def.fnLabel != null) return null
-        }
+        if (s.fn && def.fnLabel != null) return null
         def.upLabel?.let { return it }
         val a = def.action as? KeyAction.Char ?: return null
         if (a.isLetter) {
@@ -41,7 +38,7 @@ object KeyLabels {
     }
 
     fun bottom(def: KeyDef, s: LabelState): String? {
-        if (s.fn && (def.fnLabel != null || def.fnUpLabel != null)) return null
+        if (s.fn && def.fnLabel != null) return null
         def.downLabel?.let { return it }
         val a = def.action as? KeyAction.Char ?: return null
         if (a.isLetter && s.lang == Lang.HANGUL && s.latinHints) return a.base.toString()

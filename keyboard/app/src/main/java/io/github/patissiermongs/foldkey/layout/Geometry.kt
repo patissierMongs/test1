@@ -1,5 +1,7 @@
 package io.github.patissiermongs.foldkey.layout
 
+import io.github.patissiermongs.foldkey.engine.KeyAction
+
 data class SplitRow(val left: RowDef, val right: RowDef)
 
 data class GeometrySpec(
@@ -26,23 +28,25 @@ class KeyboardGeometry(
     val heightPx: Float,
     val unitPx: Float,
     val zoneCount: Int,
-    val panel: Box? = null,
+    val panel: List<Box> = emptyList(),
+    val fnKeys: List<Key> = keys,
 ) {
-    fun keyAt(x: Float, y: Float): Key? = keys.firstOrNull { it.touch.contains(x, y) }
+    fun layer(fn: Boolean): List<Key> = if (fn) fnKeys else keys
 
-    fun zoneAt(x: Float, y: Float): Int {
-        val k = keys.firstOrNull { it.touch.contains(x, y) } ?: nearest(x, y) ?: return 0
-        return k.zone
-    }
+    fun keyAt(x: Float, y: Float, fn: Boolean = false): Key? = layer(fn).firstOrNull { it.touch.contains(x, y) }
 
-    fun nearest(x: Float, y: Float): Key? = keys.filter { !it.ghost }.minByOrNull {
+    fun zoneAt(x: Float, y: Float, fn: Boolean = false): Int = (keyAt(x, y, fn) ?: nearest(x, y, fn))?.zone ?: 0
+
+    fun nearest(x: Float, y: Float, fn: Boolean = false): Key? = layer(fn).filter { !it.ghost }.minByOrNull {
         val dx = it.face.centerX - x
         val dy = it.face.centerY - y
         dx * dx + dy * dy
     }
 
     companion object {
-        fun full(rows: List<RowDef>, spec: GeometrySpec): KeyboardGeometry {
+        private const val EDGE_SLACK_PX = 0.5f
+
+        fun full(rows: List<RowDef>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
             val units = rows.maxOf { it.units }
             val side = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
             val available = spec.widthPx - 2f * side
@@ -78,85 +82,111 @@ class KeyboardGeometry(
                 }
             }
             val height = spec.topPx + rows.size * rowH + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow)
+            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, fnKeys = padLayer(keys, pad, spec))
         }
 
-        fun split(rows: List<SplitRow>, spec: GeometrySpec): KeyboardGeometry {
-            val leftUnits = rows.maxOf { it.left.units }
-            val rightUnits = rows.maxOf { it.right.units }
+        fun split(rows: List<SplitRow>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
+            val units = rows.maxOf { it.left.units + it.right.units }
             val side = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
             val available = spec.widthPx - 2f * side
-            val wanted = spec.splitUnitMm * spec.pxPerMmX
-            val fit = available / (leftUnits + rightUnits + 2f * spec.ghostUnits)
-            val unit = minOf(wanted, fit)
+            val unit = minOf(spec.splitUnitMm * spec.pxPerMmX, available / (units + 2f * spec.ghostUnits))
             val rowH = spec.rowHeightMm * spec.pxPerMmY
             val gapX = spec.gapMm * spec.pxPerMmX / 2f
             val gapY = spec.gapMm * spec.pxPerMmY / 2f
+            val gap = available - units * unit
+            val rightEdge = side + available
+            var ghost = spec.ghostUnits * unit
+            val withPanel = spec.panelMinPx > 0f && gap - 2f * spec.panelGhostUnits * unit >= spec.panelMinPx
+            if (withPanel && gap - 2f * ghost < spec.panelMinPx) ghost = spec.panelGhostUnits * unit
+            ghost = minOf(ghost, gap / 2f)
             val keys = ArrayList<Key>()
-            val leftEdge = side
-            val rightEdge = spec.widthPx - side
-            val leftInner = leftEdge + leftUnits * unit
-            val rightInner = rightEdge - rightUnits * unit
-            val gap = rightInner - leftInner
-            var ghostUnits = spec.ghostUnits
-            var panel: Box? = null
-            if (spec.panelMinPx > 0f) {
-                if (gap - 2f * spec.panelGhostUnits * unit >= spec.panelMinPx) {
-                    if (gap - 2f * ghostUnits * unit < spec.panelMinPx) ghostUnits = spec.panelGhostUnits
-                    val g = ghostUnits * unit
-                    panel = Box(leftInner + g, spec.topPx, rightInner - g, spec.topPx + rows.size * rowH)
-                }
-            }
+            val panel = ArrayList<Box>()
             rows.forEachIndexed { r, row ->
                 val top = spec.topPx + r * rowH
                 val bottom = top + rowH
                 val touchTop = if (r == 0) spec.topPx else top
                 val touchBottom = if (r == rows.lastIndex) bottom + spec.liftPx else bottom
-                var x = leftEdge + (leftUnits - row.left.units) * unit
-                row.left.keys.forEachIndexed { i, def ->
-                    val left = x
-                    val right = x + def.width * unit
-                    val touchLeft = if (i == 0) 0f else left
+                fun place(def: KeyDef, left: Float, right: Float, touchLeft: Float, touchRight: Float) {
                     keys.add(
                         Key(
                             def,
                             Box(left + gapX, top + gapY, right - gapX, bottom - gapY),
-                            Box(touchLeft, touchTop, right, touchBottom),
+                            Box(touchLeft, touchTop, touchRight, touchBottom),
                             r,
                             r * spec.zonesPerRow + zoneColumn((left + right) / 2f, spec.widthPx, spec.zonesPerRow),
                         )
                     )
+                }
+                var x = side
+                row.left.keys.forEachIndexed { i, def ->
+                    val right = x + def.width * unit
+                    place(def, x, right, if (i == 0) 0f else x, right)
                     x = right
                 }
+                val innerLeft = x
+                val innerRight = innerLeft + gap
                 val leftLast = row.left.keys.last()
                 val rightFirst = row.right.keys.first()
-                if (ghostUnits > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL) {
-                    val gl = leftInner
-                    val gr = minOf(leftInner + ghostUnits * unit, (leftInner + rightInner) / 2f)
-                    keys.add(Key(rightFirst, Box(gl, top, gr, bottom), Box(gl, touchTop, gr, touchBottom), r, r * spec.zonesPerRow + 1, ghost = true))
-                    val hr = rightInner
-                    val hl = maxOf(rightInner - ghostUnits * unit, (leftInner + rightInner) / 2f)
-                    keys.add(Key(leftLast, Box(hl, top, hr, bottom), Box(hl, touchTop, hr, touchBottom), r, r * spec.zonesPerRow + 2, ghost = true))
+                val ghosts = ghost > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL
+                if (ghosts) {
+                    val gr = innerLeft + ghost
+                    keys.add(Key(rightFirst, Box(innerLeft, top, gr, bottom), Box(innerLeft, touchTop, gr, touchBottom), r, r * spec.zonesPerRow + 1, ghost = true))
+                    val hl = innerRight - ghost
+                    keys.add(Key(leftLast, Box(hl, top, innerRight, bottom), Box(hl, touchTop, innerRight, touchBottom), r, r * spec.zonesPerRow + 2, ghost = true))
                 }
-                x = rightInner
+                if (withPanel) {
+                    val inset = if (ghosts) ghost else 0f
+                    panel.add(Box(innerLeft + inset, top, innerRight - inset, bottom))
+                }
+                x = innerRight
                 row.right.keys.forEachIndexed { i, def ->
-                    val left = x
                     val right = x + def.width * unit
-                    val touchRight = if (i == row.right.keys.lastIndex) spec.widthPx else right
-                    keys.add(
-                        Key(
-                            def,
-                            Box(left + gapX, top + gapY, right - gapX, bottom - gapY),
-                            Box(left, touchTop, touchRight, touchBottom),
-                            r,
-                            r * spec.zonesPerRow + zoneColumn((left + right) / 2f, spec.widthPx, spec.zonesPerRow),
-                        )
-                    )
+                    val outer = i == row.right.keys.lastIndex && right >= rightEdge - EDGE_SLACK_PX
+                    place(def, x, right, x, if (outer) spec.widthPx else right)
                     x = right
                 }
             }
             val height = spec.topPx + rows.size * rowH + spec.liftPx + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel)
+            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel, padLayer(keys, pad, spec))
+        }
+
+        private fun padLayer(keys: List<Key>, pad: List<List<KeyDef>>, spec: GeometrySpec): List<Key> {
+            if (pad.isEmpty()) return keys
+            val gapX = spec.gapMm * spec.pxPerMmX / 2f
+            val gapY = spec.gapMm * spec.pxPerMmY / 2f
+            val anchor = keys.firstOrNull { !it.ghost && (it.def.action as? KeyAction.Char)?.base == Layouts.PAD_ANCHOR }
+                ?: return keys
+            val x0 = anchor.face.left - gapX
+            val x1 = keys.filter { !it.ghost }.maxOf { it.face.right + gapX }
+            val covered = keys.filterTo(HashSet()) { it.row < pad.size && (it.ghost || it.face.right + gapX > x0 + EDGE_SLACK_PX) }
+            val padKeys = ArrayList<Key>()
+            pad.forEachIndexed { r, row ->
+                val ref = keys.first { it.row == r && !it.ghost }
+                val top = ref.face.top - gapY
+                val bottom = ref.face.bottom + gapY
+                val start = covered.filter { it.row == r && !it.ghost }.minOfOrNull { it.face.left - gapX } ?: x0
+                val w = (x1 - x0) / row.size
+                row.forEachIndexed { c, def ->
+                    val left = x0 + c * w
+                    val right = left + w
+                    padKeys.add(
+                        Key(
+                            def,
+                            Box(left + gapX, top + gapY, right - gapX, bottom - gapY),
+                            Box(
+                                if (c == 0) minOf(start, left) else left,
+                                ref.touch.top,
+                                if (c == row.lastIndex) spec.widthPx else right,
+                                ref.touch.bottom,
+                            ),
+                            r,
+                            r * spec.zonesPerRow + zoneColumn((left + right) / 2f, spec.widthPx, spec.zonesPerRow),
+                            pad = true,
+                        )
+                    )
+                }
+            }
+            return keys.filter { it !in covered } + padKeys
         }
 
         private fun zoneColumn(cx: Float, width: Float, zones: Int): Int =

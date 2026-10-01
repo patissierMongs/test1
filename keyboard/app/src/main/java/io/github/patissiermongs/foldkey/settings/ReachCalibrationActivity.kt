@@ -109,7 +109,7 @@ class ReachCalibrationActivity : Activity() {
         ) {
             val unit = ReachCalibration.unitMm(
                 l.medianMm, r.medianMm, KeyboardView.SIDE_MM,
-                Layouts.split.maxOf { it.left.units }, Layouts.split.maxOf { it.right.units },
+                Layouts.splitLeftUnits, Layouts.splitRightUnits,
                 UNIT_MIN_MM, UNIT_MAX_MM,
             )
             pendingUnit = unit
@@ -204,11 +204,14 @@ private class ReachView(
         paint.strokeWidth = 0.15f * pxPerMmY
         for (r in 0..b.rows) canvas.drawLine(0f, rowsTop + r * rowH, width.toFloat(), rowsTop + r * rowH, paint)
         val unit = prefs.splitUnitMm
-        val leftInner = (KeyboardView.SIDE_MM + Layouts.split.maxOf { it.left.units } * unit) * pxPerMmX
-        val rightInner = width - (KeyboardView.SIDE_MM + Layouts.split.maxOf { it.right.units } * unit) * pxPerMmX
         paint.strokeWidth = 0.3f * pxPerMmX
-        canvas.drawLine(leftInner, rowsTop, leftInner, rowsBottom, paint)
-        canvas.drawLine(rightInner, rowsTop, rightInner, rowsBottom, paint)
+        for ((r, row) in Layouts.split.withIndex()) {
+            val top = rowsTop + r * rowH
+            val leftInner = (KeyboardView.SIDE_MM + row.left.units * unit) * pxPerMmX
+            val rightInner = width - (KeyboardView.SIDE_MM + (Layouts.splitUnits - row.left.units) * unit) * pxPerMmX
+            canvas.drawLine(leftInner, top, leftInner, top + rowH, paint)
+            canvas.drawLine(rightInner, top, rightInner, top + rowH, paint)
+        }
         paint.strokeWidth = 0.6f * pxPerMmX
         paint.color = palette.accent
         ReachCalibration.summarize(reaches.getValue(Side.LEFT))?.let {

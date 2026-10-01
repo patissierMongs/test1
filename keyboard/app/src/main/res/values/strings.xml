@@ -59,10 +59,11 @@
 • Swipe down: Ctrl+key (c → ^C); on the number row F1–F12
 • Long press: same as swipe up, or repeat (setting)
 • Drag on space: left/right moves the cursor, up/down sends ↑ ↓ (with Shift: select)
+• Hold space, then drag: select (in terminals: move the cursor)
 • Esc/Ctrl key: tap for Esc, hold with another key for Ctrl. Fn + Esc: Insert
 • Ctrl, Alt, Shift, Fn: tap once for the next key, double tap to lock, or hold while typing
-• Fn + digits: F1–F10, Fn + ⌫: Del, Fn + h j k l: arrows, Fn + y o: Home End, Fn + u i: PgDn PgUp
-• Fn + other keys: special characters (· … ‘ ’ 「 」 ₩ × ÷ …); swipe up with Fn for the second symbol. Labels change while Fn is on
+• Fn: numpad on the right (7 8 9 / ⌫ … 0 . = + ⏎); swipe up on its ⌫ for Del. Lock or hold Fn for several digits
+• Cover screen: Fn + h j k l: arrows, Fn + y o: Home End, Fn + u i: PgDn PgUp, Fn + ⌫: Del
 • Arrow keys: swipe up for Home/End/PgUp/PgDn, hold to repeat
 • The strip shows special keys you sent (Esc, ^C, Tab…)</string>
     <string name="pref_long_press_action">Long press action</string>

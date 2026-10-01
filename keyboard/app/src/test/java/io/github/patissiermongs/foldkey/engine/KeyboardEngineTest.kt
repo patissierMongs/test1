@@ -284,6 +284,30 @@ class KeyboardEngineTest {
     }
 
     @Test
+    fun selectionDragHoldsShiftInEditorsButSendsPlainArrowsToTerminals() {
+        engine.perform(KeyAction.Lang)
+        type("gk")
+        engine.moveCursor(-2, select = true)
+        engine.moveCursorRows(1, select = true)
+        engine.endCursorMove()
+        assertEquals("하", editor.text.toString())
+        assertEquals(
+            listOf(
+                KeyEvent.KEYCODE_DPAD_LEFT to Modifiers.SHIFT_META,
+                KeyEvent.KEYCODE_DPAD_LEFT to Modifiers.SHIFT_META,
+                KeyEvent.KEYCODE_DPAD_DOWN to Modifiers.SHIFT_META,
+            ),
+            editor.keys,
+        )
+        editor.keys.clear()
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        engine.moveCursor(1, select = true)
+        engine.moveCursorRows(-1, select = true)
+        engine.endCursorMove()
+        assertEquals(listOf(KeyEvent.KEYCODE_DPAD_RIGHT to 0, KeyEvent.KEYCODE_DPAD_UP to 0), editor.keys)
+    }
+
+    @Test
     fun rowMoveUsesUpDownArrowsAndFinishesHangulFirst() {
         engine.perform(KeyAction.Lang)
         type("gks")
@@ -341,19 +365,23 @@ class KeyboardEngineTest {
     }
 
     @Test
-    fun fnSymbolCommitsTextAfterFinishingHangul() {
+    fun numpadTextCommitsAfterFinishingHangulAndIgnoresShift() {
         engine.perform(KeyAction.Lang)
         type("gk")
-        engine.perform(KeyAction.Text("·"))
+        engine.perform(KeyAction.Text("7"))
         type("rk")
-        engine.perform(KeyAction.Text("…"))
-        assertEquals("하·가…", editor.text.toString())
+        engine.perform(KeyAction.Text("+"))
+        assertEquals("하7가+", editor.text.toString())
+        tapMod(Modifier.SHIFT)
+        engine.perform(KeyAction.Text("8"))
+        assertFalse(engine.modifiers.isActive(Modifier.SHIFT))
         engine.startInput(EditorContext(raw = true, preferLatin = true))
         engine.perform(KeyAction.Lang)
         type("gk")
-        engine.perform(KeyAction.Text("₩"))
-        assertEquals("하·가…하₩", editor.text.toString())
+        engine.perform(KeyAction.Text("0"))
+        assertEquals("하7가+8하0", editor.text.toString())
         assertEquals("", listener.preedit)
+        assertTrue(editor.keys.isEmpty())
     }
 
     @Test

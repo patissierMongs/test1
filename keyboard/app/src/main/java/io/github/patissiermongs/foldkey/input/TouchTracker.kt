@@ -14,6 +14,7 @@ data class TouchParams(
     val repeatDelayMs: Long = 400L,
     val repeatIntervalMs: Long = 50L,
     val verticalDominance: Float = 1.2f,
+    val selectHoldMs: Long = 400L,
 )
 
 interface TouchSink {
@@ -31,9 +32,9 @@ interface TouchSink {
 
     fun released(pointer: Int)
 
-    fun cursor(steps: Int)
+    fun cursor(steps: Int, select: Boolean)
 
-    fun cursorRows(steps: Int)
+    fun cursorRows(steps: Int, select: Boolean)
 
     fun cursorEnd()
 
@@ -41,7 +42,7 @@ interface TouchSink {
 }
 
 class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
-    private enum class Mode { PENDING, MODIFIER, REPEAT, CURSOR, CURSOR_ROWS, DONE }
+    private enum class Mode { PENDING, MODIFIER, REPEAT, HOLD, CURSOR, CURSOR_ROWS, DONE }
 
     private class Pointer(val id: Int, val key: Key, val x0: Float, val y0: Float) {
         var x = x0
@@ -52,6 +53,9 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         var anchor = x0
         var anchorY = y0
         var repeatOnHold = false
+        var select = false
+        var sx = x0
+        var sy = y0
     }
 
     private val pointers = LinkedHashMap<Int, Pointer>()
@@ -83,7 +87,11 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                 sink.variant(id, key, Gesture.TAP)
             }
             else -> {
-                if (params.longPressMs > 0 && def.hasVariants && !def.isSpace) p.deadline = t + params.longPressMs
+                if (def.isSpace) {
+                    p.deadline = t + params.selectHoldMs
+                } else if (params.longPressMs > 0 && def.hasVariants) {
+                    p.deadline = t + params.longPressMs
+                }
                 sink.variant(id, key, Gesture.TAP)
             }
         }
@@ -96,19 +104,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         when (p.mode) {
             Mode.PENDING -> {
                 if (p.key.def.isSpace) {
-                    val dx = x - p.x0
-                    val dy = y - p.y0
-                    if (abs(dy) >= params.cursorStartPx && abs(dy) >= abs(dx) * params.verticalDominance) {
-                        releasePending(t, pointers.values.takeWhile { it !== p })
-                        p.mode = Mode.CURSOR_ROWS
-                        p.anchorY = p.y0 + if (dy > 0) params.cursorStartPx else -params.cursorStartPx
-                        stepRows(p)
-                    } else if (abs(dx) >= params.cursorStartPx) {
-                        releasePending(t, pointers.values.takeWhile { it !== p })
-                        p.mode = Mode.CURSOR
-                        p.anchor = p.x0 + if (dx > 0) params.cursorStartPx else -params.cursorStartPx
-                        stepCursor(p)
-                    }
+                    startCursor(p, t)
                     return
                 }
                 val g = classify(x - p.x0, y - p.y0, p.key)
@@ -118,6 +114,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                     sink.variant(id, p.key, g)
                 }
             }
+            Mode.HOLD -> startCursor(p, t)
             Mode.CURSOR -> stepCursor(p)
             Mode.CURSOR_ROWS -> stepRows(p)
             else -> Unit
@@ -159,15 +156,26 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                 }
                 Mode.PENDING -> {
                     releasePending(t, pointers.values.takeWhile { it !== p })
-                    if (p.repeatOnHold || params.longPressRepeats) {
-                        sink.fire(p.key, Gesture.TAP, t)
-                        p.mode = Mode.REPEAT
-                        p.deadline = t + params.repeatIntervalMs
-                    } else {
-                        p.deadline = Long.MAX_VALUE
-                        sink.fire(p.key, Gesture.LONG, t)
-                        sink.variant(p.id, p.key, Gesture.LONG)
-                        p.mode = Mode.DONE
+                    when {
+                        p.key.def.isSpace -> {
+                            p.deadline = Long.MAX_VALUE
+                            p.mode = Mode.HOLD
+                            p.select = true
+                            p.sx = p.x
+                            p.sy = p.y
+                            sink.variant(p.id, p.key, Gesture.LONG)
+                        }
+                        p.repeatOnHold || params.longPressRepeats -> {
+                            sink.fire(p.key, Gesture.TAP, t)
+                            p.mode = Mode.REPEAT
+                            p.deadline = t + params.repeatIntervalMs
+                        }
+                        else -> {
+                            p.deadline = Long.MAX_VALUE
+                            sink.fire(p.key, Gesture.LONG, t)
+                            sink.variant(p.id, p.key, Gesture.LONG)
+                            p.mode = Mode.DONE
+                        }
                     }
                 }
                 else -> p.deadline = Long.MAX_VALUE
@@ -190,7 +198,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
             Mode.MODIFIER -> sink.modifierUp(p.key, t)
             Mode.PENDING -> commit(p, t)
             Mode.CURSOR, Mode.CURSOR_ROWS -> sink.cursorEnd()
-            Mode.REPEAT, Mode.DONE -> Unit
+            Mode.REPEAT, Mode.HOLD, Mode.DONE -> Unit
         }
         sink.released(p.id)
     }
@@ -201,11 +209,30 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         if (g == Gesture.TAP) sink.sample(p.key, p.x0, p.y0)
     }
 
+    private fun startCursor(p: Pointer, t: Long) {
+        val dx = p.x - p.sx
+        val dy = p.y - p.sy
+        val start = params.cursorStartPx
+        if (abs(dy) >= start && abs(dy) >= abs(dx) * params.verticalDominance) {
+            releasePending(t, pointers.values.takeWhile { it !== p })
+            p.mode = Mode.CURSOR_ROWS
+            p.deadline = Long.MAX_VALUE
+            p.anchorY = p.sy + if (dy > 0) start else -start
+            stepRows(p)
+        } else if (abs(dx) >= start) {
+            releasePending(t, pointers.values.takeWhile { it !== p })
+            p.mode = Mode.CURSOR
+            p.deadline = Long.MAX_VALUE
+            p.anchor = p.sx + if (dx > 0) start else -start
+            stepCursor(p)
+        }
+    }
+
     private fun stepCursor(p: Pointer) {
         val steps = ((p.x - p.anchor) / params.cursorStepPx).toInt()
         if (steps != 0) {
             p.anchor += steps * params.cursorStepPx
-            sink.cursor(steps)
+            sink.cursor(steps, p.select)
         }
     }
 
@@ -213,7 +240,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         val steps = ((p.y - p.anchorY) / params.cursorRowStepPx).toInt()
         if (steps != 0) {
             p.anchorY += steps * params.cursorRowStepPx
-            sink.cursorRows(steps)
+            sink.cursorRows(steps, p.select)
         }
     }
 

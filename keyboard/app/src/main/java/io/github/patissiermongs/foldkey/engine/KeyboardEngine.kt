@@ -134,16 +134,18 @@ class KeyboardEngine(private val editor: Editor, private val listener: EngineLis
         }
     }
 
-    fun moveCursor(steps: Int) = moveBy(steps, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT)
+    fun moveCursor(steps: Int, select: Boolean = false) =
+        moveBy(steps, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, select)
 
-    fun moveCursorRows(steps: Int) = moveBy(steps, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)
+    fun moveCursorRows(steps: Int, select: Boolean = false) =
+        moveBy(steps, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, select)
 
-    private fun moveBy(steps: Int, backward: Int, forward: Int) {
+    private fun moveBy(steps: Int, backward: Int, forward: Int, select: Boolean) {
         if (steps == 0) return
         batch {
             flushComposition()
             val code = if (steps < 0) backward else forward
-            val meta = modifiers.metaState(modifiers.shiftForSymbols())
+            val meta = modifiers.metaState(modifiers.shiftForSymbols() || (select && !context.raw))
             repeat(abs(steps)) { editor.sendKey(code, meta) }
             if (recording) KeyNames.code(code)?.let { name -> repeat(abs(steps)) { typed.token(KeyNames.chord(meta, name)) } }
         }
