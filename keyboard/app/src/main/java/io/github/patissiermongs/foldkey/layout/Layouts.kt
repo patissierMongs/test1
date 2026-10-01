@@ -69,24 +69,24 @@ object Layouts {
 
     val split: List<SplitRow> = listOf(
         SplitRow(
-            RowDef(listOf(ch('`')) + digits(1..5)),
-            RowDef(digits(6..10) + listOf(fkey('-', 11), fkey('=', 12), ch('\\'))),
+            RowDef(listOf(ch('`')) + digits(1..6)),
+            RowDef(digits(7..10) + listOf(fkey('-', 11), fkey('=', 12), ch('\\'))),
         ),
         SplitRow(
             RowDef(listOf(tab(1.5f)) + letters("qwert")),
-            RowDef(letters("yuiop[]") + backspace(1.5f)),
+            RowDef(letters("yuiop[]") + backspace(1f)),
         ),
         SplitRow(
             RowDef(listOf(escCtrl(1.75f)) + letters("asdfg")),
-            RowDef(letters("hjkl;'") + enter(2.25f)),
+            RowDef(letters("hjkl;'") + enter(1.75f)),
         ),
         SplitRow(
-            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcv")),
-            RowDef(letters("bnm,./") + mod(Modifier.SHIFT, "⇧", 2.75f)),
+            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcvb")),
+            RowDef(letters("nm,./") + mod(Modifier.SHIFT, "⇧", 2.25f)),
         ),
         SplitRow(
             RowDef(listOf(mod(Modifier.CTRL, "Ctrl", 1.25f), mod(Modifier.ALT, "Alt", 1.25f), mod(Modifier.FN, "Fn", 1f), space(3f))),
-            RowDef(listOf(space(3.5f), lang(1f)) + arrows()),
+            RowDef(listOf(space(3f), lang(1f)) + arrows()),
         ),
     )
 

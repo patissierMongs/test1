@@ -34,7 +34,7 @@
 | 미리보기 팝업 | 탭 미리보기는 600dp(density-independent pixel) 이상 화면에서 기본 꺼짐. 밀기 동작의 결과 미리보기(^C 등)는 항상 표시 | AOSP LatinIME 태블릿 기본값, Vogel·Baudisch(2007) |
 | 한글 | 두벌식(KS(Korean Industrial Standards, 한국산업표준) X 5002). libhangul과 같은 조합 규칙. 터미널에서는 조합 중인 글자를 키보드 상단 줄에 표시하고 완성된 음절만 보낸다 | KS X 5002, libhangul, Termux 소스 |
 | vim 대응 | Esc 또는 Ctrl+[ 입력 시 한글 모드에서 영문으로 전환 | ibus-hangul, 구름 입력기 |
-| 분할 배열 모양 | 0.4.0부터 두 반쪽 모두 ANSI·HHKB(Happy Hacking Keyboard)의 줄 어긋남을 그대로 둔다. ⌫는 HHKB처럼 `]` 오른쪽(⏎ 위)에 1.5칸, ⏎는 2.25칸, 오른쪽 Shift는 2.75칸 | 사용자 제보, PFU HHKB 설명서, KALQ(2013)(3.8절) |
+| 분할 배열 모양 | 0.4.0부터 두 반쪽 모두 ANSI·HHKB(Happy Hacking Keyboard)의 줄 어긋남을 그대로 둔다. 0.5.0부터 경계는 6\|7, T\|Y, G\|H, B\|N이고, ⌫는 HHKB처럼 `]` 오른쪽(⏎ 위)에 1칸, ⏎는 1.75칸, 오른쪽 Shift는 2.25칸. 키 너비 7.0 mm의 가로 분할에서 두 반쪽은 옆 끝에서 51.25 mm, 56.5 mm까지 온다 | 사용자 제보, PFU HHKB 설명서, KALQ(2013), Windows 8 thumb keyboard, Coppola 외(2018), 글자 빈도 측정(3.8–3.9절) |
 | Fn 레이어 | 0.4.0부터 Fn을 켜면 위 네 줄의 오른쪽 끝에 글자 키와 같은 폭의 5×4 숫자판(`7 8 9 / ⌫`, `4 5 6 * (`, `1 2 3 - )`, `0 . = + ⏎`)이 나온다. 커버 화면에서는 오른쪽 반쪽이 숫자판이 된다. 0.2.0에 넣은 특수문자 53개와 다른 키와 겹치던 Fn 조합은 뺐다. Fn+Esc는 Insert | 사용자 요청, PC 숫자 패드 배열(7.8–7.9절) |
 | 커서와 선택 | 스페이스를 좌우·위아래로 끌면 커서 이동, 꾹 누른 뒤 끌면 Shift+방향키로 선택. 터미널에서는 Shift 없이 커서만 움직인다 | 사용자 요청, Termux `KeyHandler.java`(7.10절) |
 | 분할 배열 가운데 | 위 두 줄은 클립보드 기록, 아래 세 줄은 커서 앞 글자. 자주 누르는 키는 두지 않음 | KALQ(2013), Bergstrom-Lehtovirta·Oulasvirta(2014), Trudeau 외(2013), Lu 외(2019), Jiang 외(2020)(3.6절) |
@@ -82,13 +82,15 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 ### 3.3 분할 경계와 한글
 
-분할 경계는 T|Y, G|H, V|B이고 B를 오른쪽 반쪽에 둔다. iPad 분할 키보드도 B를 오른쪽에 둔다. 이 경계에는 두벌식과 관련된 성질이 있다. KS X 5002에서 왼쪽 반쪽의 글자 키(q w e r t, a s d f g, z x c v)는 모두 자음(ㅂㅈㄷㄱㅅ, ㅁㄴㅇㄹㅎ, ㅋㅌㅊㅍ)이고, 오른쪽 반쪽의 글자 키(y u i o p, h j k l, b n m)는 모두 모음(ㅛㅕㅑㅐㅔ, ㅗㅓㅏㅣ, ㅠㅜㅡ)이다. 그래서 자음과 모음이 번갈아 나오는 한글 음절은 두 엄지가 번갈아 치게 된다. KALQ가 최적화 목표로 삼은 것이 바로 엄지 교대 비율이다(KALQ는 62%). B를 왼쪽에 두면 ㅠ가 자음 쪽 엄지로 넘어간다. 이 성질은 `LayoutsTest.splitPutsEveryDubeolsikVowelOnTheRightHalf` 테스트로 확인한다.
+0.4.1까지 분할 경계는 T|Y, G|H, V|B였고 B를 오른쪽 반쪽에 두었다. iPad 분할 키보드도 B를 오른쪽에 둔다. 이 경계에는 두벌식과 관련된 성질이 있다. KS X 5002에서 왼쪽 반쪽의 글자 키(q w e r t, a s d f g, z x c v)는 모두 자음(ㅂㅈㄷㄱㅅ, ㅁㄴㅇㄹㅎ, ㅋㅌㅊㅍ)이고, 오른쪽 반쪽의 글자 키(y u i o p, h j k l, b n m)는 모두 모음(ㅛㅕㅑㅐㅔ, ㅗㅓㅏㅣ, ㅠㅜㅡ)이다. 그래서 자음과 모음이 번갈아 나오는 한글 음절은 두 엄지가 번갈아 치게 된다. KALQ가 최적화 목표로 삼은 것이 바로 엄지 교대 비율이다(KALQ는 62%). B를 왼쪽에 두면 ㅠ가 자음 쪽 엄지로 넘어간다.
+
+0.5.0부터는 오른쪽 반쪽을 좁히려고 B와 숫자 행 6을 왼쪽 반쪽으로 옮겼다(3.9절). 경계는 6|7, T|Y, G|H, B|N이다. 일반 타자법에서 B는 왼손 검지가 맡고, Windows 8 thumb keyboard도 B를 왼쪽에 두었다. 자음 쪽 엄지로 넘어가는 모음은 ㅠ 하나이고, 한국어 위키백과 문서로 잰 한글 입력에서 ㅠ는 0.27%다. 연속한 두 자모 입력 가운데 엄지를 바꾸는 비율은 82.9%에서 82.3%가 된다. 자음은 모두 왼쪽, ㅠ를 뺀 모음은 모두 오른쪽에 있다는 성질은 `LayoutsTest.splitKeepsDubeolsikConsonantsLeftAndVowelsRightExceptYu` 테스트로 확인한다.
 
 두 반쪽 사이 빈 공간의 안쪽 가장자리에는 보이지 않는 복제 키(ghost key)를 둔다. 왼쪽 반쪽 T 옆에는 Y, G 옆에는 H가 들어가는 식이다. 2012년 기술 매체들이 iPad 분할 키보드에서 같은 숨은 키(T/G/V와 Y/H/B)를 찾아 보도했다 `[2차]`. 손가락 배정을 다르게 배운 사용자의 입력이 빈 공간으로 빠지지 않게 하려는 장치다. 0.4.0부터 복제 키는 줄마다 그 줄의 안쪽 끝 바로 옆에 붙는다(3.8절).
 
 ### 3.4 반쪽 너비
 
-분할 배열의 목표 키 너비는 8.5 mm다. Parhi 외(2006)에서 연속 입력 과제의 오류율은 7.7 mm 이상에서 유의한 차이가 없었다. 0.4.0에서 배열 폭이 14.25칸에서 15칸으로 늘었다(3.8절). 폴드7 가로 자세에서 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 77.0 mm(숫자 행 `6`의 안쪽 끝)까지 온다. 세로 자세에서는 화면에 맞추느라 키 너비가 7.93 mm로 줄고, 두 반쪽은 각각 54.0 mm, 71.9 mm가 된다(테스트 `fold7SplitHalfSpansFromTheScreenEdges`, `fold7PortraitSplitKeysAreAbout7_9mm`). 7.93 mm는 Parhi 외의 7.7 mm보다 크다. 오른쪽 반쪽이 KALQ의 58 mm보다 넓은 이유는 ANSI 배열의 기호 키(`[ ] ; ' , . /`)와 Enter, Backspace, 오른쪽 Shift가 오른쪽에 몰려 있고, 줄 어긋남 때문에 숫자 행이 오른쪽 반쪽에서 가장 안쪽까지 나오기 때문이다. 오른쪽 반쪽을 58 mm 안에 넣으려면 키 너비가 6.4 mm 아래여야 해서 설정 범위(7.0 mm 이상)로는 들어오지 않는다. 0.4.0까지 분할 배열은 `\` 키를 1.25칸 왼쪽 Shift 옆에 두었다. 영국식 ISO(International Organization for Standardization) 배열이 같은 자리에 `\`를 둔다. 0.4.1부터는 왼쪽 Shift가 작다는 사용자 의견에 따라 Shift를 ANSI·HHKB와 같은 2.25칸으로 넓히고, `\`는 HHKB처럼 숫자 행 `=` 오른쪽으로 옮겼다.
+분할 배열의 목표 키 너비는 8.5 mm다. Parhi 외(2006)에서 연속 입력 과제의 오류율은 7.7 mm 이상에서 유의한 차이가 없었다. 0.4.0에서 배열 폭이 14.25칸에서 15칸으로 늘었다(3.8절). 폴드7 가로 자세에서 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 77.0 mm(숫자 행 `6`의 안쪽 끝)까지 온다. 세로 자세에서는 화면에 맞추느라 키 너비가 7.93 mm로 줄고, 두 반쪽은 각각 54.0 mm, 71.9 mm가 된다. 7.93 mm는 Parhi 외의 7.7 mm보다 크다. 0.5.0에서 배열 폭이 14.5칸으로 줄어, 가로 자세에서 두 반쪽은 62.1 mm, 68.5 mm, 세로 자세에서 키 너비 8.17 mm, 두 반쪽 59.7 mm, 65.9 mm다(테스트 `fold7SplitHalfSpansFromTheScreenEdges`, `fold7PortraitSplitKeysAreAbout8_2mm`, 3.9절). 오른쪽 반쪽이 KALQ의 58 mm보다 넓은 이유는 ANSI 배열의 기호 키(`[ ] ; ' , . /`)와 Enter, Backspace, 오른쪽 Shift가 오른쪽에 몰려 있고, 줄 어긋남 때문에 숫자 행이 오른쪽 반쪽에서 가장 안쪽까지 나오기 때문이다. 0.4.x에서 오른쪽 반쪽을 58 mm 안에 넣으려면 키 너비가 6.4 mm 아래여야 해서 설정 범위(7.0 mm 이상)로는 들어오지 않았다. 0.5.0에서는 7.1 mm 이하에서 들어온다. 0.4.0까지 분할 배열은 `\` 키를 1.25칸 왼쪽 Shift 옆에 두었다. 영국식 ISO(International Organization for Standardization) 배열이 같은 자리에 `\`를 둔다. 0.4.1부터는 왼쪽 Shift가 작다는 사용자 의견에 따라 Shift를 ANSI·HHKB와 같은 2.25칸으로 넓히고, `\`는 HHKB처럼 숫자 행 `=` 오른쪽으로 옮겼다.
 
 ### 3.5 커버 화면
 
@@ -98,7 +100,7 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 폴드7 가로 화면(150.7 mm)에서 키 너비 8.5 mm로 계산하면 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 64.3 mm까지 온다. 그 사이 빈 공간은 폭 28.6 mm, 높이 47.5 mm다. 빈 공간의 중심은 왼쪽 끝에서 72.2 mm, 오른쪽 끝에서 78.6 mm 떨어져 있다. 0.1.0에서는 위 네 행의 양쪽 1칸(8.5 mm)을 복제 키가 차지하고 나머지 11.6 mm에 닿은 터치는 버려졌다. 세로 분할(135.8 mm)에서는 빈 공간이 16.6 mm이고 복제 키가 모두 채운다. 책 자세에서 접히는 선(왼쪽에서 67.9 mm)이 이 구간을 지난다.
 
-0.4.0부터는 두 반쪽이 줄마다 다른 자리에서 끝나고, 같은 줄의 두 반쪽 사이 간격은 모든 줄에서 같다(3.8절). 폴드7 가로 화면에서 이 간격은 22.2 mm, 세로 분할에서는 15.9 mm다. 세로 분할의 간격은 복제 키 두 칸이 채운다.
+0.4.0부터는 두 반쪽이 줄마다 다른 자리에서 끝나고, 같은 줄의 두 반쪽 사이 간격은 모든 줄에서 같다(3.8절). 폴드7 가로 화면(키 너비 8.5 mm)에서 이 간격은 0.4.x에서 22.2 mm, 0.5.0에서 26.5 mm다. 세로 분할에서는 15.9 mm, 16.3 mm이고 복제 키 두 칸이 채운다.
 
 연구 결과:
 
@@ -117,7 +119,7 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 **결정.** 가운데는 두 엄지 모두에서 가장 먼 곳이라 자주 누르는 키는 두지 않는다. 보기만 하는 정보와 가끔 누르는 항목만 둔다.
 
-- 가운데 패널은 줄마다 한 칸씩, 그 줄의 간격에서 복제 키를 뺀 자리에 만든다. 칸 폭이 12 mm 이상일 때만 만들고, 복제 키가 한 칸이면 이 폭이 나오지 않을 때 복제 키를 반 칸으로 줄인다. 폴드7 가로 화면에서 칸 폭은 위 네 줄이 13.7 mm, 스페이스 줄이 22.2 mm이고 복제 키는 4.25 mm다(테스트 `fold7LandscapeSplitGetsOnePanelBoxPerRowBetweenHalfWidthGhostKeys`). 0.3.0까지는 모든 줄에 걸친 직사각형 하나(폭 20.1 mm, 최소 16 mm)였다. 줄 어긋남을 넣은 뒤에는 모든 줄에 걸친 직사각형의 폭이 7.4 mm로 줄어서 줄마다 칸을 나누고 최소 폭을 12 mm로 낮췄다.
+- 가운데 패널은 줄마다 한 칸씩, 그 줄의 간격에서 복제 키를 뺀 자리에 만든다. 칸 폭이 12 mm 이상일 때만 만들고, 복제 키가 한 칸이면 이 폭이 나오지 않을 때 복제 키를 반 칸으로 줄인다. 폴드7 가로 화면에서 칸 폭은 0.4.x에서 위 네 줄이 13.7 mm, 스페이스 줄이 22.2 mm였고, 0.5.0에서 18.0 mm, 26.5 mm다. 복제 키는 4.25 mm다(테스트 `fold7LandscapeSplitGetsOnePanelBoxPerRowBetweenHalfWidthGhostKeys`). 0.3.0까지는 모든 줄에 걸친 직사각형 하나(폭 20.1 mm, 최소 16 mm)였다. 줄 어긋남을 넣은 뒤에는 모든 줄에 걸친 직사각형의 폭이 7.4 mm로 줄어서 줄마다 칸을 나누고 최소 폭을 12 mm로 낮췄다.
 - 위 두 줄은 클립보드 기록이다. 가운데에서 가장 위쪽이라 엄지가 빗나가 닿을 가능성이 가장 작은 자리에 누르는 항목을 둔다. 스페이스 양끝과 맞닿은 맨 아래 줄에는 누르는 항목을 두지 않는다.
 - 아래 세 줄은 커서 앞 글자다. 본문까지 시선을 옮기지 않고 키 근처에서 확인하게 하려는 것이다. 이 형태가 속도나 오류에 주는 효과를 측정한 연구는 찾지 못했다.
 - 숫자 패드는 넣지 않았다. 숫자 행이 이미 있고, 가운데가 숫자 행보다 엄지에서 멀다. 0.4.0의 Fn 숫자판은 가운데가 아니라 오른쪽 반쪽 자리에 나온다(7.9절).
@@ -140,7 +142,7 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 **결정.** 반쪽 올림 높이(0–15 mm)를 설정으로 둔다. 맨 아래 행의 판정 영역은 올린 만큼 아래로 넓힌다(테스트 `liftAddsHeightBelowTheHalvesAndExtendsTheBottomRowTouchArea`). 엄지 범위 측정 화면은 키 너비를 사람마다 정한다.
 
 - 한 획에서 키보드 다섯 줄 각각의 가장 먼 지점을 구하고, 그중 가장 짧은 값을 그 획의 도달 거리로 쓴다. 안쪽 끝이 모든 줄에서 닿아야 하기 때문이다. 다섯 줄을 모두 지나지 않은 획은 버린다.
-- 0.4.0부터 반쪽 안쪽 끝은 줄마다 다르다(왼쪽 6.0–6.75칸, 오른쪽 8.25–9.0칸). 키 너비는 가장 짧은 도달 거리와 가장 먼 안쪽 끝(왼쪽 6.75칸, 오른쪽 9.0칸)으로 계산하므로 줄마다 따로 계산할 때보다 작게 나온다. 측정 화면도 줄마다 안쪽 끝 선을 그린다.
+- 0.4.0부터 반쪽 안쪽 끝은 줄마다 다르다(0.4.x는 왼쪽 6.0–6.75칸, 오른쪽 8.25–9.0칸, 0.5.0은 왼쪽 6.5–7.25칸, 오른쪽 7.25–8.0칸). 키 너비는 가장 짧은 도달 거리와 가장 먼 안쪽 끝(0.5.0은 왼쪽 7.25칸, 오른쪽 8.0칸)으로 계산하므로 줄마다 따로 계산할 때보다 작게 나온다. 측정 화면도 줄마다 안쪽 끝 선을 그린다.
 - 엄지마다 세 획을 받는다. 세 값의 차이가 6 mm와 중앙값의 10% 가운데 큰 값보다 크면 적용하지 않고 다시 긋게 한다. 한 번의 측정으로 정하지 않기 위해서다. 일정하면 중앙값으로 두 반쪽이 각 범위 안에 들어가는 키 너비를 0.1 mm 단위로 내림해 계산한다(7.0–11.0 mm).
 - 이 방법은 KALQ처럼 엄지의 최대 도달선만 잰다. 편한 범위 안에서의 속도 차이와 화면 아래 가장자리의 어려움은 반영하지 않는다. 사람을 대상으로 검증하지 않았다.
 
@@ -150,10 +152,69 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 
 - 엄지 입력에서 줄 어긋남이 곧은 열보다 빠르거나 정확하다는 측정은 찾지 못했다. KALQ의 행 이동 실험에서 가장 나은 조합의 예측 이득은 0.1 wpm이었다(3.7절). Deskthority 위키는 곧은 열(matrix) 배열이 더 낫다는 주장을 뒷받침할 연구를 찾을 수 없다고 적는다. 그래서 이 변경의 근거는 성능 연구가 아니라 사용자가 물리 키보드에서 익힌 키 위치와 맞추는 것이다.
 - 두 반쪽의 키는 ANSI와 같은 가로 위치에 둔다. `1`, `q`, `a`, `z`는 왼쪽 끝에서 1.0, 1.5, 1.75, 2.25칸, `6`, `y`, `h`, `b`는 6.0, 6.5, 6.75, 6.25칸이다(테스트 `splitHalvesKeepTheAnsiRowStagger`). 오른쪽 반쪽은 왼쪽 반쪽의 같은 줄 끝에서 같은 간격만큼 떨어져 있어서 가운데 빈 공간이 계단 모양이 된다. 복제 키도 줄마다 그 줄 끝에 붙는다.
-- ⌫는 HHKB의 Delete 자리인 `]` 오른쪽(⏎ 바로 위)에 HHKB와 같은 1.5칸으로 두고, ⏎는 HHKB와 같은 2.25칸으로 늘린다(PFU 설명서 P3PC-6661-01EN). 원래 ⌫ 자리에는 ANSI와 같은 2.75칸 오른쪽 Shift를 둔다(테스트 `splitUsesHhkbPlacesAndWidthsForBackspaceEnterShiftAndBackslash`). 0.4.1부터 `\`는 HHKB와 같은 숫자 행 `=` 오른쪽에 있고, HHKB의 마지막 키인 `` ` ``는 FoldKey에서 왼쪽 위에 있으므로 숫자 행 오른쪽 끝 1칸은 비워 둔다. 이 자리를 눌러도 아무 키도 입력되지 않는다.
-- 오른쪽 스페이스를 2.5칸에서 3.5칸으로 늘려 스페이스 줄의 간격도 다른 줄과 같게 했다.
-- 비용: 배열 폭이 14.25칸에서 15칸으로 늘어 폴드7 세로 분할의 키 너비가 8.3 mm에서 7.93 mm로 줄었다. 오른쪽 반쪽의 가장 안쪽 키(숫자 행 `6`)는 오른쪽 끝에서 세로 71.9 mm, 가로 77.0 mm에 있다. 0.3.0에서 오른쪽 반쪽의 안쪽 끝은 각각 62.8 mm, 64.3 mm였다. ANSI 어긋남은 왼쪽 반쪽의 위쪽 안쪽 키(5, T)를 왼손 엄지 쪽으로 당기고, 오른쪽 반쪽의 6, Y는 같은 양만큼 오른손 엄지에서 멀어지게 한다. Microsoft가 공개한 Windows 8 thumb keyboard 그림에서 글자 위치를 재면 오른쪽 반쪽은 왼쪽과 거울 대칭으로 어긋나 있다(그림에서 잰 값, 설계 이유는 글에 없음).
+- ⌫는 HHKB의 Delete 자리인 `]` 오른쪽(⏎ 바로 위)에 HHKB와 같은 1.5칸으로 두고, ⏎는 HHKB와 같은 2.25칸으로 늘린다(PFU 설명서 P3PC-6661-01EN). 원래 ⌫ 자리에는 ANSI와 같은 2.75칸 오른쪽 Shift를 둔다. 0.5.0에서 세 키의 자리는 그대로 두고 폭을 ⌫ 1칸, ⏎ 1.75칸, 오른쪽 Shift 2.25칸으로 줄였다(테스트 `splitKeepsHhkbPlacesWithNarrowRightEdgeKeys`, 3.9절). 0.4.1부터 `\`는 HHKB와 같은 숫자 행 `=` 오른쪽에 있고, HHKB의 마지막 키인 `` ` ``는 FoldKey에서 왼쪽 위에 있으므로 숫자 행 오른쪽 끝은 비워 둔다(0.4.1은 1칸, 0.5.0은 0.5칸). 이 자리를 눌러도 아무 키도 입력되지 않는다.
+- 오른쪽 스페이스를 2.5칸에서 3.5칸으로 늘려 스페이스 줄의 간격도 다른 줄과 같게 했다. 0.5.0에서는 3칸이다.
+- 단점: 배열 폭이 14.25칸에서 15칸으로 늘어 폴드7 세로 분할의 키 너비가 8.3 mm에서 7.93 mm로 줄었다. 오른쪽 반쪽의 가장 안쪽 키(숫자 행 `6`)는 오른쪽 끝에서 세로 71.9 mm, 가로 77.0 mm에 있다. 0.3.0에서 오른쪽 반쪽의 안쪽 끝은 각각 62.8 mm, 64.3 mm였다. ANSI 어긋남은 왼쪽 반쪽의 위쪽 안쪽 키(5, T)를 왼손 엄지 쪽으로 당기고, 오른쪽 반쪽의 6, Y는 같은 양만큼 오른손 엄지에서 멀어지게 한다. Microsoft가 공개한 Windows 8 thumb keyboard 그림에서 글자 위치를 재면 오른쪽 반쪽은 왼쪽과 거울 대칭으로 어긋나 있다(그림에서 잰 값, 설계 이유는 글에 없음).
 - 키 위치가 바뀌었으므로 분할 배열에서 학습한 터치 편차는 새 이름(`split_ansi_…`)으로 처음부터 다시 쌓는다. 전체 배열과 커버 화면 배열의 학습값은 그대로 쓴다.
+
+### 3.9 오른쪽 반쪽 폭(0.5.0)
+
+0.4.1을 쓰던 사용자가 분할 키 너비를 설정 최소값 7.0 mm로 낮춘 상태에서, 오른쪽 반쪽이 넓어 치기 힘들고 "키보드 레이아웃 그대로라 우측이 중앙쪽 절반만 쓰는 느낌"이라고 알렸다. 0.5.0은 연구 결과와 글자 빈도 측정으로 안을 비교해 경계와 오른쪽 끝 키 폭을 바꿨다.
+
+**측정.** 배열 코드(`KeyboardGeometry.split`)로 7.0 mm 가로 화면의 키 위치를 뽑았다. 거리는 화면 옆 끝에서 잰 값이다.
+
+| 반쪽 | 0.4.1 글자 키 범위 | 0.4.1 반쪽 전체 | 0.5.0 반쪽 전체 |
+|---|---|---|---|
+| 왼쪽 | `q` 11 mm – `g` 47.7 mm | 47.75 mm | 51.25 mm(`b`) |
+| 오른쪽 | `p` 25 mm – `b` 61.8 mm | 63.5 mm(`6`) | 56.5 mm(`y`) |
+
+0.4.1의 오른쪽 바깥 25 mm에는 기호와 ⌫ ⏎ ⇧만 있었다. 글자 빈도를 넣어 엄지별 가로 이동 거리를 계산했다. 한국어는 한국어 위키백과 무작위 문서 340개의 앞부분(15,070음절)을 두벌식 키 입력으로 바꿨고, 코드는 CPython 3.11 표준 라이브러리(주석과 여러 줄 문자열 제외)와 Go 소스에서 각각 약 300만 자를 썼다. 대문자와 Shift 기호는 반대쪽 Shift를 누른다고 보고, 스페이스와 줄 앞 들여쓰기는 뺐다.
+
+| 자료(0.4.1 배열) | 엄지 | 입력 비율 | 평균 거리 | 45 mm를 넘는 입력 |
+|---|---|---|---|---|
+| 한국어 | 왼쪽 | 53% | 30.3 mm | 0% |
+| | 오른쪽 | 47% | 38.2 mm | 32% |
+| CPython | 왼쪽 | 49% | 24.1 mm | 0% |
+| | 오른쪽 | 51% | 31.9 mm | 19% |
+
+한글 입력에서 오른쪽 바깥 25 mm에 들어가는 입력은 오른쪽 입력의 14.5%였고 대부분 ⏎였다.
+
+**연구 결과.**
+
+- KALQ(Oulasvirta 외 2013, 7인치 태블릿, 6명): 여섯 가지 쥐는 법 가운데 평균 이동 시간이 가장 짧은 것은 기기 모서리를 손바닥의 thenar·hypothenar eminence(엄지두덩·새끼두덩) 사이 오목한 곳에 두는 방식이었다. 이 자세에서 손을 고쳐 잡지 않고 엄지가 닿는 영역의 폭은 57.6 mm로 여섯 가지 중 가장 좁았다. 반쪽마다 9.9 mm 키 4×4를 이 영역에 넣었고 "A 3x5 row layout similar to QWERTY would have required either smaller buttons or exceeding the active area"라고 적었다. 영역의 모서리와 가장자리를 누르는 것이 더 느리다는 선행 연구도 인용했다.
+- Bergstrom-Lehtovirta·Oulasvirta(2014): 엄지 도달 한계 모형을 KALQ의 쥐는 법에 적용하면 한계선이 아래 가장자리와 57.9 mm에서 만나 KALQ의 측정값과 맞았다. 저자들은 한계 근처에 UI 요소를 두지 말라는 heuristic(경험 규칙)을 제시했다(3.6절).
+- Windows 8 thumb keyboard(Microsoft 2012): 손 크기가 다양한 사람들의 엄지 도달 heat map(열지도)으로 배열을 정했고, 두 반쪽은 양옆 가장자리에 붙어 있다. 같은 글의 heat map 그림에서 B는 왼쪽 반쪽에 있다. Microsoft는 글자 블록 양옆을 글자가 아닌 키로 두른 초기 배열에서 사람들이 "frequently missed character keys and inadvertently touched one of the border keys"였고, 그 키들을 빼자 오류가 줄고 속도가 올랐다고 적었다.
+- Coppola 외(2018, 태블릿을 두 손으로 쥠, 16명): swipe(밀기) 동작 시간은 손바닥에 가까운 아래 구역에서 862 ms, 손바닥에서 먼 위 구역에서 1170 ms였다. 불편감(10 cm VAS(Visual Analogue Scale))은 손바닥에서 먼 동작이 2.5 cm, 가까운 동작이 0.98 cm였다.
+- Trudeau 외(2012, 한 손 휴대폰, 10명): 엄지를 많이 굽혀야 하는 엄지 뿌리 근처 키에서 수행이 가장 나빴고, 저자들은 자주 쓰는 키를 그 자리에 두지 말라고 권했다.
+- Dunlop·Levine(2012): 글자 자리를 바꾼 배열을 처음 쓸 때 사용자의 속도가 21.3 wpm(words per minute)에서 13.4 wpm으로 떨어졌고, 4일째에 17.7 wpm이었다.
+- Trudeau 외(2014): 한 손 휴대폰 엄지 모형 계산에서 배열의 곡률 반경은 수행 지표에 유의한 효과가 없었다(p = 0.67).
+
+**비교한 안.** 7.0 mm 가로 화면에서 같은 방법으로 계산했다. 엄지 교대는 연속한 두 자모 입력이 서로 다른 엄지에 놓이는 비율이다.
+
+| 안 | 바꾸는 것 | 오른쪽 반쪽 폭 | 오른쪽 엄지 평균 거리(한국어 / CPython) | 한국어에서 45 mm를 넘는 오른쪽 입력 | 한국어 엄지 교대 |
+|---|---|---|---|---|---|
+| 0.4.1 | | 63.5 mm | 38.2 / 31.9 mm | 32% | 82.9% |
+| A | `6`과 `b`를 왼쪽 반쪽으로 | 60.0 mm | 38.1 / 31.0 mm | 32% | 82.3% |
+| B | A에 더해 ⌫ 1칸, ⏎ 1.75칸, 오른쪽 Shift 2.25칸 | 56.5 mm | 34.8 / 27.8 mm | 24% | 82.3% |
+| C | `6 y h b`를 왼쪽 반쪽으로 | 56.5 mm | 35.8 / 30.2 mm | 23% | 72.9% |
+| D | `[ ] ; ' \ /`와 ↑ ↓를 다른 층으로 | 49.5 mm | 26.1 / 22.7 mm | 0% | 82.9% |
+
+D의 평균 거리는 빠진 키를 뺀 값이다. 빠지는 키는 CPython 입력의 9.5%, Go 입력의 4.6%다.
+
+**결정: B.**
+
+- 경계를 6|7, T|Y, G|H, B|N으로 옮긴다. 일반 타자법에서 B는 왼손 검지가 맡고, Windows 8 thumb keyboard도 B를 왼쪽에 두었다. 숫자 행 `6`은 오른쪽 반쪽의 가장 안쪽 끝을 정하던 키라 함께 옮긴다. 한글에서는 ㅠ만 왼손으로 간다(3.3절).
+- ⌫는 HHKB 자리(`]` 오른쪽, ⏎ 위)에 두고 1칸으로, ⏎는 1.75칸, 오른쪽 Shift는 2.25칸, 오른쪽 스페이스는 3칸으로 줄인다. 반쪽 안에서 키끼리의 가로 위치는 ANSI 그대로다(테스트 `splitHalvesKeepTheAnsiRowStagger`, `splitKeepsHhkbPlacesWithNarrowRightEdgeKeys`).
+- 배열 폭은 15칸에서 14.5칸, 오른쪽 반쪽은 9칸에서 8칸이 된다. 7.0 mm 가로 화면에서 두 반쪽은 옆 끝에서 51.25 mm, 56.5 mm까지 오고 둘 다 KALQ의 57.6 mm 안이다(테스트 `fold7SplitHalfSpansFromTheScreenEdges`).
+- 같은 엄지 범위 측정값으로 더 큰 키를 쓸 수 있다. 왼쪽 61 mm, 오른쪽 69 mm인 측정에서 키 너비는 7.6 mm에서 8.3 mm가 된다(테스트 `threeConsistentStrokesPerThumbSetTheSplitKeyWidth`). 기본값 8.5 mm에서 세로 분할의 키 너비는 7.93 mm에서 8.17 mm가 된다.
+- 단점: 0.4.0에서 사용자가 고른 1.5칸 ⌫가 1칸이 된다. 7.0 mm 키에서 ⌫의 안쪽 끝이 화면 끝에서 11 mm였다가 7.5 mm로 와서 엄지를 더 굽혀야 한다. Buschek 외(2018)의 일상 휴대폰 입력 기록에서 ⌫는 스페이스 다음으로 많은 키(8.2%)였다. ⌫의 판정 영역은 화면 끝까지 이어진다.
+- C는 폭이 같지만 한국어 엄지 교대가 10%포인트 떨어진다. KALQ의 설계 원칙 첫째가 "Maximize alternation between thumbs"였고, KALQ의 최적화 결과도 오른손 엄지에 y를 뺀 모든 모음을 줬다.
+- D는 효과가 가장 크지만 코드 기호를 두 번 눌러야 하고 HHKB에서 익힌 오른손 새끼손가락 자리가 바뀐다. 코드와 터미널 입력을 우선하는 목표와 맞지 않아 넣지 않았다.
+- 반쪽을 가운데로 옮기면 모든 키가 손바닥에서 멀어지므로(Coppola 외 2018) 옮기지 않았다. 키를 7 mm 아래로 줄이면 Parhi 외(2006)의 7.7 mm에서 더 멀어지므로 설정 범위를 바꾸지 않았다. 휜 배열은 근거가 약해 넣지 않았다.
+- 복제 키는 줄마다 안쪽 끝에 붙으므로, 0.4.x처럼 `6`과 `b`를 오른손으로 치면 오른쪽 반쪽 안쪽 끝의 복제 키가 받는다(테스트 `splitGhostKeysDuplicateTheKeysAcrossTheGap`).
+- 터치 편차 학습값은 줄마다 화면을 가로로 4등분한 구역에 쌓이므로 그대로 쓴다.
+
+**한계.** 거리는 가로 방향만 쟀고 세로 위치와 엄지 관절 위치는 넣지 않았다. 한국어 자료는 백과사전 문체이고, ⌫ 같은 편집 키는 들어 있지 않다. 엄지 도달 연구는 7–10인치 태블릿과 6–20명 표본이며, 폴더블 화면이나 두벌식 분할 입력을 다룬 연구는 찾지 못했다. 사람을 대상으로 검증하지 않았다.
 
 ## 4. 키 크기와 터치 정확도
 
@@ -438,6 +499,11 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 엔진: Fn은 한 번 누르면 다시 누를 때까지 켜져 있고, 같은 조건에서 Shift·Ctrl·Alt는 one-shot으로 남는지(`fnLatchesUntilTappedAgainWhileOtherModifiersStayOneShot`)
   - 키보드 뷰: Fn을 한 번 누른 뒤 숫자·⌫·⏎를 여러 번 쳐도 숫자판이 남고 Fn을 다시 누르면 돌아오는지, Fn을 누른 채 치면 뗄 때 꺼지는지
   - 분할 배열의 왼쪽 Shift 2.25칸과 `=` 오른쪽의 `\`
+- **0.5.0 자동 테스트.** 테스트는 166개다. 바꾼 것은 다음과 같다.
+  - 분할 배열의 경계(6|7, T|Y, G|H, B|N), ANSI 가로 위치, ⌫ 1칸·⏎ 1.75칸·오른쪽 Shift 2.25칸
+  - 두벌식 자음은 모두 왼쪽, ㅠ를 뺀 모음은 모두 오른쪽
+  - 폴드7 반쪽 범위(가로 8.5 mm 키 62.1·68.5 mm, 7.0 mm 키 51.25·56.5 mm, 세로 8.17 mm 키 59.7·65.9 mm), 가운데 패널 칸 폭(18.0·26.5 mm), 복제 키 짝(6·7, t·y, g·h, b·n), 숫자판 위치
+  - 엄지 범위 측정: 같은 측정값(왼쪽 61 mm, 오른쪽 69 mm)에서 키 너비 8.3 mm
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.
@@ -483,14 +549,17 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 8. 다른 앱에서 복사한 글이 가운데에 나타나는지, 비밀번호 관리 앱에서 복사한 비밀번호는 나타나지 않는지 본다.
 9. 엄지 범위 측정을 실제 손으로 세 번씩 해서 측정값이 일치 범위 안에 들어오는지, 정한 키 너비에서 안쪽 키(T, Y, 5, 6)가 편하게 닿는지 본다.
 10. 길게 누르기 반복을 켜고 vim normal mode에서 `j`를 누르고 있을 때 줄 이동이 반복되는지 본다.
-11. 세로 분할에서 HHKB 습관대로 쳤을 때 0.3.0보다 오타가 줄었는지, 오른쪽 반쪽 안쪽 키(6, Y, H, B)가 편하게 닿는지 본다.
-12. 스페이스를 꾹 누른 뒤 끌어 일반 입력창에서 선택이 되는지, One UI의 텍스트 선택 도구 막대와 겹치지 않는지 본다.
+11. 세로 분할에서 HHKB 습관대로 쳤을 때 0.3.0보다 오타가 줄었는지, 오른쪽 반쪽 안쪽 키(7, Y, H, N)가 편하게 닿는지 본다.
+12. 0.5.0 가로 분할에서 오른쪽 엄지가 0.4.1보다 덜 뻗는지, 1칸이 된 ⌫를 놓치지 않는지, 왼쪽으로 옮긴 `b`·`6`(ㅠ)에 손이 적응하는지 본다. 엄지 범위 측정을 다시 하면 키 너비가 얼마나 커지는지 본다.
+13. 스페이스를 꾹 누른 뒤 끌어 일반 입력창에서 선택이 되는지, One UI의 텍스트 선택 도구 막대와 겹치지 않는지 본다.
 
 ## 11. 얽힌 이야기들
 
 - **vi와 ADM-3A.** Bill Joy는 1984년 Unix Review 인터뷰에서 "what started it all was that we got some ADM-3As to do screen editing"이라고 말했다. 그 터미널의 키보드에는 ESC가 지금의 Tab 자리에, CTRL이 지금의 Caps Lock 자리에 있었고, H·J·K·L에 화살표가 인쇄되어 있었다. vi의 hjkl 이동과 잦은 Esc 사용이 이 배열에서 나왔다는 설명은 널리 퍼져 있지만, Joy가 직접 그렇게 말한 기록은 찾지 못했다. 같은 인터뷰에서 그는 "I wish we hadn't used all the keys on the keyboard"라고도 했다. 0.3.0까지 FoldKey의 Fn + h/j/k/l이 방향키였던 것도 이 전통을 따랐다. 0.4.0에서 Fn이 숫자판으로 바뀌면서 뺐다.
 - **Ctrl+[가 Esc인 이유.** VT100 사용 설명서(표 3-5)에 따르면 CTRL을 누르면 000–037(8진수) 범위의 코드가 전송된다. ASCII에서 `[`는 0x5B이고 여기에 0x1F를 AND하면 0x1B, 곧 ESC다. Termux의 `inputCodePoint`도 `[`를 27로 바꾼다. 같은 이유로 Ctrl+M은 CR(carriage return, 13), Ctrl+I는 Tab(9)이다.
 - **iPad의 숨은 키.** 2012년 2월 David Chartier가 iPad 분할 키보드에서 보이지 않는 키 여섯 개(T/G/V 옆의 Y/H/B, Y/H/B 옆의 T/G/V)를 찾아냈다. Apple은 이 기능을 문서로 설명하지 않았다 `[2차]`.
+- **KALQ와 두벌식.** KALQ는 영어 글자 배치를 두 엄지에 맞춰 처음부터 최적화했는데, 결과에서 오른손 엄지가 y를 뺀 모든 모음을 맡았다. 자음을 왼손, 모음을 오른손에 둔 두벌식과 같은 분담이다.
+- **전화기 숫자판의 1 2 3.** Bell 연구소의 Deininger(1960)는 누름단추 전화기 배열을 시험하면서, 가산기(adding machine)에 흔한 7 8 9 위 배열이 처음 비교한 세 배열 중 최선이 아니었고, 같은 모양에 1 2 3을 위로 둔 배열은 다른 비교 집단에서 최선이었다고 보고했다. 다섯 배열을 다시 비교한 두 번째 실험에서는 입력 시간 차이가 유의하지 않았다. FoldKey의 Fn 숫자판은 PC 숫자 패드처럼 7 8 9를 위에 둔다.
 - **KALQ라는 이름.** 논문은 "pronounced as in 'calculated'"라고만 적는다. 논문 그림 1을 좌표로 복원하면 오른쪽 격자의 맨 아래 글자 줄이 K A L Q다 `[조사 과정에서 복원]`. 저자들은 사용자가 새 배열을 배우려 하지 않을 수 있다고 스스로 적었다.
 - **네벌식에서 두벌식으로.** 국가기록원 자료에 따르면 1969년 정부는 네벌식 타자기 자판을 표준으로 정했다(국무총리 훈령 제81호). 국사편찬위원회 우리역사넷은 이 네벌식을 "초성 자음 한 벌, 긴 모음 한 벌, 짧은 모음 한 벌, 받침 한 벌"로 설명하고, 기존 제조사들이 "강하게 반발"했다고 적는다. 1982년 텔레타이프에 쓰던 두벌식이 국가 표준(지금의 KS X 5002)이 되었고, 1983년 네벌식 타자기 표준이 폐지되었다. 공병우가 초성·중성·종성을 따로 둔 세벌식 타자기를 만든 것은 1949년이다.
 - **천지인 특허.** 천지인 특허는 삼성전자와 조관현 아이디엔 사장이 모두 보유했다. 두 쪽은 2002년부터 소송을 벌였고, 2009년 양쪽의 특허가 모두 인정되었다. 조관현 사장은 2010년 10월 19일 특허를 기술표준원에 기증했다(서울신문 2010년 10월 20일). 2011년 6월 천지인이 피처폰 단일 표준, 천지인·나랏글·SKY가 스마트폰 복수 표준으로 정해졌다.
@@ -512,7 +581,11 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - Bi, X., Li, Y., & Zhai, S. (2013). FFitts law: Modeling finger touch with Fitts' law. CHI '13, 1363–1372. doi:10.1145/2470654.2466180
 - Bi, X., Smith, B. A., & Zhai, S. (2010). Quasi-qwerty soft keyboard optimization. CHI '10, 283–286. doi:10.1145/1753326.1753367
 - Brewster, S., Chohan, F., & Brown, L. (2007). Tactile feedback for mobile interactions. CHI '07, 159–162. doi:10.1145/1240624.1240649
+- Buschek, D., Bisinger, B., & Alt, F. (2018). ResearchIME: A mobile keyboard application for studying free typing behaviour in the wild. CHI '18. doi:10.1145/3173574.3173829
+- Coppola, S. M., Lin, M. Y. C., Schilkowsky, J., Arezes, P. M., & Dennerlein, J. T. (2018). Tablet form factors and swipe gesture designs affect thumb biomechanics and performance during two-handed use. Applied Ergonomics 69, 40–46. doi:10.1016/j.apergo.2017.12.015
+- Deininger, R. L. (1960). Human factors engineering studies of the design and use of pushbutton telephone sets. Bell System Technical Journal 39(4), 995–1012.
 - Dhakal, V., Feit, A. M., Kristensson, P. O., & Oulasvirta, A. (2018). Observations on typing from 136 million keystrokes. CHI '18. doi:10.1145/3173574.3174220
+- Dunlop, M. D., & Levine, J. (2012). Multidimensional Pareto optimization of touchscreen keyboards for speed, familiarity and improved spell checking. CHI '12, 2669–2678. doi:10.1145/2207676.2208659
 - Fennedy, K., Malacria, S., Lee, H., & Perrault, S. T. (2020). Investigating performance and usage of input methods for soft keyboard hotkeys. MobileHCI '20. doi:10.1145/3379503.3403552
 - Findlater, L., & Wobbrock, J. O. (2012). Personalized input: Improving ten-finger touchscreen typing through automatic adaptation. CHI '12, 815–824. doi:10.1145/2207676.2208520
 - Findlater, L., Wobbrock, J. O., & Wigdor, D. (2011). Typing on flat glass. CHI '11, 2453–2462. doi:10.1145/1978942.1979301
@@ -534,7 +607,9 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - Palin, K., Feit, A. M., Kim, S., Kristensson, P. O., & Oulasvirta, A. (2019). How do people type on mobile devices? Observations from a study with 37,000 volunteers. MobileHCI '19. doi:10.1145/3338286.3340120
 - Parhi, P., Karlson, A. K., & Bederson, B. B. (2006). Target size study for one-handed thumb use on small touchscreen devices. MobileHCI '06, 203–210. doi:10.1145/1152215.1152260
 - Soukoreff, R. W., & MacKenzie, I. S. (2003). Metrics for text entry research. CHI '03, 113–120. doi:10.1145/642611.642632
+- Trudeau, M. B., Young, J. G., Jindrich, D. L., & Dennerlein, J. T. (2012). Thumb motor performance varies with thumb and wrist posture during single-handed mobile phone use. Journal of Biomechanics 45(14), 2349–2354. doi:10.1016/j.jbiomech.2012.07.012
 - Trudeau, M. B., Catalano, P. J., Jindrich, D. L., & Dennerlein, J. T. (2013). Tablet keyboard configuration affects performance, discomfort and task difficulty for thumb typing in a two-handed grip. PLoS ONE 8(6), e67525. doi:10.1371/journal.pone.0067525
+- Trudeau, M. B., Sunderland, E. M., Jindrich, D. L., & Dennerlein, J. T. (2014). A data-driven design evaluation tool for handheld device soft keyboards. PLoS ONE 9(9), e107070. doi:10.1371/journal.pone.0107070
 - Vogel, D., & Baudisch, P. (2007). Shift: A technique for operating pen-based interfaces using touch. CHI '07, 657–666. doi:10.1145/1240624.1240727
 - Yin, Y., Ouyang, T. Y., Partridge, K., & Zhai, S. (2013). Making touchscreen keyboards adaptive to keys, hand postures, and individuals. CHI '13, 2775–2784. doi:10.1145/2470654.2481384
 

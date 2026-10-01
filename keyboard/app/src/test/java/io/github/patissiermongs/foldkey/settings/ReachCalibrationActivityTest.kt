@@ -68,14 +68,14 @@ class ReachCalibrationActivityTest {
         for (mm in listOf(60f, 61f, 62f)) stroke(reach, -1, mm)
         for (mm in listOf(69f, 70f, 68f)) stroke(reach, 1, mm)
         val status = views.filterIsInstance<TextView>().filter { it !is Button }.map { it.text.toString() }
-        assertTrue(status.joinToString("\n"), status.any { "7.6" in it })
+        assertTrue(status.joinToString("\n"), status.any { "8.3" in it })
         assertTrue(apply.isEnabled)
         val bmp = Bitmap.createBitmap(reach.rootView.width, reach.rootView.height, Bitmap.Config.ARGB_8888)
         reach.rootView.draw(Canvas(bmp))
         val dir = File("build/render").apply { mkdirs() }
         FileOutputStream(File(dir, "reach_calibration.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         apply.performClick()
-        assertEquals(76, prefs.sp.getInt(Prefs.SPLIT_UNIT, 0))
+        assertEquals(83, prefs.sp.getInt(Prefs.SPLIT_UNIT, 0))
     }
 
     @Test
