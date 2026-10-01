@@ -25,6 +25,7 @@ class HapticFeedback(context: Context, private val prefs: Prefs) : Feedback {
     private val audio: AudioManager? = context.getSystemService(AudioManager::class.java)
     private var pressEffect: VibrationEffect? = null
     private var detentEffect: VibrationEffect? = null
+    private var longEffect: VibrationEffect? = null
 
     init {
         reload()
@@ -35,25 +36,39 @@ class HapticFeedback(context: Context, private val prefs: Prefs) : Feedback {
         if (v == null || !v.hasVibrator() || prefs.hapticLevel == LEVEL_SYSTEM) {
             pressEffect = null
             detentEffect = null
+            longEffect = null
             return
         }
         pressEffect = VibrationEffect.createPredefined(
             if (prefs.hapticLevel == LEVEL_TICK) VibrationEffect.EFFECT_TICK else VibrationEffect.EFFECT_CLICK
         )
         detentEffect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
+        longEffect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)
     }
 
     override fun press(view: View, key: Key) {
         if (prefs.haptic) play(view, pressEffect, HapticFeedbackConstants.KEYBOARD_TAP)
-        if (prefs.sound && audio?.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-            val fx = when (key.def.action) {
+        click(
+            when (key.def.action) {
                 KeyAction.Space -> AudioManager.FX_KEYPRESS_SPACEBAR
                 KeyAction.Backspace -> AudioManager.FX_KEYPRESS_DELETE
                 KeyAction.Enter -> AudioManager.FX_KEYPRESS_RETURN
                 else -> AudioManager.FX_KEYPRESS_STANDARD
             }
-            audio?.playSoundEffect(fx, -1f)
-        }
+        )
+    }
+
+    override fun button(view: View) {
+        if (prefs.haptic) play(view, pressEffect, HapticFeedbackConstants.KEYBOARD_TAP)
+        click(AudioManager.FX_KEYPRESS_STANDARD)
+    }
+
+    override fun longPress(view: View) {
+        if (prefs.haptic) play(view, longEffect, HapticFeedbackConstants.LONG_PRESS)
+    }
+
+    private fun click(fx: Int) {
+        if (prefs.sound && audio?.ringerMode == AudioManager.RINGER_MODE_NORMAL) audio.playSoundEffect(fx, -1f)
     }
 
     override fun detent(view: View) {

@@ -40,6 +40,7 @@ class TouchTrackerTest {
         override fun keyDown(pointer: Int, key: Key, t: Long) { events.add("down:${label(key)}") }
         override fun modifierDown(key: Key, t: Long) { events.add("mod+:${label(key)}") }
         override fun modifierUp(key: Key, t: Long) { events.add("mod-:${label(key)}") }
+        override fun modifierCancel(key: Key, t: Long) { events.add("modx:${label(key)}") }
         override fun fire(key: Key, gesture: Gesture, t: Long) {
             events.add("fire:${label(key)}:$gesture@$t")
             fired.add(key to gesture)
@@ -166,6 +167,92 @@ class TouchTrackerTest {
         assertEquals(listOf(Gesture.TAP, Gesture.TAP), s.fired.map { it.second })
         assertEquals(a, s.fired[0].first)
         assertEquals(bs, s.fired[1].first)
+    }
+
+    @Test
+    fun modifierRolledIntoTheNextKeyIsReleasedFirst() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 250f, 50f, 0)
+        t.down(1, 50f, 50f, 60)
+        t.up(0, 250f, 50f, 100)
+        t.up(1, 50f, 50f, 140)
+        assertEquals(listOf("down:SHIFT", "mod+:SHIFT", "down:a", "mod-:SHIFT", "fire:a:TAP@140", "sample:a"), s.events)
+    }
+
+    @Test
+    fun modifierReleasedFirstAfterADeliberatePressStillChords() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 250f, 50f, 0)
+        t.down(1, 50f, 50f, 200)
+        t.up(0, 250f, 50f, 300)
+        t.up(1, 50f, 50f, 340)
+        assertEquals(listOf("down:SHIFT", "mod+:SHIFT", "down:a", "fire:a:TAP@300", "sample:a", "mod-:SHIFT"), s.events)
+    }
+
+    @Test
+    fun modifierAlreadyUsedChordsTheKeyStillDown() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 250f, 50f, 0)
+        t.down(1, 50f, 50f, 20)
+        t.up(1, 50f, 50f, 60)
+        t.down(1, 150f, 50f, 80)
+        t.up(0, 250f, 50f, 100)
+        t.up(1, 150f, 50f, 130)
+        assertEquals(
+            listOf("down:SHIFT", "mod+:SHIFT", "down:a", "fire:a:TAP@60", "sample:a", "down:b", "fire:b:TAP@100", "sample:b", "mod-:SHIFT"),
+            s.events,
+        )
+    }
+
+    @Test
+    fun canceledModifierIsNotReleased() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 250f, 50f, 0)
+        t.cancel(0, 30)
+        assertEquals(listOf("down:SHIFT", "mod+:SHIFT", "modx:SHIFT"), s.events)
+    }
+
+    @Test
+    fun newKeyStopsTheRepeatOfAnotherKey() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 350f, 50f, 0)
+        t.tick(400)
+        t.tick(450)
+        t.down(1, 50f, 50f, 470)
+        assertNull(t.nextDeadline())
+        t.up(1, 50f, 50f, 520)
+        t.up(0, 350f, 50f, 600)
+        assertEquals(listOf(bs to Gesture.TAP, bs to Gesture.REPEAT, bs to Gesture.REPEAT, a to Gesture.TAP), s.fired)
+    }
+
+    @Test
+    fun spaceHoldIsDisarmedByAKeyPressedDuringIt() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.down(1, 50f, 50f, 150)
+        t.tick(400)
+        t.up(1, 50f, 50f, 420)
+        t.up(0, 450f, 50f, 430)
+        assertEquals(listOf(space, a), s.fired.map { it.first })
+        assertEquals(listOf(Gesture.TAP, Gesture.TAP), s.fired.map { it.second })
+    }
+
+    @Test
+    fun flushPendingFiresHeldKeysInPressOrder() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 150f, 50f, 0)
+        t.down(1, 50f, 50f, 20)
+        t.flushPending(40)
+        t.up(0, 150f, 50f, 60)
+        t.up(1, 50f, 50f, 80)
+        assertEquals(listOf(b, a), s.fired.map { it.first })
     }
 
     @Test

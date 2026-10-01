@@ -104,10 +104,13 @@ class EditorIntegrationTest {
         "dkssud".forEach { engine.perform(ch(it)) }
         assertEquals("녕", listener.preedit)
         engine.perform(KeyAction.Code(KeyEvent.KEYCODE_ESCAPE))
+        idle()
         engine.perform(ch('c'), forceCtrl = true)
+        idle()
         engine.press(KeyAction.Mod(Modifier.ALT), 0)
         engine.perform(ch('b'))
         engine.release(KeyAction.Mod(Modifier.ALT), 50)
+        idle()
         engine.perform(KeyAction.Enter)
         idle()
         val log = echo.text.toString().lines()
@@ -121,7 +124,7 @@ class EditorIntegrationTest {
                 "down Ctrl+" + name(KeyEvent.KEYCODE_C),
                 "down Alt+" + name(KeyEvent.KEYCODE_ALT_LEFT),
                 "down Alt+" + name(KeyEvent.KEYCODE_B),
-                "down " + name(KeyEvent.KEYCODE_ENTER),
+                "text \"\\n\"",
             ),
             log,
         )

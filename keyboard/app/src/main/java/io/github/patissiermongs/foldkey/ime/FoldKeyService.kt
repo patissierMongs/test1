@@ -1,5 +1,6 @@
 package io.github.patissiermongs.foldkey.ime
 
+import android.app.KeyguardManager
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.SharedPreferences
@@ -34,6 +35,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     private val clipboardHistory = ClipboardHistory()
     private lateinit var pinStore: PinStore
     private var lastClip: Pair<Long, String>? = null
+    private var locked = false
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { captureClip(fromListener = true) }
 
     override fun onCreate() {
@@ -59,7 +61,9 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onCreateInputView(): View {
         keyboardView?.saveState()
         val view = KeyboardView(this, engine, prefs, feedback)
-        view.clipSource = { clipboardHistory.items(SystemClock.elapsedRealtime()).map { Clip(it.text, it.pinned) } }
+        view.clipSource = {
+            if (locked) emptyList() else clipboardHistory.items(SystemClock.elapsedRealtime()).map { Clip(it.text, it.pinned) }
+        }
         view.onClipEdit = { edit, text -> editClip(edit, text) }
         view.pinsFull = { clipboardHistory.pinsFull }
         keyboardView = view
@@ -71,9 +75,10 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        if (!restarting) keyboardView?.cancelTouches()
         engine.startInput(contextOf(info), restarting)
+        locked = getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
         captureClip()
-        keyboardView?.cancelTouches()
         keyboardView?.showEditCommands = !engine.context.raw
         keyboardView?.showSwitchKey = shouldOfferSwitchingToNextInputMethod()
         keyboardView?.setEditorLine(lineOf(info.getInitialTextBeforeCursor(ECHO_CHARS, 0)))
@@ -101,7 +106,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        engine.selectionChanged(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        engine.selectionChanged(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         refreshEditorLine()
     }
 
@@ -121,7 +126,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     private fun captureClip(fromListener: Boolean = false) {
-        if (!prefs.centerClipboard) return
+        if (!prefs.centerClipboard || locked) return
         val clip = getSystemService(ClipboardManager::class.java)?.primaryClip ?: return
         if (clip.itemCount == 0) return
         if (clip.description?.extras?.getBoolean(EXTRA_IS_SENSITIVE, false) == true) return
@@ -155,6 +160,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
+        engine.commitComposition()
         super.onConfigurationChanged(newConfig)
         keyboardView?.reload()
         updateNavigationBarAppearance()
@@ -226,6 +232,9 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
             preferLatin = latin,
             packageName = info.packageName,
             secret = secret,
+            multiLine = cls == InputType.TYPE_CLASS_TEXT && (type and MULTI_LINE_FLAGS) != 0,
+            selStart = info.initialSelStart,
+            selEnd = info.initialSelEnd,
         )
     }
 
@@ -235,6 +244,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         private const val HOUR_MS = 60 * 60 * 1000L
         private const val TAG = "FoldKey"
         private const val EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
+        private const val MULTI_LINE_FLAGS = InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE
         private val PASSWORD_VARIATIONS = setOf(
             InputType.TYPE_TEXT_VARIATION_PASSWORD,
             InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,

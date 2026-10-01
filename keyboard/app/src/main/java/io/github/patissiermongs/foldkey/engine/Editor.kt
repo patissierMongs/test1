@@ -6,6 +6,9 @@ data class EditorContext(
     val preferLatin: Boolean = false,
     val packageName: String? = null,
     val secret: Boolean = false,
+    val multiLine: Boolean = false,
+    val selStart: Int = -1,
+    val selEnd: Int = -1,
 )
 
 interface Editor {

@@ -208,9 +208,9 @@ class KeyboardEngineTest {
         assertEquals("녕", listener.preedit)
         assertEquals("", editor.composing)
         engine.perform(KeyAction.Enter)
-        assertEquals("안녕", editor.text.toString())
+        assertEquals("안녕\n", editor.text.toString())
         assertEquals("", listener.preedit)
-        assertEquals(listOf(KeyEvent.KEYCODE_ENTER to 0), editor.keys)
+        assertTrue(editor.keys.isEmpty())
     }
 
     @Test
@@ -266,7 +266,7 @@ class KeyboardEngineTest {
     fun selectionMoveAbandonsComposition() {
         engine.perform(KeyAction.Lang)
         type("rk")
-        engine.selectionChanged(0, 0, 0, 1)
+        engine.selectionChanged(1, 1, 0, 0, 0, 1)
         tap('k')
         assertEquals("가ㅏ", editor.text.toString())
     }
@@ -376,14 +376,23 @@ class KeyboardEngineTest {
     fun ctrlAltDigitsSpaceAndSlashFollowTermuxControlMapping() {
         engine.startInput(EditorContext(raw = true, preferLatin = true))
         engine.press(KeyAction.Mod(Modifier.ALT), now)
-        for (c in "2345678/") engine.perform(ch(c), forceCtrl = true)
+        for (c in "2345678/j") engine.perform(ch(c), forceCtrl = true)
         engine.press(KeyAction.Mod(Modifier.CTRL), now)
         engine.perform(KeyAction.Space)
         engine.release(KeyAction.Mod(Modifier.CTRL), now + 50)
         engine.release(KeyAction.Mod(Modifier.ALT), now + 50)
-        val expected = listOf(0, 27, 28, 29, 30, 31, 127, 31, 0).joinToString("") { "\u001b" + it.toChar() }
-        assertEquals(expected, editor.text.toString())
-        assertTrue(editor.keys.isEmpty())
+        val esc = "commit:\u001b"
+        fun ctrl(code: Int) = "key:${KeyEvent.keyCodeToString(code)}:${Modifiers.CTRL_META}"
+        val nul = ctrl(KeyEvent.KEYCODE_SPACE)
+        assertEquals(
+            listOf(esc, nul) + listOf(27, 28, 29, 30, 31, 127, 31).map { esc + it.toChar() } +
+                listOf(esc, ctrl(KeyEvent.KEYCODE_J), esc, nul),
+            editor.log,
+        )
+        assertEquals(
+            listOf(KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_SPACE).map { it to Modifiers.CTRL_META },
+            editor.keys,
+        )
     }
 
     @Test
@@ -535,5 +544,179 @@ class KeyboardEngineTest {
         assertEquals(emptyList<String>(), editor.log.filter { it == "selectAll" || it == "copy" })
         assertTrue(editor.keys.isEmpty())
     }
-}
 
+    @Test
+    fun doubleTapLocksShiftEvenFromAStaleOneShot() {
+        tapMod(Modifier.SHIFT)
+        now += 1_000
+        tapMod(Modifier.SHIFT)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.SHIFT))
+        tapMod(Modifier.SHIFT)
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.SHIFT))
+        tapMod(Modifier.SHIFT)
+        tapMod(Modifier.SHIFT)
+        assertEquals(ModState.ONESHOT, engine.modifiers.state(Modifier.SHIFT))
+    }
+
+    @Test
+    fun capsLockAddsNoShiftToCtrlShortcuts() {
+        tapMod(Modifier.SHIFT)
+        tapMod(Modifier.SHIFT)
+        tapMod(Modifier.CTRL)
+        tap('z')
+        engine.perform(ch('c'), forceCtrl = true)
+        type("ab")
+        assertEquals(listOf(KeyEvent.KEYCODE_Z to Modifiers.CTRL_META, KeyEvent.KEYCODE_C to Modifiers.CTRL_META), editor.keys)
+        assertEquals("AB", editor.text.toString())
+    }
+
+    @Test
+    fun modifierHeldThroughAnyKeyIsNotArmedOnRelease() {
+        type("12")
+        engine.press(KeyAction.Mod(Modifier.FN), now)
+        engine.perform(KeyAction.Backspace)
+        engine.release(KeyAction.Mod(Modifier.FN), now + 150)
+        assertEquals("1", editor.text.toString())
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        engine.perform(KeyAction.Lang)
+        type("rk")
+        engine.press(KeyAction.Mod(Modifier.SHIFT), now + 300)
+        engine.perform(KeyAction.Backspace)
+        engine.release(KeyAction.Mod(Modifier.SHIFT), now + 450)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.SHIFT))
+        type("r ")
+        assertEquals("1ㄱㄱ ", editor.text.toString())
+    }
+
+    @Test
+    fun oneShotShiftIsSpentOnAComposingBackspace() {
+        engine.perform(KeyAction.Lang)
+        type("rk")
+        tapMod(Modifier.SHIFT)
+        engine.perform(KeyAction.Backspace)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.SHIFT))
+        type("r ")
+        assertEquals("ㄱㄱ ", editor.text.toString())
+    }
+
+    @Test
+    fun releaseAfterANewFieldStartsIsIgnored() {
+        engine.press(KeyAction.EscCtrl, now)
+        engine.press(KeyAction.Mod(Modifier.SHIFT), now)
+        engine.startInput(EditorContext())
+        engine.release(KeyAction.EscCtrl, now + 100)
+        engine.release(KeyAction.Mod(Modifier.SHIFT), now + 100)
+        assertTrue(editor.keys.isEmpty())
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.SHIFT))
+    }
+
+    @Test
+    fun restartOnTheSameFieldKeepsHeldModifiers() {
+        engine.press(KeyAction.Mod(Modifier.SHIFT), now)
+        engine.startInput(EditorContext(), restarting = true)
+        tap('a')
+        engine.release(KeyAction.Mod(Modifier.SHIFT), now + 100)
+        tap('b')
+        assertEquals("Ab", editor.text.toString())
+    }
+
+    @Test
+    fun canceledModifierTouchChangesNothing() {
+        engine.press(KeyAction.EscCtrl, now)
+        engine.cancel(KeyAction.EscCtrl)
+        for (m in listOf(Modifier.SHIFT, Modifier.CTRL, Modifier.FN)) {
+            engine.press(KeyAction.Mod(m), now)
+            engine.cancel(KeyAction.Mod(m))
+        }
+        tap('d')
+        assertTrue(editor.keys.isEmpty())
+        assertEquals("d", editor.text.toString())
+        for (m in Modifier.entries) assertFalse(engine.modifiers.isActive(m))
+    }
+
+    @Test
+    fun autoRepeatKeepsTheOneShotModifiersOfItsFirstStroke() {
+        tapMod(Modifier.SHIFT)
+        val left = KeyAction.Code(KeyEvent.KEYCODE_DPAD_LEFT)
+        engine.perform(left)
+        engine.perform(left, repeat = true)
+        engine.perform(left, repeat = true)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.SHIFT))
+        engine.perform(left)
+        assertEquals(List(3) { KeyEvent.KEYCODE_DPAD_LEFT to Modifiers.SHIFT_META } + (KeyEvent.KEYCODE_DPAD_LEFT to 0), editor.keys)
+    }
+
+    @Test
+    fun belatedSelectionReportKeepsTheNewSyllable() {
+        engine.startInput(EditorContext(selStart = 0, selEnd = 0))
+        engine.perform(KeyAction.Lang)
+        type("gks")
+        engine.selectionChanged(0, 0, 1, 1, 0, 1)
+        engine.perform(KeyAction.Space)
+        tap('g')
+        engine.selectionChanged(1, 1, 2, 2, -1, -1)
+        engine.selectionChanged(2, 2, 3, 3, 2, 3)
+        tap('k')
+        engine.perform(KeyAction.Space)
+        assertEquals("한 하 ", editor.text.toString())
+    }
+
+    @Test
+    fun cursorMovedAwayStillFinishesTheSyllable() {
+        engine.startInput(EditorContext(selStart = 0, selEnd = 0))
+        engine.perform(KeyAction.Lang)
+        type("rk")
+        engine.selectionChanged(0, 0, 1, 1, 0, 1)
+        engine.selectionChanged(1, 1, 0, 0, 0, 1)
+        tap('k')
+        assertEquals("가ㅏ", editor.text.toString())
+    }
+
+    @Test
+    fun terminalEnterAndTabAreSentAsText() {
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        type("ls")
+        engine.perform(KeyAction.Code(KeyEvent.KEYCODE_TAB))
+        engine.perform(KeyAction.Enter)
+        tapMod(Modifier.SHIFT)
+        engine.perform(KeyAction.Code(KeyEvent.KEYCODE_TAB))
+        assertEquals("ls\t\n", editor.text.toString())
+        assertEquals(listOf(KeyEvent.KEYCODE_TAB to Modifiers.SHIFT_META), editor.keys)
+    }
+
+    @Test
+    fun enterInsertsANewlineOnlyInMultiLineFields() {
+        engine.startInput(EditorContext(multiLine = true))
+        engine.perform(KeyAction.Enter)
+        assertEquals("\n", editor.text.toString())
+        engine.startInput(EditorContext())
+        engine.perform(KeyAction.Enter)
+        assertEquals(listOf(KeyEvent.KEYCODE_ENTER to 0), editor.keys)
+        engine.startInput(EditorContext(multiLine = true, enterAction = EditorInfo.IME_ACTION_SEND))
+        engine.perform(KeyAction.Enter)
+        assertEquals(listOf(EditorInfo.IME_ACTION_SEND), editor.actions)
+    }
+
+    @Test
+    fun terminalPasswordFieldIsNeitherRecordedNorShown() {
+        engine.settings = EngineSettings(terminalEcho = true)
+        engine.startInput(EditorContext(raw = true, preferLatin = true, secret = true))
+        type("hunter2")
+        engine.perform(KeyAction.Lang)
+        type("rk")
+        assertEquals("", listener.preedit)
+        assertEquals("", engine.preedit)
+        assertTrue(engine.typedSegments.isEmpty())
+        assertEquals("hunter2", editor.text.toString())
+    }
+
+    @Test
+    fun commitCompositionSendsTheTerminalSyllable() {
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        engine.perform(KeyAction.Lang)
+        type("gk")
+        engine.commitComposition()
+        assertEquals("하", editor.text.toString())
+        assertEquals("", listener.preedit)
+    }
+}

@@ -41,9 +41,12 @@ class Prefs(context: Context) {
         sp.edit().putString(OFFSETS_PREFIX + slot, data).apply()
     }
 
+    val offsetsEpoch: Int get() = sp.getInt(OFFSETS_EPOCH, 0)
+
     fun clearOffsets() {
         val editor = sp.edit()
         for (k in sp.all.keys) if (k.startsWith(OFFSETS_PREFIX)) editor.remove(k)
+        editor.putInt(OFFSETS_EPOCH, offsetsEpoch + 1)
         editor.apply()
     }
 
@@ -81,6 +84,7 @@ class Prefs(context: Context) {
         const val LATIN_HINTS = "latin_hints"
         const val RAW_PACKAGES = "raw_packages"
         const val OFFSETS_PREFIX = "offsets_"
+        const val OFFSETS_EPOCH = "touch_offsets_epoch"
         const val DEFAULT_RAW_PACKAGES =
             "com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm"
     }

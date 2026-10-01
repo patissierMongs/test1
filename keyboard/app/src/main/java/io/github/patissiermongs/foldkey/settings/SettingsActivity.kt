@@ -27,6 +27,7 @@ class SettingsActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var column: LinearLayout
     private var builtUnit = 0f
+    private var rawPackages: EditText? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +55,11 @@ class SettingsActivity : Activity() {
             return
         }
         refreshStatus()
+    }
+
+    override fun onPause() {
+        saveRawPackages()
+        super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -137,17 +143,24 @@ class SettingsActivity : Activity() {
         toggle(getString(R.string.pref_adaptive), Prefs.ADAPTIVE, true)
         button(getString(R.string.pref_adaptive_reset)) { prefs.clearOffsets() }
         body(getString(R.string.pref_raw_packages))
-        column.addView(EditText(this).apply {
+        val packages = EditText(this).apply {
             setText(prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES))
             typeface = Typeface.MONOSPACE
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setOnFocusChangeListener { v, focused ->
-                if (!focused) prefs.sp.edit().putString(Prefs.RAW_PACKAGES, (v as EditText).text.toString()).apply()
-            }
-        })
+            setOnFocusChangeListener { _, focused -> if (!focused) saveRawPackages() }
+        }
+        rawPackages = packages
+        column.addView(packages)
 
         heading(getString(R.string.settings_gestures), 18f)
         body(getString(R.string.settings_gestures_body))
+    }
+
+    private fun saveRawPackages() {
+        val text = rawPackages?.text?.toString() ?: return
+        if (text != prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES)) {
+            prefs.sp.edit().putString(Prefs.RAW_PACKAGES, text).apply()
+        }
     }
 
     private fun refreshStatus() {
@@ -206,13 +219,19 @@ class SettingsActivity : Activity() {
             this.max = max
             progress = value
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                private var tracking = false
+
                 override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                     label.text = getString(R.string.label_value, text, format(progress))
+                    if (fromUser && !tracking) prefs.sp.edit().putInt(key, progress).apply()
                 }
 
-                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+                override fun onStartTrackingTouch(seekBar: SeekBar) {
+                    tracking = true
+                }
 
                 override fun onStopTrackingTouch(seekBar: SeekBar) {
+                    tracking = false
                     prefs.sp.edit().putInt(key, seekBar.progress).apply()
                 }
             })

@@ -8,5 +8,9 @@ interface Feedback {
 
     fun detent(view: View)
 
+    fun button(view: View) {}
+
+    fun longPress(view: View) {}
+
     fun reload() {}
 }

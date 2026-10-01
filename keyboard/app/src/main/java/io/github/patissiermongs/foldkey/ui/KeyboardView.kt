@@ -53,7 +53,8 @@ class KeyboardView(
     private var offsets = OffsetModel(1)
     private var offsetSlot = ""
     private var offsetsDirty = false
-    private var pending: Triple<Key, Float, Float>? = null
+    private var offsetsEpoch = -1
+    private val samples = ArrayDeque<Triple<Key, Float, Float>>()
     private var lastFireTime = Long.MIN_VALUE / 2
     private var lastWasBackspace = false
     private val active = LinkedHashMap<Int, Pair<Key, Gesture>>()
@@ -171,7 +172,8 @@ class KeyboardView(
     }
 
     fun saveState() {
-        confirmPending()
+        dropStaleOffsets()
+        while (samples.isNotEmpty()) learn(samples.removeFirst())
         if (offsetsDirty && offsetSlot.isNotEmpty()) {
             prefs.saveOffsets(offsetSlot, offsets.serialize())
             offsetsDirty = false
@@ -261,6 +263,7 @@ class KeyboardView(
             liftPx = lift,
             panelMinPx = if (panelWanted) PANEL_MIN_MM * pxPerMmX else 0f,
         )
+        dropStaleOffsets()
         val g = when (kind) {
             LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec, Layouts.pad)
             LayoutKind.FULL -> KeyboardGeometry.full(Layouts.full, spec, Layouts.pad)
@@ -432,7 +435,7 @@ class KeyboardView(
         if (clipSource().none { it.text == text }) return
         clipLongPressed = true
         clipMenu = text
-        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        feedback.longPress(this)
         invalidate()
     }
 
@@ -747,7 +750,7 @@ class KeyboardView(
                     if (cmd != null && stripPointer < 0) {
                         stripPointer = id
                         stripCommand = cmd
-                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        feedback.button(this)
                     }
                 } else {
                     val clip = clipAt(x, y)
@@ -763,7 +766,7 @@ class KeyboardView(
                         clipDragged = false
                         clipLongPressed = false
                         if (clipMenu == null) postDelayed(clipLongPress, clipLongPressMs())
-                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        feedback.button(this)
                     }
                 }
             }
@@ -794,14 +797,20 @@ class KeyboardView(
                     val x = event.getX(i)
                     val hit = clipAt(x, event.getY(i))
                     val tapped = !clipDragged && !clipLongPressed
-                    if (tapped && index >= 0 && index == hit) tapClip(index, x)
+                    if (tapped && index >= 0 && index == hit) {
+                        tracker.flushPending(t)
+                        tapClip(index, x)
+                    }
                     resetClipTouch()
                 } else if (id == stripPointer) {
                     val cmd = stripCommand
                     val hitCmd = stripButtons.firstOrNull { it.first.contains(event.getX(i), event.getY(i)) }?.second
                     stripPointer = -1
                     stripCommand = null
-                    if (cmd != null && cmd == hitCmd) engine.perform(KeyAction.Cmd(cmd))
+                    if (cmd != null && cmd == hitCmd) {
+                        tracker.flushPending(t)
+                        engine.perform(KeyAction.Cmd(cmd))
+                    }
                 } else {
                     tracker.up(id, event.getX(i), event.getY(i), t)
                 }
@@ -849,18 +858,20 @@ class KeyboardView(
     override fun hit(x: Float, y: Float, t: Long): Key? {
         val g = geometry()
         if (y < stripHeightPx) return null
+        dropStaleOffsets()
         val fn = fnOn
         g.layer(fn).firstOrNull { k ->
-            !k.ghost && k.def.style == KeyStyle.NORMAL &&
+            !k.ghost &&
                 abs(x - k.face.centerX) <= k.face.width * ANCHOR_SHARE &&
                 abs(y - k.face.centerY) <= k.face.height * ANCHOR_SHARE
         }?.let { return it }
+        val raw = g.keyAt(x, y, fn)
         if (prefs.adaptive && !lastWasBackspace && t - lastFireTime <= ADAPT_MAX_GAP_MS) {
             val (cx, cy) = offsets.correctionMm(g.zoneAt(x, y, fn), g.unitPx / pxPerMmX, rowMm)
             val corrected = g.keyAt(x - cx * pxPerMmX, y - cy * pxPerMmY, fn)
-            if (corrected != null) return corrected
+            if (corrected != null && !(corrected.ghost && raw != null && !raw.ghost)) return corrected
         }
-        return g.keyAt(x, y, fn)
+        return raw
     }
 
     override fun keyDown(pointer: Int, key: Key, t: Long) {
@@ -872,12 +883,14 @@ class KeyboardView(
 
     override fun modifierUp(key: Key, t: Long) = engine.release(key.def.action, t)
 
+    override fun modifierCancel(key: Key, t: Long) = engine.cancel(key.def.action)
+
     override fun fire(key: Key, gesture: Gesture, t: Long) {
         val r = ActionResolver.resolve(key.def, gesture, prefs.swipeDownCtrl)
         lastWasBackspace = r.action == KeyAction.Backspace
         lastFireTime = t
-        if (lastWasBackspace) pending = null else confirmPending()
-        engine.perform(r.action, r.forceShift, r.forceCtrl)
+        if (lastWasBackspace) samples.removeLastOrNull()
+        engine.perform(r.action, r.forceShift, r.forceCtrl, repeat = gesture == Gesture.REPEAT)
     }
 
     override fun variant(pointer: Int, key: Key, gesture: Gesture) {
@@ -911,13 +924,22 @@ class KeyboardView(
     override fun cursorEnd() = engine.endCursorMove()
 
     override fun sample(key: Key, x: Float, y: Float) {
-        if (prefs.adaptive && key.def.style == KeyStyle.NORMAL && !key.ghost && !key.pad) pending = Triple(key, x, y)
+        if (!prefs.adaptive || key.def.style != KeyStyle.NORMAL || key.ghost || key.pad) return
+        samples.addLast(Triple(key, x, y))
+        while (samples.size > SAMPLE_DELAY) learn(samples.removeFirst())
     }
 
-    private fun confirmPending() {
-        val p = pending ?: return
-        pending = null
-        val (key, x, y) = p
+    private fun dropStaleOffsets() {
+        val epoch = prefs.offsetsEpoch
+        if (epoch == offsetsEpoch) return
+        offsetsEpoch = epoch
+        samples.clear()
+        offsets = OffsetModel(offsets.zones)
+        offsetsDirty = false
+    }
+
+    private fun learn(sample: Triple<Key, Float, Float>) {
+        val (key, x, y) = sample
         val added = offsets.add(
             key.zone,
             (x - key.face.centerX) / pxPerMmX,
@@ -964,5 +986,6 @@ class KeyboardView(
         const val DETENT_MIN_INTERVAL_MS = 40L
         const val MAX_ECHOES = 8
         const val ADAPT_MAX_GAP_MS = 1000L
+        const val SAMPLE_DELAY = 8
     }
 }
