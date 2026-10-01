@@ -137,6 +137,8 @@ class LayoutsTest {
         val equals = g.keys.first { base(it) == '=' }
         assertEquals(0, backslash.row)
         assertEquals(slotRight(equals, pxPerMm), slotLeft(backslash, pxPerMm), 0.5f)
+        assertEquals(0.5f * u, 1968f - 0.5f * pxPerMm - slotRight(backslash, pxPerMm), 0.5f)
+        assertEquals(1968f, backslash.touch.right, 0.01f)
         assertEquals(enter.face.right, backspace.face.right, 0.5f)
         assertEquals(shifts[1].face.right, enter.face.right, 0.5f)
         assertEquals(1968f, backspace.touch.right, 0.01f)
@@ -322,7 +324,7 @@ class LayoutsTest {
         assertEquals(four, g.keyAt(four.touch.centerX, four.touch.centerY, fn = true))
         val backspace = g.fnKeys.first { it.pad && it.def.action == KeyAction.Backspace }
         assertEquals(backspace, g.keyAt(1967f, 1f, fn = true))
-        assertNull(g.keyAt(1967f, 1f))
+        assertEquals('\\', base(g.keyAt(1967f, 1f)!!))
     }
 
     @Test

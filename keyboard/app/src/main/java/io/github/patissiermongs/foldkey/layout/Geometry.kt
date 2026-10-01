@@ -94,7 +94,6 @@ class KeyboardGeometry(
             val gapX = spec.gapMm * spec.pxPerMmX / 2f
             val gapY = spec.gapMm * spec.pxPerMmY / 2f
             val gap = available - units * unit
-            val rightEdge = side + available
             var ghost = spec.ghostUnits * unit
             val withPanel = spec.panelMinPx > 0f && gap - 2f * spec.panelGhostUnits * unit >= spec.panelMinPx
             if (withPanel && gap - 2f * ghost < spec.panelMinPx) ghost = spec.panelGhostUnits * unit
@@ -141,8 +140,7 @@ class KeyboardGeometry(
                 x = innerRight
                 row.right.keys.forEachIndexed { i, def ->
                     val right = x + def.width * unit
-                    val outer = i == row.right.keys.lastIndex && right >= rightEdge - EDGE_SLACK_PX
-                    place(def, x, right, x, if (outer) spec.widthPx else right)
+                    place(def, x, right, x, if (i == row.right.keys.lastIndex) spec.widthPx else right)
                     x = right
                 }
             }
