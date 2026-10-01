@@ -282,7 +282,7 @@ rollover(키 겹침)는 앞 키를 떼기 전에 다음 키가 눌리는 현상�
 - Termux의 `commitText` 처리 주석은 AOSP 키보드와 그 후손이 Enter를 누르면 `\n`을 글자로 보내는 것 같다고 적고, 이 `\n`을 CR로 바꿔 터미널에 쓴다.
 - 리뷰 과정에서 만든 Robolectric 테스트가 이 순서 역전을 재현했다. 터미널에서 ⏎를 누른 채 `c`를 누르고 `c`를 먼저 떼면 두 키가 한 터치 이벤트에서 나가는데, 키 이벤트인 Enter가 글자 `c`보다 늦게 도착했다.
 
-**구현.** 터미널(raw 모드)에서 수정키 없는 Enter와 Tab은 `\n`, `\t` 글자로 보낸다. Termux는 이것을 Enter(CR)와 Tab으로 받고, 키 이벤트만 다루는 `BaseInputConnection` fallback 모드는 `Virtual.kcm`으로 `KEYCODE_ENTER`, `KEYCODE_TAB` 이벤트를 만든다(테스트 `terminalEnterRolledIntoALetterArrivesFirst`, `terminalTabRolledIntoALetterArrivesFirst`). 여러 줄 일반 입력창(`TYPE_TEXT_FLAG_MULTI_LINE`)의 Enter도 `\n` 글자다. 한 줄 입력창의 Tab은 `TextView`가 포커스 이동에 쓰므로 키 이벤트로 둔다.
+**구현.** 터미널(raw 모드)에서 수정키 없는 Enter와 Tab은 `\n`, `\t` 글자로 보낸다. Termux는 이것을 Enter(CR)와 Tab으로 받고, 키 이벤트만 다루는 `BaseInputConnection` fallback 모드는 `Virtual.kcm`으로 `KEYCODE_ENTER`, `KEYCODE_TAB` 이벤트를 만든다(테스트 `terminalEnterRolledIntoALetterArrivesFirst`, `terminalTabRolledIntoALetterArrivesFirst`). 여러 줄 일반 입력창(`TYPE_TEXT_FLAG_MULTI_LINE`)의 Enter도 `\n` 글자다. 일반 입력창의 Tab은 키 이벤트로 둔다. AOSP 16 `TextView.onKeyDown`은 수정키 없는 Tab을 여러 줄 입력창에서도 처리하지 않고 포커스 이동으로 넘기는데, 글자로 보내면 이 동작이 탭 문자 삽입으로 바뀐다.
 
 Esc, ⌫, 방향키, F키, Ctrl·Alt 조합은 대응하는 글자가 없거나 터미널이 커서 키 모드에 따라 다르게 바꾸므로 키 이벤트로 남는다. ⌫는 누르는 순간 보내므로 그보다 먼저 눌린 키(글자)가 앞서 나가고(4.3절), 방향키와 ⏎·⌫는 모두 오른쪽 엄지가 맡아 서로 겹쳐 누르는 경우가 드물다. 글자를 모두 키 이벤트로 보내 한 경로로 맞추는 방법도 검토했다. Termux의 `onKeyDown`에는 여러 글자를 담은 `ACTION_MULTIPLE` 이벤트를 터미널에 그대로 쓰는 분기가 있지만, `KeyEvent.dispatch`는 `KEYCODE_UNKNOWN`의 `ACTION_MULTIPLE`을 `onKeyMultiple`에만 넘기고 Termux는 이 메서드를 재정의하지 않아 그 분기에 닿지 않는다. 한글 음절은 키 이벤트로 보낼 수 없으므로 이 방법은 쓰지 않았다.
 
@@ -583,6 +583,13 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 왼쪽 반쪽 끝의 `6`과 `b`, 오른쪽 반쪽 안쪽 끝의 복제 키 `b`와 `6`, `7`, 오른쪽 Shift와 `n`, 숫자 행 `\`, ⏎를 차례로 누르자 입력창 끝에 `6bb67N\`와 줄바꿈이 붙었다.
   - 한/A로 한글을 켜고 `d`(ㅇ), 왼쪽 반쪽의 `b`(ㅠ), 오른쪽 스페이스를 누른 뒤 한/A로 돌아와 ⌫를 누르자 다음 줄이 `유`가 되었다.
   - 덮어 설치하면 입력 방법 서비스가 다시 시작되어 키보드가 내려갔고, 입력창을 다시 누르자 올라왔다. 상단 줄의 IME 전환 버튼이 0.4.1 시험 때는 있었고 이번에는 없어서 버튼 위치가 달라졌다. 그래서 시험 순서의 모두 선택 탭은 버튼이 없는 자리를 눌렀고, 이전 글자가 남은 채로 이어졌다.
+
+- **0.6.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)에 0.6.0을 덮어 설치해 확인했다.
+  - 세로 분할에서 여러 줄 `EditText`에 `l`, ⏎, `s`, Tab, `a`를 차례로 누르자 `l`, 줄바꿈, `sa`가 되었다. ⏎는 `\n` 글자로 줄을 바꿨다. Tab은 아무것도 넣지 않았고, `adb shell input keyevent 61`(Tab 키 이벤트)을 보내도 같았다(5.2절의 `TextView` 동작).
+  - 설정 화면의 키 이벤트 확인창(TYPE_NULL)에서 `l`, ⏎, Tab, `s`, Esc/Ctrl 탭이 `text "l"`, `text "\n"`, `text "\t"`, `text "s"`, `down ESCAPE` 순서로 도착했다.
+  - 가로 분할에서 입력창의 `l`, 줄바꿈, `sax`를 모두 선택해 복사하자 가운데 위 칸에 `l ⏎ sax`가 나타났다. `locksettings set-password`로 비밀번호를 걸고 화면을 껐다 켠 뒤 잠금 화면의 비밀번호 입력창(`com.android.systemui:id/passwordEntry`)을 띄우자 같은 칸에 기록 대신 빈 상태 안내가 보였다. 비밀번호로 잠금을 풀고 원래 입력창으로 돌아오자 기록이 다시 보였다.
+  - 확인창을 처음 눌렀을 때 키보드가 뜨지 않았고, 그 상태로 진행한 키 좌표 탭 하나가 설정 화면의 "세로 화면에서 분할 배열" 스위치를 눌러 껐다. 스위치를 다시 켜고 확인창을 다시 눌러 키보드를 띄운 뒤 시험했다.
+  - 수정키 roll과 조합, 취소된 터치, 겹쳐 누른 두 키의 도착 순서는 에뮬레이터에서 시험하지 않았다. Android 11의 `adb shell input`은 손가락 하나의 이벤트만 만들고 `motionevent`에 CANCEL이 없으며, 소프트웨어 에뮬레이션에서는 탭 하나에 10초 넘게 걸려 150 ms 같은 시간 차이를 만들 수 없다. 이 부분은 Robolectric에서 Android 16 프레임워크의 `MotionEvent`와 `View` 코드로 확인했다(10.1절).
 
 ### 10.2 이 환경에서 확인하지 못한 것
 
