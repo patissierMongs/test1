@@ -5,7 +5,9 @@ import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Modifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import kotlin.math.abs
 import org.junit.Test
 
 class LayoutsTest {
@@ -45,7 +47,7 @@ class LayoutsTest {
         for (code in listOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_MOVE_END, KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN,
-            KeyEvent.KEYCODE_FORWARD_DEL,
+            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_INSERT,
         ) + (KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12)) {
             assertTrue("$name keycode $code", KeyAction.Code(code) in reachable)
         }
@@ -56,6 +58,65 @@ class LayoutsTest {
         checkCoverage(defsOf(Layouts.full), "full")
         checkCoverage(Layouts.split.flatMap { it.left.keys + it.right.keys }, "split")
         checkCoverage(defsOf(Layouts.compact), "compact")
+    }
+
+    @Test
+    fun fnLayerHasEverySymbolOnceInEveryLayout() {
+        val expected = Layouts.FN_SYMBOLS.values.flatMap { listOfNotNull(it.first, it.second) }
+        assertEquals(expected.size, expected.toSet().size)
+        assertTrue(expected.all { s -> s.all { it.code > 0x7f } })
+        val layouts = listOf(
+            "full" to defsOf(Layouts.full),
+            "split" to Layouts.split.flatMap { it.left.keys + it.right.keys },
+            "compact" to defsOf(Layouts.compact),
+        )
+        for ((name, defs) in layouts) {
+            val texts = defs.flatMap { listOfNotNull(it.fn, it.fnUp) }.filterIsInstance<KeyAction.Text>().map { it.text }
+            assertEquals(name, expected.sorted(), texts.sorted())
+        }
+    }
+
+    @Test
+    fun fnLayerCoversKoreanPunctuationMarks() {
+        val symbols = Layouts.FN_SYMBOLS.values.flatMap { listOfNotNull(it.first, it.second) }.toSet()
+        for (mark in listOf("·", "…", "‘", "’", "“", "”", "「", "」", "『", "』", "〈", "〉", "《", "》", "―", "∼", "○", "×", "□")) {
+            assertTrue(mark, mark in symbols)
+        }
+    }
+
+    @Test
+    fun fold7LandscapeSplitGetsACenterPanelWithHalfWidthGhostKeys() {
+        val pxPerMm = 368f / 25.4f
+        val g = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 16f * pxPerMm))
+        assertNotNull(g.panel)
+        val panel = g.panel!!
+        assertEquals(20.1f, panel.width / pxPerMm, 0.1f)
+        assertEquals(5 * 9.5f, panel.height / pxPerMm, 0.01f)
+        val ghosts = g.keys.filter { it.ghost }
+        assertEquals(8, ghosts.size)
+        assertTrue(ghosts.all { abs(it.touch.width / pxPerMm - 4.25f) < 0.05f })
+        assertTrue(g.keys.none { it.touch.left < panel.right && it.touch.right > panel.left && it.touch.top < panel.bottom })
+    }
+
+    @Test
+    fun fold7PortraitSplitHasNoRoomForThePanel() {
+        val pxPerMm = 368f / 25.4f
+        val g = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f).copy(panelMinPx = 16f * pxPerMm))
+        assertNull(g.panel)
+        assertTrue(g.keys.filter { it.ghost }.all { abs(it.touch.width / pxPerMm - 8.3f) < 0.05f })
+    }
+
+    @Test
+    fun liftAddsHeightBelowTheHalvesAndExtendsTheBottomRowTouchArea() {
+        val pxPerMm = 368f / 25.4f
+        val base = KeyboardGeometry.split(Layouts.split, spec(2184, 368f))
+        val lifted = KeyboardGeometry.split(Layouts.split, spec(2184, 368f).copy(liftPx = 5f * pxPerMm))
+        assertEquals(base.heightPx + 5f * pxPerMm, lifted.heightPx, 0.01f)
+        for ((a, b) in base.keys.zip(lifted.keys)) {
+            assertEquals(a.face, b.face)
+            val extra = if (a.row == Layouts.split.lastIndex) 5f * pxPerMm else 0f
+            assertEquals(a.touch.bottom + extra, b.touch.bottom, 0.01f)
+        }
     }
 
     @Test

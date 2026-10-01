@@ -7,11 +7,14 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import io.github.patissiermongs.foldkey.engine.EditorContext
+import io.github.patissiermongs.foldkey.engine.EngineSettings
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.engine.RecordingListener
+import io.github.patissiermongs.foldkey.engine.UsKeyMap
 import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.layout.Key
 import java.io.File
@@ -32,15 +35,22 @@ class RenderTest {
         override fun detent(view: View) = Unit
     }
 
-    private fun setup(split: Boolean, widthPx: Int, ppi: Float = FOLD7_PPI): Triple<KeyboardView, KeyboardEngine, FakeEditor> {
+    private fun setup(
+        split: Boolean,
+        widthPx: Int,
+        ppi: Float = FOLD7_PPI,
+        terminalEcho: Boolean = false,
+    ): Triple<KeyboardView, KeyboardEngine, FakeEditor> {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val dm = ctx.resources.displayMetrics
         dm.xdpi = ppi
         dm.ydpi = ppi
         val prefs = Prefs(ctx)
-        prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_PORTRAIT, split).putBoolean(Prefs.SPLIT_LANDSCAPE, split).commit()
+        prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_PORTRAIT, split).putBoolean(Prefs.SPLIT_LANDSCAPE, split)
+            .putBoolean(Prefs.TERMINAL_ECHO, terminalEcho).commit()
         val editor = FakeEditor()
         val engine = KeyboardEngine(editor, RecordingListener())
+        engine.settings = EngineSettings(terminalEcho = terminalEcho)
         val view = KeyboardView(ctx, engine, prefs, Silent)
         view.measure(
             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
@@ -117,6 +127,39 @@ class RenderTest {
     fun renderSplitLandscape() {
         val (view, _, _) = setup(split = true, widthPx = 2184)
         assertTrue(save(view, "split_landscape.png").length() > 0)
+    }
+
+    private fun type(engine: KeyboardEngine, s: String) = s.forEach {
+        engine.perform(if (it == ' ') KeyAction.Space else KeyAction.Char(it, UsKeyMap.shiftedOf(it)))
+    }
+
+    @Test
+    fun renderSplitLandscapeCenterPanel() {
+        val (view, engine, _) = setup(split = true, widthPx = 2184)
+        view.clipSource = { listOf("git status --short", "ssh fold@192.168.0.7\nls -la") }
+        engine.startInput(EditorContext())
+        engine.perform(KeyAction.Lang)
+        type(engine, "gks")
+        view.setEditorLine("        return render(x, y) # 한")
+        assertTrue(save(view, "split_landscape_panel.png").length() > 0)
+    }
+
+    @Test
+    fun renderSplitLandscapeFnSymbols() {
+        val (view, engine, _) = setup(split = true, widthPx = 2184)
+        engine.press(KeyAction.Mod(Modifier.FN), 0)
+        engine.release(KeyAction.Mod(Modifier.FN), 50)
+        assertTrue(save(view, "split_landscape_fn.png").length() > 0)
+    }
+
+    @Test
+    fun renderTerminalEchoWithHangulPreedit() {
+        val (view, engine, _) = setup(split = true, widthPx = 2184, terminalEcho = true)
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        type(engine, "git commit -m ")
+        engine.perform(KeyAction.Lang)
+        type(engine, "gksrmf")
+        assertTrue(save(view, "split_landscape_terminal_echo.png").length() > 0)
     }
 
     companion object {

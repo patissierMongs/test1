@@ -44,7 +44,7 @@
     <string name="settings_input">Input</string>
     <string name="pref_swipe_down_ctrl">Swipe down on a key sends Ctrl+key</string>
     <string name="pref_esc_latin">Esc switches Korean to Latin (vim)</string>
-    <string name="pref_long_press">Long press for the upper symbol</string>
+    <string name="pref_long_press">Long press delay</string>
     <string name="off">off</string>
     <string name="on">on</string>
     <string name="label_value">%1$s: %2$s</string>
@@ -53,5 +53,36 @@
     <string name="pref_raw_packages">Apps treated as terminals (no composing text, Enter sends a key event). Comma separated package names:</string>
 
     <string name="settings_gestures">Gestures</string>
-    <string name="settings_gestures_body">• Swipe up: shifted character (9 → (, \' → \")\n• Swipe down: Ctrl+key (c → ^C); on the number row F1–F12\n• Long press: same as swipe up\n• Drag on space: move the cursor (with Shift: select)\n• Esc/Ctrl key: tap for Esc, hold with another key for Ctrl\n• Ctrl, Alt, Shift, Fn: tap once for the next key, double tap to lock, or hold while typing\n• Fn + digits: F1–F10, Fn + ⌫: Del, Fn + h j k l: arrows, Fn + y o: Home End, Fn + u i: PgDn PgUp\n• Arrow keys: swipe up for Home/End/PgUp/PgDn, hold to repeat\n• The strip shows special keys you sent (Esc, ^C, Tab…)</string>
+    <string name="settings_gestures_body">• Swipe up: shifted character (9 → (, \' → \")
+• Swipe down: Ctrl+key (c → ^C); on the number row F1–F12
+• Long press: same as swipe up, or repeat (setting)
+• Drag on space: left/right moves the cursor, up/down sends ↑ ↓ (with Shift: select)
+• Esc/Ctrl key: tap for Esc, hold with another key for Ctrl. Fn + Esc: Insert
+• Ctrl, Alt, Shift, Fn: tap once for the next key, double tap to lock, or hold while typing
+• Fn + digits: F1–F10, Fn + ⌫: Del, Fn + h j k l: arrows, Fn + y o: Home End, Fn + u i: PgDn PgUp
+• Fn + other keys: special characters (· … ‘ ’ 「 」 ₩ × ÷ …); swipe up with Fn for the second symbol. Labels change while Fn is on
+• Arrow keys: swipe up for Home/End/PgUp/PgDn, hold to repeat
+• The strip shows special keys you sent (Esc, ^C, Tab…)</string>
+    <string name="pref_long_press_action">Long press action</string>
+    <string name="long_press_shift">upper symbol (same as swipe up)</string>
+    <string name="long_press_repeat">repeat the key (vim hjkl, x)</string>
+    <string name="settings_center">Center of the split layout</string>
+    <string name="pref_center_clipboard">Show copied text (tap to paste, kept in memory for 1 hour, sensitive clips skipped)</string>
+    <string name="pref_center_echo">Show the text before the cursor (not in password fields)</string>
+    <string name="pref_terminal_echo">Also show what you type in terminals (passwords typed at prompts become visible)</string>
+    <string name="pref_split_lift">Raise the split halves from the bottom edge</string>
+    <string name="settings_reach">Measure thumb reach and set the split key width</string>
+    <string name="panel_clip_empty">Copied text</string>
+    <string name="reach_title">Thumb reach</string>
+    <string name="reach_instructions">Hold the device with both hands. Keep each thumb comfortably stretched and draw one stroke through all five shaded keyboard rows. Three strokes per thumb.</string>
+    <string name="reach_progress">Left %1$d/%3$d · right %2$d/%3$d</string>
+    <string name="reach_invalid">Draw through all five keyboard rows.</string>
+    <string name="reach_inconsistent">%1$s thumb: the three strokes differ by %2$.1f mm. Draw again.</string>
+    <string name="reach_result">Left %1$.1f mm, right %2$.1f mm → key width %3$.1f mm (now %4$.1f mm)</string>
+    <string name="reach_rotate">Measure in landscape. Rotate the device.</string>
+    <string name="reach_left">Left</string>
+    <string name="reach_right">Right</string>
+    <string name="reach_apply">Apply</string>
+    <string name="reach_reset">Measure again</string>
+    <string name="reach_close">Close</string>
 </resources>

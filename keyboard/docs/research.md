@@ -34,6 +34,9 @@
 | 미리보기 팝업 | 탭 미리보기는 600dp(density-independent pixel) 이상 화면에서 기본 꺼짐. 밀기 동작의 결과 미리보기(^C 등)는 항상 표시 | AOSP LatinIME 태블릿 기본값, Vogel·Baudisch(2007) |
 | 한글 | 두벌식(KS(Korean Industrial Standards, 한국산업표준) X 5002). libhangul과 같은 조합 규칙. 터미널에서는 조합 중인 글자를 키보드 상단 줄에 표시하고 완성된 음절만 보낸다 | KS X 5002, libhangul, Termux 소스 |
 | vim 대응 | Esc 또는 Ctrl+[ 입력 시 한글 모드에서 영문으로 전환 | ibus-hangul, 구름 입력기 |
+| 특수문자 | Fn 레이어에 53개: 한글 맞춤법 문장 부호 가운데 ASCII에 없는 것 전부, 수학 기호, 화살표, 통화 기호. Fn+Esc는 Insert | 국립국어원 문장 부호 해설, KS X 1001, Unexpected Keyboard `fn.json`, Termux extra keys(7.8절) |
+| 분할 배열 가운데 | 위 두 줄은 클립보드 기록, 아래 세 줄은 커서 앞 글자. 자주 누르는 키는 두지 않음 | KALQ(2013), Bergstrom-Lehtovirta·Oulasvirta(2014), Trudeau 외(2013), Lu 외(2019), Jiang 외(2020)(3.6절) |
+| 반쪽 크기와 높이 | 엄지 범위 측정(엄지마다 세 획, 서로 일치할 때만 적용), 반쪽 올림 높이 설정 | KALQ(2013), Windows 8 thumb keyboard(3.7절) |
 
 ## 2. 대상 기기: 갤럭시 Z 폴드7
 
@@ -88,6 +91,51 @@ Android가 화면 계산에 쓰는 밀도 값(`densityDpi`)과 smallest width(�
 ### 3.5 커버 화면
 
 커버 화면 너비 65.0 mm에 ANSI 15칸 배열을 넣으면 키가 4.3 mm로 줄어 쓸 수 없다. 폭 110 mm 미만에서는 10열 compact 배열로 바꾼다. 키 너비는 6.4 mm다. 첫 행에 Esc/Ctrl, Tab과 기호 8개(`` ` - = [ ] \ ; ' ``)를 두고 `, . /`는 맨 아래 행에 둔다. 방향키는 Fn + h/j/k/l로 입력한다. 키보드 높이가 화면 높이의 50%를 넘으면 행 높이를 줄인다.
+
+### 3.6 분할 배열 가운데 공간
+
+폴드7 가로 화면(150.7 mm)에서 키 너비 8.5 mm로 계산하면 왼쪽 반쪽은 왼쪽 끝에서 57.9 mm, 오른쪽 반쪽은 오른쪽 끝에서 64.3 mm까지 온다. 그 사이 빈 공간은 폭 28.6 mm, 높이 47.5 mm다. 빈 공간의 중심은 왼쪽 끝에서 72.2 mm, 오른쪽 끝에서 78.6 mm 떨어져 있다. 0.1.0에서는 위 네 행의 양쪽 1칸(8.5 mm)을 복제 키가 차지하고 나머지 11.6 mm에 닿은 터치는 버려졌다. 세로 분할(135.8 mm)에서는 빈 공간이 16.6 mm이고 복제 키가 모두 채운다. 책 자세에서 접히는 선(왼쪽에서 67.9 mm)이 이 구간을 지난다.
+
+연구 결과:
+
+- KALQ는 엄지가 쥔 자세를 풀지 않고 닿는 범위를 반지름 58 mm로 잡고 그 안에 키 격자를 넣었다. 저자들은 그 범위의 가장자리와 모서리를 누르는 것이 더 느리다는 선행 연구를 인용했다. FoldKey의 반쪽 안쪽 끝은 이미 그 반지름 근처이고, 빈 공간 중심은 그 밖이다.
+- Bergstrom-Lehtovirta·Oulasvirta(2014)는 엄지가 닿는 한계선을 포물선으로 모델링하고 "UI(user interface) elements should not be placed close to the predicted extrema of the thumb's reach"라는 heuristic(경험 규칙)을 제시했다.
+- Trudeau 외(2013)에서 여러 참가자는 분할 배열이 "양쪽 반쪽을 번갈아 봐야 하는 끊긴 구역(non-continuous zone)"이라 더 집중해야 했다고 답했다. 저자들은 시험에 쓴 iOS 6처럼 두 반쪽 사이로 본문이 보이면 키보드 높이와 본문 가시성 사이의 상충이 일부 줄어든다고 적었다. 참가자들이 키를 가리지 않으려고 엄지를 구부려 세웠다는 관찰도 있다.
+- Lu 외(2019)는 분할 키보드를 보며 치면 본문, 왼쪽 반쪽, 오른쪽 반쪽 세 곳을 오가야 한다고 지적했다. Samsung Galaxy Tab S(SM-T800)의 가로 분할 키보드에서 본문만 보고 키보드는 peripheral vision(주변시)에 두는 방식이 27 WPM으로 키를 보며 친 21 WPM보다 28% 빨랐다. 이 수치는 단어 단위 언어 모델로 터치를 해석한 사전 내 단어 입력에서 나왔다. 사전이 없는 명령어와 식별자에는 그대로 적용되지 않는다.
+- Jiang 외(2020, Galaxy S6, 30명)에서 시선은 입력 시간의 약 60%를 키보드에 두었다(물리 키보드 숙련자 연구는 20%). 문장 하나를 치는 동안 본문으로 시선을 옮긴 횟수는 평균 3.4회였다(물리 키보드 0.92회). 시선 이동 횟수는 속도와 음의 상관을 보였다(β = −0.51, 오류 수정량을 통제하면 −0.17). 두 엄지 입력에서는 본문을 다시 보기 전에 더 많은 키를 쳐서 오류를 늦게 알아챘다.
+- Microsoft의 Windows 8 터치 키보드 설계 글(2012)은 시선 추적에서 사람들이 본문 아니면 키보드를 보고 그 사이는 거의 보지 않았다고 적었다. 그래서 단어 제안을 키보드 위 띠가 아니라 커서 옆에 띄웠다.
+
+선례:
+
+- Windows 8 thumb keyboard는 가운데에 숫자 패드를 두었다 `[2차: 2012년 사용자 블로그, Microsoft 블로그 댓글]`. SwiftKey는 "Thumb layout numpad" 옵션으로 가운데 숫자 패드를 둔다(Microsoft 지원 문서).
+- Unexpected Keyboard는 가로 분할에서 가운데 열에 단어 제안을 둔다(`split_middle_column.xml`).
+- Apple 특허 US 8,547,354(우선일 2010-11-05)의 명세서는 분할 키보드 두 반쪽 사이의 center portion에 두 번째 입력란을 두는 형태를 기술한다. Google Patents는 이 특허를 2031-08-03 만료 예정의 유효 특허로 표시한다. 어느 청구항이 이 형태를 포함하는지는 확인하지 않았다.
+
+**결정.** 가운데는 두 엄지 모두에서 가장 먼 곳이라 자주 누르는 키는 두지 않는다. 보기만 하는 정보와 가끔 누르는 항목만 둔다.
+
+- 가운데 패널은 빈 공간에서 복제 키를 뺀 폭이 16 mm 이상일 때만 만든다. 복제 키가 한 칸이면 이 폭이 나오지 않을 때 복제 키를 반 칸으로 줄인다. 폴드7 가로 화면에서 패널 폭은 20.1 mm, 복제 키는 4.25 mm다(테스트 `fold7LandscapeSplitGetsACenterPanelWithHalfWidthGhostKeys`).
+- 위 두 줄은 클립보드 기록이다. 가운데에서 가장 위쪽이라 엄지가 빗나가 닿을 가능성이 가장 작은 자리에 누르는 항목을 둔다. 스페이스 양끝과 맞닿은 맨 아래 줄에는 누르는 항목을 두지 않는다.
+- 아래 세 줄은 커서 앞 글자다. 본문까지 시선을 옮기지 않고 키 근처에서 확인하게 하려는 것이다. 이 형태가 속도나 오류에 주는 효과를 측정한 연구는 찾지 못했다.
+- 숫자 패드는 넣지 않았다. 숫자 행이 이미 있고, 가운데가 숫자 행보다 엄지에서 멀다.
+- 가운데를 투명하게 만들어 앱을 보이게 하는 방식은 쓰지 않았다. 코드와 터미널의 줄은 왼쪽 끝에서 시작하므로 20–29 mm 폭으로는 줄의 중간만 보인다. Android에서는 `InputMethodService.Insets.TOUCHABLE_INSETS_REGION`으로 구현할 수 있다(SDK의 `android.jar`에서 필드 확인).
+- 2차원 커서 패드 대신 스페이스를 위아래로 끄는 동작을 넣었다. 같은 기능을 엄지가 닿는 곳에서 쓰기 위해서다.
+
+클립보드 구현 근거(AOSP `ClipboardService` main 브랜치 확인): 기본 IME는 언제나 클립보드를 읽을 수 있고("The default IME is always allowed to access the clipboard"), 클립 변경 알림도 받는다. 클립보드 접근 알림(toast)도 기본 IME에는 뜨지 않는다("Exclude special cases: IME, ContentCapture, Autofill"). FoldKey는 `ClipDescription`의 `android.content.extra.IS_SENSITIVE`가 켜진 클립을 기록하지 않고, 기록은 메모리에만 다섯 개, 1시간까지 둔다.
+
+입력 표시 구현 근거: 일반 입력창은 `onUpdateSelection` 뒤에 `getTextBeforeCursor(120)`로 커서가 있는 줄을 읽고, 입력이 시작될 때는 `EditorInfo.getInitialTextBeforeCursor`를 쓴다. AOSP `EditorInfo.setInitialSurroundingSubText`는 비밀번호 입력 종류이면 초기 텍스트를 저장하지 않는다. FoldKey도 비밀번호 입력창에서는 표시하지 않는다. 터미널은 Termux의 `commitText`가 받은 글자를 보낸 직후 내부 `Editable`을 비우므로 화면 내용을 읽을 수 없다. 그래서 FoldKey가 보낸 글자와 키를 Enter 전까지 기록한다. 터미널 비밀번호 프롬프트를 키보드가 구별할 수 없으므로 이 기록은 기본으로 끄고, 꺼져 있을 때는 조합 중인 한글만 보여 준다.
+
+### 3.7 반쪽 높이와 키 너비 맞춤
+
+- KALQ는 화면 아래 가장자리 근처가 특히 닿기 어려워 키보드를 5 mm 올렸다. 같은 논문의 행 위치 조정 실험에서는 행마다 가로 위치를 0–60 px(pixel) 옮긴 조합 65,536개 가운데 가장 나은 것도 예측 속도를 0.1 wpm 올리는 데 그쳤다. 한 키를 몇몇 키에 가깝게 옮기면 다른 키에서 멀어지기 때문이라고 설명했다.
+- Trudeau 외(2013)는 아래 위치가 전체적으로 가장 좋았다고 보고하면서, 가운데 높이는 위쪽보다 빠르고 기기 아래 모서리로 인한 불편을 줄일 수 있다고 적었다.
+- Windows 8 thumb keyboard는 손 크기에 맞춰 크기를 바꿀 수 있었다. Microsoft는 센서를 붙인 태블릿으로 손 크기가 다양한 사람들의 엄지가 편하게 닿는 곳, 뻗으면 닿는 곳, 불편한 곳을 측정해 배열을 정했다.
+- Bergstrom-Lehtovirta·Oulasvirta(2014)에서 엄지 도달 거리와 상관이 있는 손 치수는 엄지–검지 벌림 폭뿐이었다(r = 0.70).
+
+**결정.** 반쪽 올림 높이(0–15 mm)를 설정으로 둔다. 맨 아래 행의 판정 영역은 올린 만큼 아래로 넓힌다(테스트 `liftAddsHeightBelowTheHalvesAndExtendsTheBottomRowTouchArea`). 엄지 범위 측정 화면은 키 너비를 사람마다 정한다.
+
+- 한 획에서 키보드 다섯 줄 각각의 가장 먼 지점을 구하고, 그중 가장 짧은 값을 그 획의 도달 거리로 쓴다. 반쪽이 직사각형이라 안쪽 끝이 모든 줄에서 닿아야 하기 때문이다. 다섯 줄을 모두 지나지 않은 획은 버린다.
+- 엄지마다 세 획을 받는다. 세 값의 차이가 6 mm와 중앙값의 10% 가운데 큰 값보다 크면 적용하지 않고 다시 긋게 한다. 한 번의 측정으로 정하지 않기 위해서다. 일정하면 중앙값으로 두 반쪽이 각 범위 안에 들어가는 키 너비를 0.1 mm 단위로 내림해 계산한다(7.0–11.0 mm).
+- 이 방법은 KALQ처럼 엄지의 최대 도달선만 잰다. 편한 범위 안에서의 속도 차이와 화면 아래 가장자리의 어려움은 반영하지 않는다. 사람을 대상으로 검증하지 않았다.
 
 ## 4. 키 크기와 터치 정확도
 
@@ -238,6 +286,26 @@ Lertvittayakumjorn 외(2024)에서 언어 모델은 영어 문장의 문자 오�
 | Termux extra keys | 기본 `ESC / - HOME UP END PGUP`, `TAB CTRL ALT LEFT DOWN RIGHT PGDN` | 같은 키를 모두 한 동작 안에 둔다 |
 | Blink Shell(iOS) | 화면 키보드 위 Smart Keys, 수정키 연속 입력 | 수정키 chord와 one-shot을 모두 지원한다 |
 
+### 7.8 빠진 문자와 키 검토(0.2.0)
+
+확인 방법과 결과:
+
+- **ASCII.** 95자는 세 배열 모두에서 입력된다. 테스트 `everyLayoutReachesTheSameKeySet`이 글자 키 47개와 Shift 대응을 검사한다.
+- **특수 키.** Termux extra keys가 이름으로 지원하는 키(`ExtraKeysConstants.java`: SPACE, ESC, TAB, HOME, END, PGUP, PGDN, INS, DEL, BKSP, 방향키, ENTER, F1–F12) 가운데 0.1.0에 없던 것은 INS 하나였다. Unexpected Keyboard는 Fn+Esc에 Insert를 둔다(`KeyModifier.apply_fn_keyevent`).
+- **한글 문장 부호.** 국립국어원 「문장 부호 해설」(2015)의 21종 가운데 ASCII에 없는 것은 가운뎃점, 큰따옴표·작은따옴표(“ ” ‘ ’), 겹낫표·겹화살괄호, 홑낫표·홑화살괄호, 줄표, 물결표(∼), 드러냄표, 숨김표(○ ×), 빠짐표(□), 줄임표다. 0.1.0에는 이 가운데 아무것도 없었다.
+- **코드 문서용 기호.** Unexpected Keyboard의 Fn 표(`srcs/compose/fn.json`)는 `.`→…, `,`→·, `-`→–, `_`→—, `=`→≈, `*`→°, 통화 기호를 둔다. 0.1.0에는 비ASCII 문자가 하나도 없었다.
+- **제어 문자.** 터미널에서 Ctrl+Alt 조합을 ESC와 제어 문자로 바꾸는 표가 글자와 `[ \ ] ^ _`만 다뤘다. Termux `TerminalView.inputCodePoint`는 Ctrl과 함께 Space·2 → 0, 3 → 27, 4 → 28, 5 → 29, 6 → 30, 7·/ → 31, 8 → 127로 바꾼다.
+- **길게 누르기.** 길게 누르기가 윗글자 입력이라서, vim에서 `j`를 누르고 있으면 반복 대신 `J`(줄 합치기)가 들어갔다.
+- **한자 변환.** 없다. 사전 데이터가 필요해서 이번 범위에서 뺐다.
+
+**결정.**
+
+- 비ASCII 기호는 Fn 레이어에 둔다. Fn을 켜면 키 표시가 기호로 바뀌므로 위치를 외우지 않아도 된다. 한 키에 Fn 누르기와 Fn + 위로 밀기 두 가지를 둔다. 배치 표는 README에 있고, 테스트 `fnLayerHasEverySymbolOnceInEveryLayout`과 `fnLayerCoversKoreanPunctuationMarks`가 세 배열 모두에 같은 53개가 한 번씩 있는지, 문장 부호가 빠지지 않았는지 확인한다.
+- 글자 모양은 KS X 1001의 Unicode 대응을 따른다. Python `euc_kr` 코덱으로 KS X 1001의 기호 영역(0xA1–0xAC 행, 987자)을 뽑아 대조했다. 1행에 `、。·‥…¨〃―∥＼∼‘’“”〔〕〈〉《》「」『』【】±×÷≠≤≥∞∴°′″`가 있다. 그래서 가운뎃점은 U+00B7, 줄표는 U+2015, 물결표는 U+223C, 화살괄호는 U+3008–300B, 낫표는 U+300C–300F다. 영문 em dash(U+2014)는 따로 둔다.
+- Fn+Esc는 Insert, Shift를 함께 켜면 Shift+Insert다. 터미널의 Ctrl+Alt 제어 문자 표는 Termux와 같게 넓히고, 관례상 같은 코드인 `@`(NUL)와 `?`(DEL)를 더했다(테스트 `ctrlAltDigitsSpaceAndSlashFollowTermuxControlMapping`).
+- 길게 누르기 동작을 "윗글자"와 "반복 입력" 가운데 고르게 했다. 기본은 윗글자다.
+- 스페이스를 위아래로 끌면 ↑/↓를 보낸다. 셸 history와 vim 줄 이동에 쓴다. 처음 움직인 방향(세로는 가로의 1.2배 이상일 때)으로 고정되고, 4 mm마다 한 줄이다.
+
 ## 8. 한글 입력
 
 ### 8.1 표준과 자판
@@ -308,12 +376,20 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 같은 확인창에서 한글 모드로 ㅇㅏㄴ을 치면 상단 줄에만 "안"이 보이고 확인창에는 아무것도 가지 않았다. 이어서 Esc를 누르자 "안"이 먼저 확정되고 ESCAPE가 뒤따랐으며, 다음 `j`는 영문으로 들어갔다.
   - 여러 줄 `EditText`에서 ㅎㅏㄴㄱㅡㄹ과 스페이스가 "한글 "이 되었다. a 아래로 밀기(Ctrl+A)로 전체가 선택되었고 `x`가 선택 영역을 바꿨다. z 아래로 밀기(Ctrl+Z)로 "한글 "이 되돌아왔다.
   - 가로로 돌리자 분할 배열이 나왔고, 앱이 전체 화면 추출 모드로 바뀌지 않았다.
+- **0.2.0 자동 테스트.** 테스트는 123개다. 새로 넣은 것은 Fn 기호 53개의 배열별 중복·누락 검사, 한글 문장 부호 포함 검사, Insert, Termux 제어 문자 대응, 터미널 입력 기록(`EchoBuffer`), 클립보드 기록(중복, 개수, 1시간 만료), 가운데 패널과 복제 키 폭, 반쪽 올림, 스페이스 위아래 끌기, 길게 누르기 반복, 엄지 범위 계산, 측정 화면의 저장이다. Robolectric으로 서비스를 띄워 클립 변경 알림, 민감 클립 제외, 비밀번호 입력창의 표시 제외도 확인했다.
+- **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
+  - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
+  - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.
+  - TYPE_NULL 확인창에서 Fn+Esc는 `down INSERT`, Ctrl·Alt one-shot 뒤 2는 `text "^[^@"`(ESC, NUL)로 도착했다.
+  - 두 줄을 만든 뒤 스페이스를 9.4 mm 위로 끌고 y를 치자 윗줄의 같은 열에 들어갔다(`·y≥₩·≥₩\nx`). 스페이스는 입력되지 않았다.
+  - 엄지 범위 측정 화면에 `adb shell input swipe`로 왼쪽 60·61·62 mm, 오른쪽 66·67·65 mm 세로 획을 그리자 "왼쪽 61.0 mm, 오른쪽 66.0 mm → 키 너비 8.7 mm"가 나왔고, 적용 뒤 설정 파일에 87(0.1 mm 단위)이 저장되었다.
+  - 반쪽 올림 5 mm와 길게 누르기 반복을 설정 파일에 넣고 키보드를 다시 띄우자 맨 아래에 빈 띠가 생기고 키 너비가 8.7 mm로 그려졌다. `j`를 2.5초 누르자 `jjjjjjj`가 입력되었고 `J`는 나오지 않았다.
 
 ### 10.2 이 환경에서 확인하지 못한 것
 
 - **Robolectric과 실제 Android의 차이.** Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 `'a'`를 돌려준다(실험으로 확인). AOSP는 0을 돌려주므로 Ctrl+A가 단축키 단계로 넘어간다. 그래서 일반 입력창의 Ctrl 단축키는 Robolectric이 아니라 에뮬레이터에서 확인했다. Robolectric에서는 `commitText`가 즉시 반영되고 키 이벤트가 나중에 처리되어 순서가 바뀌는 현상도 있었다. 에뮬레이터에서는 보낸 순서대로 처리되었다.
 - **에뮬레이터에서 본 이상 현상.** 첫 시험에서 "ㅎㅏㄴㄱㅡㄹ 스페이스"가 "한ㅡ "로 들어갔다. 당시 시스템 UI 응답 없음 대화상자가 떠 있었고 로그를 남기지 않아 원인을 확정하지 못했다. 입력 연결이 다시 시작되면 조합기만 비워지고 입력창의 조합 영역은 남아, 다음 자모가 그 영역을 덮어쓸 수 있다는 점을 코드에서 찾았다. 그래서 입력이 다시 시작될 때 조합 중이던 글자를 먼저 확정하도록 고쳤다(`restartDuringCompositionKeepsTypedJamo`). 수정 뒤 같은 순서(터미널 확인창에서 입력한 뒤 `EditText`로 이동)는 "한글 "이 되었다. 알림창을 여닫은 직후에 친 ㅡ가 빠져 "한ㄱㄹ "이 된 경우도 한 번 있었다. 이 결과는 ㅡ 탭이 키보드에 도달하지 않았을 때 조합기가 내는 출력과 같고, 임시로 넣은 디버그 로그에 조합 초기화 기록이 없었다. 그래서 키보드 밖에서 사라진 입력으로 판단했다.
-- **에뮬레이터의 한계.** 소프트웨어 에뮬레이션이라 탭 하나를 처리하는 데 10초 넘게 걸렸다. 그래서 타이밍(두 엄지 rollover, 길게 누르기, 반복 입력)은 에뮬레이터 결과로 판단하지 않았다. 이미지가 Android 11이라 Android 15 이상의 edge-to-edge 처리도 여기서는 확인되지 않는다.
+- **에뮬레이터의 한계.** 소프트웨어 에뮬레이션이라 탭 하나를 처리하는 데 10초 넘게 걸렸다. 길게 누르기 반복도 2.5초 동안 7번만 나와 설계값(400 ms 뒤 50 ms마다)과 맞지 않았다. 앱을 `am force-stop`으로 멈추면 Android 11은 기본 입력 방법을 LatinIME으로 되돌렸다. 그래서 타이밍(두 엄지 rollover, 길게 누르기, 반복 입력)은 에뮬레이터 결과로 판단하지 않았다. 이미지가 Android 11이라 Android 15 이상의 edge-to-edge 처리도 여기서는 확인되지 않는다.
 - **실기기 동작.** 폴드7 실기기가 없다. 햅틱 강도와 느낌, One UI가 서드파티 IME의 `KEYBOARD_TAP`을 시스템 키보드 진동 설정에 연결하는지, `xdpi` 값의 정확도, 작업 표시줄(taskbar)과 IME의 상호작용, Android 16에서의 하단 insets 처리는 기기에서 확인해야 한다.
 - **사용자 실험.** 입력 속도와 오류율을 사람으로 측정한 적이 없다. 이 문서의 수치는 모두 인용한 연구의 값이다. 평가할 때는 Soukoreff·MacKenzie(2003)의 전체·수정·미수정 오류율과 KSPC(keystrokes per character, 문자당 키 입력 수)를 쓰고, 명령어와 식별자 같은 사전 밖 문자열을 과제에 넣어야 한다. Palin 외(2019)의 두 엄지 평균(38 WPM, 미수정 오류 2.3%)이 휴대폰 입력의 참고값이다.
 
@@ -325,6 +401,10 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 4. 일반 입력창에서 Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+Z가 동작하는지 본다.
 5. 가로·세로 전환과 내부·커버 화면 전환에서 배열이 전체·분할·compact로 바뀌는지 본다.
 6. 시스템 설정의 키보드 진동을 끄고 켜며 기본 햅틱이 따라가는지 본다.
+7. Termux에서 Fn 기호(`·`, `…`, `「`)가 UTF-8로 들어가 `printf '%s' '·' | od -c`의 바이트가 맞는지 본다.
+8. 다른 앱에서 복사한 글이 가운데에 나타나는지, 비밀번호 관리 앱에서 복사한 비밀번호는 나타나지 않는지 본다.
+9. 엄지 범위 측정을 실제 손으로 세 번씩 해서 측정값이 일치 범위 안에 들어오는지, 정한 키 너비에서 안쪽 키(T, Y, 5, 6)가 편하게 닿는지 본다.
+10. 길게 누르기 반복을 켜고 vim normal mode에서 `j`를 누르고 있을 때 줄 이동이 반복되는지 본다.
 
 ## 11. 얽힌 이야기들
 
@@ -335,6 +415,9 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **네벌식에서 두벌식으로.** 국가기록원 자료에 따르면 1969년 정부는 네벌식 타자기 자판을 표준으로 정했다(국무총리 훈령 제81호). 국사편찬위원회 우리역사넷은 이 네벌식을 "초성 자음 한 벌, 긴 모음 한 벌, 짧은 모음 한 벌, 받침 한 벌"로 설명하고, 기존 제조사들이 "강하게 반발"했다고 적는다. 1982년 텔레타이프에 쓰던 두벌식이 국가 표준(지금의 KS X 5002)이 되었고, 1983년 네벌식 타자기 표준이 폐지되었다. 공병우가 초성·중성·종성을 따로 둔 세벌식 타자기를 만든 것은 1949년이다.
 - **천지인 특허.** 천지인 특허는 삼성전자와 조관현 아이디엔 사장이 모두 보유했다. 두 쪽은 2002년부터 소송을 벌였고, 2009년 양쪽의 특허가 모두 인정되었다. 조관현 사장은 2010년 10월 19일 특허를 기술표준원에 기증했다(서울신문 2010년 10월 20일). 2011년 6월 천지인이 피처폰 단일 표준, 천지인·나랏글·SKY가 스마트폰 복수 표준으로 정해졌다.
 - **인용 속의 뒤바뀐 숫자.** Palin 외(2019)의 관련 연구 절은 Azenkot·Zhai(2012)의 결과를 "two thumbs, one thumb or the index finger" 순서로 50.03, 36.34, 33.78 WPM이라고 옮겼다. 원문은 한 손가락(검지)이 36.34, 한 엄지가 33.78이다. 이번 조사에서 두 PDF를 대조해 확인했다. 인용을 거친 수치는 원문과 대조할 필요가 있다는 예다.
+- **문장 부호 해설 페이지의 코드 포인트.** 국립국어원 「문장 부호 해설」 웹 페이지의 HTML(HyperText Markup Language)을 받아 글자를 확인했다. 가운뎃점은 U+318D(한글 아래아), 겹화살괄호는 U+226A·U+226B(수학의 ≪ ≫), 홑낫표는 U+FF62·U+FF63(반각 ｢ ｣), 홑화살괄호는 ASCII `<` `>`였다. 겹낫표(U+300E·U+300F), 줄표(U+2015), 물결표(U+223C)는 KS X 1001 대응과 같았다. 모양이 비슷한 다른 문자는 검색과 비교에서 서로 다른 글자로 취급된다. FoldKey는 KS X 1001의 Unicode 대응을 따른다.
+- **₩와 역슬래시.** KS X 1003(옛 KS C 5636)은 ASCII의 0x5C 자리에 ₩를 둔다. 한국어 Windows 키보드의 ₩ 키는 U+005C를 보내고, 맑은 고딕은 U+005C를 ₩ 모양으로 그린다 `[2차]`. FoldKey는 코드 입력을 위해 `\` 키에서 U+005C를 보내고, Fn을 켜면 같은 키에서 U+20A9(₩)를 보낸다.
+- **가운데를 두고 갈린 선택.** Windows 8 thumb keyboard는 2011년 첫 Windows 8 시연에서 공개되었고, 당시 사용자 블로그는 "가운데에 숫자 패드가 있는 옛 인체공학 키보드"로 묘사했다 `[2차]`. 2012년 Microsoft 설계 글의 댓글에는 가운데 숫자가 없는 분할 키보드와 빈 공간을 투명하게 해 달라는 요청이 함께 달렸다. Apple은 iPad 분할 키보드의 가운데로 본문이 보이게 출시했지만(Trudeau 외가 시험한 iOS 6), 2010년 우선일의 특허 명세서에는 가운데에 두 번째 입력란을 두는 형태도 적었다.
 - **Microsoft 문서의 오타.** Microsoft의 한국어 IME 문서는 "여름"을 입력하는 키를 "O, U, F, M, and A"로 적는다. ㅇ은 D 키이므로 D, U, F, M, A가 맞다.
 
 ## 12. 참고 자료
@@ -360,10 +443,12 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - Hoggan, E., Brewster, S. A., & Johnston, J. (2008). Investigating the effectiveness of tactile feedback for mobile touchscreens. CHI '08, 1573–1582. doi:10.1145/1357054.1357300
 - Holz, C., & Baudisch, P. (2010). The generalized perceived input point model and how to double touch accuracy by extracting fingerprints. CHI '10, 581–590. doi:10.1145/1753326.1753413
 - Holz, C., & Baudisch, P. (2011). Understanding touch. CHI '11, 2501–2510. doi:10.1145/1978942.1979308
+- Jiang, X., Li, Y., Jokinen, J. P. P., Hirvola, V. B., Oulasvirta, A., & Ren, X. (2020). How we type: Eye and finger movement strategies in mobile typing. CHI '20. doi:10.1145/3313831.3376711
 - Ilinkin, I., & Kim, S. (2017). Design and evaluation of Korean text entry methods for smartwatches. CHI '17. doi:10.1145/3025453.3025657
 - Kaaresoja, T., Brewster, S., & Lantz, V. (2014). Towards the temporally perfect virtual button. ACM Transactions on Applied Perception 11(2), Article 9. doi:10.1145/2611387
 - Kim, H., Yi, S., & Yoon, S. Y. (2019). Exploring touch feedback display of virtual keyboards for reduced eye movements. Displays 56, 38–48. doi:10.1016/j.displa.2018.11.004
 - Lertvittayakumjorn, P., et al. (2024). UIST '24. doi:10.1145/3654777.3676420 (arXiv:2410.02264)
+- Lu, Y., Yu, C., Fan, S., Bi, X., & Shi, Y. (2019). Typing on split keyboards with peripheral vision. CHI '19, Paper 200. doi:10.1145/3290605.3300430
 - Ma, Z., Edge, D., Findlater, L., & Tan, H. Z. (2015). Haptic keyclick feedback improves typing speed and reduces typing errors on a flat keyboard. IEEE World Haptics Conference 2015, 220–227. doi:10.1109/WHC.2015.7177717
 - Oulasvirta, A., et al. (2013). Improving two-thumb text entry on touchscreen devices. CHI '13, 2765–2774. doi:10.1145/2470654.2481383
 - Palin, K., Feit, A. M., Kim, S., Kristensson, P. O., & Oulasvirta, A. (2019). How do people type on mobile devices? Observations from a study with 37,000 volunteers. MobileHCI '19. doi:10.1145/3338286.3340120
@@ -385,9 +470,17 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - 구름 입력기: https://github.com/gureum/gureum
 - AOSP frameworks/base, frameworks/native(android-16.0.0_r1): `InputMethodService.java`, `View.java`, `HapticFeedbackVibrationProvider.java`, `KeyCharacterMap.cpp`, `Virtual.kcm`
 - AOSP LatinIME: `PointerTracker.java`, `PointerTrackerQueue.java`, `config-per-form-factor.xml`
-- Termux: https://github.com/termux/termux-app (`TerminalView.java`, `KeyHandler.java`, `TermuxPropertyConstants.java`)
+- Termux: https://github.com/termux/termux-app (`TerminalView.java`, `KeyHandler.java`, `TermuxPropertyConstants.java`, `ExtraKeysConstants.java`)
 - Hacker's Keyboard: https://github.com/klausw/hackerskeyboard
-- Unexpected Keyboard: https://github.com/Julow/Unexpected-Keyboard
+- Unexpected Keyboard: https://github.com/Julow/Unexpected-Keyboard (`srcs/compose/fn.json`, `KeyModifier.java`, `res/xml/split_middle_column.xml`)
+- AOSP frameworks/base(main): `ClipboardService.java`, `EditorInfo.java`, `AbstractInputMethodService.java`
+- 국립국어원, 문장 부호 해설(2015-02-13): https://www.korean.go.kr/front/etcData/etcDataView.do?mn_id=46&etc_seq=431
+- KS X 1001 기호 영역: Python `euc_kr` 코덱으로 0xA1–0xAC 행을 디코딩해 확인
+- KS X 1003, 위키백과: https://ko.wikipedia.org/wiki/KS_X_1003
+- Microsoft, Designing the Windows 8 touch keyboard(2012-07-17): https://learn.microsoft.com/en-us/archive/blogs/b8/designing-the-windows-8-touch-keyboard
+- M. Garvis, Windows 8 On-Screen Keyboards(2012-03-01): https://garvis.ca/2012/03/01/windows-8-on-screen-keyboards/
+- Microsoft 지원, SwiftKey 키보드 모드 변경: https://support.microsoft.com/en-us/swiftkey-keyboard/how-to-change-your-keyboard-mode-on-microsoft-swiftkey-keyboard
+- Apple Inc., US 8,547,354 B2, Device, method, and graphical user interface for manipulating soft keyboards: https://patents.google.com/patent/US8547354B2
 - Android Developers, Haptics design principles: https://developer.android.com/develop/ui/views/haptics/haptics-principles
 - Android Developers, Behavior changes: Android 15, Android 16: https://developer.android.com/about/versions/16/behavior-changes-16
 - ADM-3A Operator's Manual: https://vt100.net/lsi/adm3a-om.pdf

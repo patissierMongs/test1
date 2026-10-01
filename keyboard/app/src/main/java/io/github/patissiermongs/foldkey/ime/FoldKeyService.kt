@@ -1,9 +1,11 @@
 package io.github.patissiermongs.foldkey.ime
 
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
 import android.text.InputType
 import android.view.View
 import android.view.WindowInsetsController
@@ -24,6 +26,8 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     private lateinit var engine: KeyboardEngine
     private lateinit var feedback: HapticFeedback
     private var keyboardView: KeyboardView? = null
+    private val clipboardHistory = ClipboardHistory()
+    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { captureClip() }
 
     override fun onCreate() {
         super.onCreate()
@@ -32,9 +36,12 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         engine = KeyboardEngine(InputConnectionEditor(this) { currentInputConnection }, this)
         applySettings()
         prefs.sp.registerOnSharedPreferenceChangeListener(this)
+        getSystemService(ClipboardManager::class.java)?.addPrimaryClipChangedListener(clipListener)
     }
 
     override fun onDestroy() {
+        getSystemService(ClipboardManager::class.java)?.removePrimaryClipChangedListener(clipListener)
+        clipboardHistory.clear()
         prefs.sp.unregisterOnSharedPreferenceChangeListener(this)
         keyboardView?.saveState()
         super.onDestroy()
@@ -43,6 +50,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onCreateInputView(): View {
         keyboardView?.saveState()
         val view = KeyboardView(this, engine, prefs, feedback)
+        view.clipSource = { clipboardHistory.items(SystemClock.elapsedRealtime()).map { it.text } }
         keyboardView = view
         updateNavigationBarAppearance()
         return view
@@ -53,8 +61,10 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         engine.startInput(contextOf(info), restarting)
+        captureClip()
         keyboardView?.cancelTouches()
         keyboardView?.showSwitchKey = shouldOfferSwitchingToNextInputMethod()
+        keyboardView?.setEditorLine(lineOf(info.getInitialTextBeforeCursor(ECHO_CHARS, 0)))
         keyboardView?.invalidate()
     }
 
@@ -80,6 +90,31 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         engine.selectionChanged(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        refreshEditorLine()
+    }
+
+    private fun refreshEditorLine() {
+        val view = keyboardView ?: return
+        val ctx = engine.context
+        if (!prefs.centerEcho || ctx.raw || ctx.secret || !view.hasPanel) {
+            view.setEditorLine("")
+            return
+        }
+        view.setEditorLine(lineOf(currentInputConnection?.getTextBeforeCursor(ECHO_CHARS, 0)))
+    }
+
+    private fun lineOf(text: CharSequence?): String {
+        if (text == null || engine.context.secret) return ""
+        return text.toString().substringAfterLast('\n')
+    }
+
+    private fun captureClip() {
+        if (!prefs.centerClipboard) return
+        val clip = getSystemService(ClipboardManager::class.java)?.primaryClip ?: return
+        if (clip.itemCount == 0) return
+        if (clip.description?.extras?.getBoolean(EXTRA_IS_SENSITIVE, false) == true) return
+        val text = clip.getItemAt(0).text?.toString() ?: return
+        if (clipboardHistory.add(text, SystemClock.elapsedRealtime())) keyboardView?.invalidate()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -97,6 +132,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        if (!prefs.centerClipboard) clipboardHistory.clear()
         applySettings()
         feedback.reload()
         keyboardView?.reload()
@@ -129,7 +165,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     private fun applySettings() {
-        engine.settings = EngineSettings(escToLatin = prefs.escToLatin)
+        engine.settings = EngineSettings(escToLatin = prefs.escToLatin, terminalEcho = prefs.terminalEcho)
     }
 
     private fun contextOf(info: EditorInfo): EditorContext {
@@ -143,10 +179,25 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         val action = info.imeOptions and EditorInfo.IME_MASK_ACTION
         val noEnterAction = (info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
         val enterAction = if (raw || noEnterAction || action == EditorInfo.IME_ACTION_NONE) null else action
-        return EditorContext(raw = raw, enterAction = enterAction, preferLatin = latin, packageName = info.packageName)
+        val secret = (cls == InputType.TYPE_CLASS_TEXT && variation in PASSWORD_VARIATIONS) ||
+            (cls == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
+        return EditorContext(
+            raw = raw,
+            enterAction = enterAction,
+            preferLatin = latin,
+            packageName = info.packageName,
+            secret = secret,
+        )
     }
 
     companion object {
+        private const val ECHO_CHARS = 120
+        private const val EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
+        private val PASSWORD_VARIATIONS = setOf(
+            InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+        )
         private val LATIN_VARIATIONS = setOf(
             InputType.TYPE_TEXT_VARIATION_PASSWORD,
             InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,

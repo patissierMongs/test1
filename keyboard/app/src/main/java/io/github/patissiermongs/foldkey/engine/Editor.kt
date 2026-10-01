@@ -5,6 +5,7 @@ data class EditorContext(
     val enterAction: Int? = null,
     val preferLatin: Boolean = false,
     val packageName: String? = null,
+    val secret: Boolean = false,
 )
 
 interface Editor {

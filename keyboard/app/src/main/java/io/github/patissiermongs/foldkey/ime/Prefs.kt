@@ -15,11 +15,16 @@ class Prefs(context: Context) {
 
     val rowHeightMm: Float get() = sp.getInt(ROW_HEIGHT, 95) / 10f
     val splitUnitMm: Float get() = sp.getInt(SPLIT_UNIT, 85) / 10f
+    val splitLiftMm: Float get() = sp.getInt(SPLIT_LIFT, 0) / 10f
+    val centerEcho: Boolean get() = sp.getBoolean(CENTER_ECHO, true)
+    val centerClipboard: Boolean get() = sp.getBoolean(CENTER_CLIPBOARD, true)
+    val terminalEcho: Boolean get() = sp.getBoolean(TERMINAL_ECHO, false)
     val haptic: Boolean get() = sp.getBoolean(HAPTIC, true)
     val hapticLevel: Int get() = sp.getInt(HAPTIC_LEVEL, 0)
     val sound: Boolean get() = sp.getBoolean(SOUND, false)
     val popupMode: Int get() = sp.getInt(POPUP_MODE, POPUP_AUTO)
     val longPressMs: Long get() = sp.getInt(LONG_PRESS, 400).toLong()
+    val longPressAction: Int get() = sp.getInt(LONG_PRESS_ACTION, LONG_PRESS_SHIFT)
     val swipeDownCtrl: Boolean get() = sp.getBoolean(SWIPE_DOWN_CTRL, true)
     val escToLatin: Boolean get() = sp.getBoolean(ESC_TO_LATIN, true)
     val adaptive: Boolean get() = sp.getBoolean(ADAPTIVE, true)
@@ -46,6 +51,10 @@ class Prefs(context: Context) {
         const val SPLIT_LANDSCAPE = "split_landscape"
         const val ROW_HEIGHT = "row_height_tenth_mm"
         const val SPLIT_UNIT = "split_unit_tenth_mm"
+        const val SPLIT_LIFT = "split_lift_tenth_mm"
+        const val CENTER_ECHO = "center_echo"
+        const val CENTER_CLIPBOARD = "center_clipboard"
+        const val TERMINAL_ECHO = "terminal_echo"
         const val HAPTIC = "haptic"
         const val HAPTIC_LEVEL = "haptic_level"
         const val SOUND = "sound"
@@ -54,6 +63,9 @@ class Prefs(context: Context) {
         const val POPUP_AUTO = 1
         const val POPUP_ON = 2
         const val LONG_PRESS = "long_press_ms"
+        const val LONG_PRESS_ACTION = "long_press_action"
+        const val LONG_PRESS_SHIFT = 0
+        const val LONG_PRESS_REPEAT = 1
         const val SWIPE_DOWN_CTRL = "swipe_down_ctrl"
         const val ESC_TO_LATIN = "esc_to_latin"
         const val ADAPTIVE = "adaptive"

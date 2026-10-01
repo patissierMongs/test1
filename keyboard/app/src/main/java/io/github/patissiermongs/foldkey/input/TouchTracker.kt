@@ -8,7 +8,9 @@ data class TouchParams(
     val swipeThresholdPx: Float,
     val cursorStartPx: Float,
     val cursorStepPx: Float,
+    val cursorRowStepPx: Float = cursorStepPx * 1.6f,
     val longPressMs: Long = 0L,
+    val longPressRepeats: Boolean = false,
     val repeatDelayMs: Long = 400L,
     val repeatIntervalMs: Long = 50L,
     val verticalDominance: Float = 1.2f,
@@ -31,13 +33,15 @@ interface TouchSink {
 
     fun cursor(steps: Int)
 
+    fun cursorRows(steps: Int)
+
     fun cursorEnd()
 
     fun sample(key: Key, x: Float, y: Float)
 }
 
 class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
-    private enum class Mode { PENDING, MODIFIER, REPEAT, CURSOR, DONE }
+    private enum class Mode { PENDING, MODIFIER, REPEAT, CURSOR, CURSOR_ROWS, DONE }
 
     private class Pointer(val id: Int, val key: Key, val x0: Float, val y0: Float) {
         var x = x0
@@ -46,6 +50,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         var deadline = Long.MAX_VALUE
         var gesture = Gesture.TAP
         var anchor = x0
+        var anchorY = y0
         var repeatOnHold = false
     }
 
@@ -92,7 +97,13 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
             Mode.PENDING -> {
                 if (p.key.def.isSpace) {
                     val dx = x - p.x0
-                    if (abs(dx) >= params.cursorStartPx) {
+                    val dy = y - p.y0
+                    if (abs(dy) >= params.cursorStartPx && abs(dy) >= abs(dx) * params.verticalDominance) {
+                        releasePending(t, pointers.values.takeWhile { it !== p })
+                        p.mode = Mode.CURSOR_ROWS
+                        p.anchorY = p.y0 + if (dy > 0) params.cursorStartPx else -params.cursorStartPx
+                        stepRows(p)
+                    } else if (abs(dx) >= params.cursorStartPx) {
                         releasePending(t, pointers.values.takeWhile { it !== p })
                         p.mode = Mode.CURSOR
                         p.anchor = p.x0 + if (dx > 0) params.cursorStartPx else -params.cursorStartPx
@@ -108,6 +119,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                 }
             }
             Mode.CURSOR -> stepCursor(p)
+            Mode.CURSOR_ROWS -> stepRows(p)
             else -> Unit
         }
     }
@@ -125,7 +137,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         val p = pointers.remove(id) ?: return
         when (p.mode) {
             Mode.MODIFIER -> sink.modifierUp(p.key, t)
-            Mode.CURSOR -> sink.cursorEnd()
+            Mode.CURSOR, Mode.CURSOR_ROWS -> sink.cursorEnd()
             else -> Unit
         }
         sink.released(p.id)
@@ -147,7 +159,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                 }
                 Mode.PENDING -> {
                     releasePending(t, pointers.values.takeWhile { it !== p })
-                    if (p.repeatOnHold) {
+                    if (p.repeatOnHold || params.longPressRepeats) {
                         sink.fire(p.key, Gesture.TAP, t)
                         p.mode = Mode.REPEAT
                         p.deadline = t + params.repeatIntervalMs
@@ -177,7 +189,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         when (p.mode) {
             Mode.MODIFIER -> sink.modifierUp(p.key, t)
             Mode.PENDING -> commit(p, t)
-            Mode.CURSOR -> sink.cursorEnd()
+            Mode.CURSOR, Mode.CURSOR_ROWS -> sink.cursorEnd()
             Mode.REPEAT, Mode.DONE -> Unit
         }
         sink.released(p.id)
@@ -194,6 +206,14 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
         if (steps != 0) {
             p.anchor += steps * params.cursorStepPx
             sink.cursor(steps)
+        }
+    }
+
+    private fun stepRows(p: Pointer) {
+        val steps = ((p.y - p.anchorY) / params.cursorRowStepPx).toInt()
+        if (steps != 0) {
+            p.anchorY += steps * params.cursorRowStepPx
+            sink.cursorRows(steps)
         }
     }
 

@@ -47,6 +47,7 @@ class TouchTrackerTest {
         override fun variant(pointer: Int, key: Key, gesture: Gesture) {}
         override fun released(pointer: Int) {}
         override fun cursor(steps: Int) { cursorSteps += steps; events.add("cursor:$steps") }
+        override fun cursorRows(steps: Int) { events.add("rows:$steps") }
         override fun cursorEnd() { events.add("cursorEnd") }
         override fun sample(key: Key, x: Float, y: Float) { events.add("sample:${label(key)}") }
 
@@ -57,9 +58,16 @@ class TouchTrackerTest {
         }
     }
 
-    private fun tracker(sink: Sink, longPress: Long = 0L) = TouchTracker(
+    private fun tracker(sink: Sink, longPress: Long = 0L, repeats: Boolean = false) = TouchTracker(
         sink,
-        TouchParams(swipeThresholdPx = 30f, cursorStartPx = 20f, cursorStepPx = 10f, longPressMs = longPress),
+        TouchParams(
+            swipeThresholdPx = 30f,
+            cursorStartPx = 20f,
+            cursorStepPx = 10f,
+            cursorRowStepPx = 16f,
+            longPressMs = longPress,
+            longPressRepeats = repeats,
+        ),
     )
 
     @Test
@@ -212,6 +220,56 @@ class TouchTrackerTest {
         assertEquals(0, s.fired.size)
         assertEquals(1, s.cursorSteps)
         assertEquals("cursorEnd", s.events.last())
+    }
+
+    @Test
+    fun spaceDragUpOrDownLocksToRowsAndIgnoresSideways() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.move(0, 452f, 25f, 20)
+        t.move(0, 470f, 10f, 40)
+        t.move(0, 490f, -20f, 60)
+        t.move(0, 490f, 30f, 80)
+        t.up(0, 490f, 30f, 100)
+        assertEquals(listOf("down:Space", "rows:-1", "rows:-2", "rows:3", "cursorEnd"), s.events)
+        assertEquals(0, s.fired.size)
+        assertEquals(0, s.cursorSteps)
+    }
+
+    @Test
+    fun diagonalSpaceDragPicksHorizontalWhenNotClearlyVertical() {
+        val s = Sink(keys)
+        val t = tracker(s)
+        t.down(0, 450f, 50f, 0)
+        t.move(0, 471f, 30f, 20)
+        t.move(0, 481f, 0f, 40)
+        t.up(0, 481f, 0f, 60)
+        assertEquals(listOf("down:Space", "cursor:1", "cursorEnd"), s.events)
+    }
+
+    @Test
+    fun longPressRepeatsTheKeyWhenEnabled() {
+        val s = Sink(keys)
+        val t = tracker(s, longPress = 400L, repeats = true)
+        t.down(0, 50f, 50f, 0)
+        t.tick(400)
+        t.tick(450)
+        t.tick(500)
+        t.up(0, 50f, 50f, 520)
+        assertEquals(listOf(Gesture.TAP, Gesture.REPEAT, Gesture.REPEAT), s.fired.map { it.second })
+        assertEquals(listOf("down:a", "fire:a:TAP@400", "fire:a:REPEAT@450", "fire:a:REPEAT@500"), s.events)
+    }
+
+    @Test
+    fun swipeBeforeDelayStillGivesVariantWhenRepeatIsEnabled() {
+        val s = Sink(keys)
+        val t = tracker(s, longPress = 400L, repeats = true)
+        t.down(0, 50f, 60f, 0)
+        t.move(0, 50f, 10f, 100)
+        t.tick(400)
+        t.up(0, 50f, 10f, 450)
+        assertEquals(listOf(Gesture.UP), s.fired.map { it.second })
     }
 
     @Test

@@ -22,23 +22,78 @@ object Layouts {
         'i' to (KeyEvent.KEYCODE_PAGE_UP to "PgUp"),
     )
 
+    val FN_SYMBOLS: Map<Char, Pair<String?, String?>> = mapOf(
+        '`' to ("≈" to "∼"),
+        '1' to (null to "¹"),
+        '2' to (null to "²"),
+        '3' to (null to "³"),
+        '4' to (null to "£"),
+        '5' to (null to "‰"),
+        '6' to (null to "《"),
+        '7' to (null to "》"),
+        '8' to (null to "※"),
+        '9' to (null to "〈"),
+        '0' to (null to "〉"),
+        '-' to (null to "±"),
+        '=' to (null to "≠"),
+        'q' to ("★" to "☆"),
+        'e' to ("€" to null),
+        'r' to ("®" to null),
+        't' to ("™" to null),
+        'y' to (null to "¥"),
+        'u' to (null to "µ"),
+        'i' to (null to "∞"),
+        'o' to (null to "○"),
+        'p' to ("π" to "¶"),
+        '[' to ("「" to "『"),
+        ']' to ("」" to "』"),
+        '\\' to ("₩" to null),
+        's' to ("§" to null),
+        'd' to ("°" to "℃"),
+        'h' to (null to "←"),
+        'j' to (null to "↓"),
+        'k' to (null to "↑"),
+        'l' to (null to "→"),
+        ';' to ("‘" to "“"),
+        '\'' to ("’" to "”"),
+        'x' to ("×" to null),
+        'c' to ("©" to null),
+        'v' to ("✓" to "√"),
+        'b' to ("•" to "□"),
+        'n' to ("–" to null),
+        'm' to ("—" to "―"),
+        ',' to ("·" to "≤"),
+        '.' to ("…" to "≥"),
+        '/' to ("÷" to null),
+    )
+
+    private fun text(s: String?) = s?.let { KeyAction.Text(it) }
+
     private fun ch(c: Char, width: Float = 1f): KeyDef {
         val nav = VIM_NAV[c]
+        val sym = FN_SYMBOLS[c]
         return KeyDef(
             KeyAction.Char(c, UsKeyMap.shiftedOf(c)),
             width = width,
-            fn = nav?.let { code(it.first) },
-            fnLabel = nav?.second,
+            fn = nav?.let { code(it.first) } ?: text(sym?.first),
+            fnLabel = nav?.second ?: sym?.first,
+            fnUp = text(sym?.second),
+            fnUpLabel = sym?.second,
         )
     }
 
-    private fun fkey(c: Char, f: Int) = KeyDef(
-        KeyAction.Char(c, UsKeyMap.shiftedOf(c)),
-        down = code(KeyEvent.KEYCODE_F1 + f - 1),
-        downLabel = "F$f",
-        fn = code(KeyEvent.KEYCODE_F1 + f - 1),
-        fnLabel = "F$f",
-    )
+    private fun fkey(c: Char, f: Int): KeyDef {
+        val sym = FN_SYMBOLS[c]
+        return KeyDef(
+            KeyAction.Char(c, UsKeyMap.shiftedOf(c)),
+            down = code(KeyEvent.KEYCODE_F1 + f - 1),
+            downLabel = "F$f",
+            fn = code(KeyEvent.KEYCODE_F1 + f - 1),
+            fnLabel = "F$f",
+            fnUp = text(sym?.second),
+            fnUpLabel = sym?.second,
+        )
+    }
 
     private fun digits(range: IntRange) = range.map { if (it == 10) fkey('0', 10) else fkey('0' + it, it) }
 
@@ -54,8 +109,10 @@ object Layouts {
 
     private fun tab(width: Float) = KeyDef(code(KeyEvent.KEYCODE_TAB), width = width, label = "Tab", style = KeyStyle.MOD)
 
-    private fun escCtrl(width: Float) =
-        KeyDef(KeyAction.EscCtrl, width = width, label = "Esc", upLabel = "Ctrl", style = KeyStyle.MOD)
+    private fun escCtrl(width: Float) = KeyDef(
+        KeyAction.EscCtrl, width = width, label = "Esc", upLabel = "Ctrl", style = KeyStyle.MOD,
+        fn = code(KeyEvent.KEYCODE_INSERT), fnLabel = "Ins",
+    )
 
     private fun enter(width: Float) = KeyDef(KeyAction.Enter, width = width, label = "⏎", style = KeyStyle.ACTION)
 

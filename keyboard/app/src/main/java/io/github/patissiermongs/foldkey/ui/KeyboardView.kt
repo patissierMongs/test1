@@ -9,7 +9,6 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
 import android.os.SystemClock
-import android.util.DisplayMetrics
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
@@ -68,6 +67,11 @@ class KeyboardView(
     private var currentKind = LayoutKind.FULL
     private var lastDetent = 0L
     private val echoes = ArrayDeque<String>()
+    private var editorLine = ""
+    private var clipPointer = -1
+    private var clipIndex = -1
+
+    var clipSource: () -> List<String> = { emptyList() }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
@@ -117,6 +121,17 @@ class KeyboardView(
         invalidate()
     }
 
+    val hasPanel: Boolean get() = width > 0 && geometry().panel != null
+
+    internal val shownEditorLine: String get() = editorLine
+
+    fun setEditorLine(text: String) {
+        if (editorLine != text) {
+            editorLine = text
+            invalidate()
+        }
+    }
+
     fun reload() {
         palette = Palette.of(resources.configuration)
         geometry = null
@@ -136,6 +151,8 @@ class KeyboardView(
         tracker.cancelAll(SystemClock.uptimeMillis())
         active.clear()
         stripPointer = -1
+        clipPointer = -1
+        clipIndex = -1
         removeCallbacks(tickRunnable)
         invalidate()
     }
@@ -150,7 +167,8 @@ class KeyboardView(
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val kind = layoutKind(width)
         val rows = Layouts.rows(kind)
-        val height = stripHeightPx + rows * rowHeightMm(rows) * pxPerMmY + bottomInset
+        val lift = liftPx(kind)
+        val height = stripHeightPx + rows * rowHeightMm(rows, lift) * pxPerMmY + lift + bottomInset
         setMeasuredDimension(width, height.toInt())
     }
 
@@ -167,8 +185,10 @@ class KeyboardView(
 
     private fun isLandscape(): Boolean = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    private fun rowHeightMm(rows: Int): Float {
-        val budget = resources.displayMetrics.heightPixels * MAX_HEIGHT_SHARE - stripHeightPx - bottomInset
+    private fun liftPx(kind: LayoutKind): Float = if (kind == LayoutKind.SPLIT) prefs.splitLiftMm * pxPerMmY else 0f
+
+    private fun rowHeightMm(rows: Int, lift: Float): Float {
+        val budget = resources.displayMetrics.heightPixels * MAX_HEIGHT_SHARE - stripHeightPx - bottomInset - lift
         val cap = budget / rows / pxPerMmY
         return if (cap > 0f) min(prefs.rowHeightMm, cap) else prefs.rowHeightMm
     }
@@ -176,7 +196,9 @@ class KeyboardView(
     private fun geometry(): KeyboardGeometry {
         geometry?.let { return it }
         val kind = layoutKind(width)
-        rowMm = rowHeightMm(Layouts.rows(kind))
+        val lift = liftPx(kind)
+        rowMm = rowHeightMm(Layouts.rows(kind), lift)
+        val panelWanted = kind == LayoutKind.SPLIT && (prefs.centerEcho || prefs.centerClipboard)
         val spec = GeometrySpec(
             widthPx = width.toFloat(),
             pxPerMmX = pxPerMmX,
@@ -190,6 +212,8 @@ class KeyboardView(
             maxUnitMm = MAX_UNIT_MM,
             splitUnitMm = prefs.splitUnitMm,
             ghostUnits = if (kind == LayoutKind.SPLIT) GHOST_UNITS else 0f,
+            liftPx = lift,
+            panelMinPx = if (panelWanted) PANEL_MIN_MM * pxPerMmX else 0f,
         )
         val g = when (kind) {
             LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec)
@@ -200,7 +224,9 @@ class KeyboardView(
             swipeThresholdPx = SWIPE_MM * pxPerMmY,
             cursorStartPx = CURSOR_START_MM * pxPerMmX,
             cursorStepPx = CURSOR_STEP_MM * pxPerMmX,
+            cursorRowStepPx = CURSOR_ROW_STEP_MM * pxPerMmY,
             longPressMs = prefs.longPressMs,
+            longPressRepeats = prefs.longPressAction == Prefs.LONG_PRESS_REPEAT,
         )
         val slot = "${kind.name.lowercase()}_${(width / pxPerMmX).toInt()}mm"
         if (slot != offsetSlot || offsets.zones != g.zoneCount) {
@@ -239,6 +265,7 @@ class KeyboardView(
             if (key.ghost) continue
             drawKey(canvas, key, pressedDefs.any { it === key.def })
         }
+        g.panel?.let { drawPanel(canvas, it) }
         val tapPreview = when (prefs.popupMode) {
             Prefs.POPUP_ON -> true
             Prefs.POPUP_OFF -> false
@@ -316,6 +343,156 @@ class KeyboardView(
             if (measured > limit) label.textSize *= limit / measured
             canvas.drawText(text, box.centerX, baseline, label)
         }
+    }
+
+    private class Run(val text: String, val color: Int, val underline: Boolean = false)
+
+    private class Cell(val glyph: String, val color: Int, val underline: Boolean, val width: Float)
+
+    private fun panelRows(panel: Box): Int = max(1, (panel.height / (rowMm * pxPerMmY) + 0.5f).toInt())
+
+    private fun clipBoxes(panel: Box): List<Box> {
+        if (!prefs.centerClipboard) return emptyList()
+        val rows = panelRows(panel)
+        val rowH = panel.height / rows
+        val count = if (prefs.centerEcho) CLIP_ROWS else rows - 1
+        return List(count) { i -> Box(panel.left, panel.top + i * rowH, panel.right, panel.top + (i + 1) * rowH) }
+    }
+
+    private fun echoBox(panel: Box): Box? {
+        if (!prefs.centerEcho) return null
+        val rowH = panel.height / panelRows(panel)
+        val top = if (prefs.centerClipboard) panel.top + CLIP_ROWS * rowH else panel.top
+        return Box(panel.left, top, panel.right, panel.bottom)
+    }
+
+    private fun clipAt(x: Float, y: Float): Int {
+        val panel = geometry().panel ?: return -1
+        val count = clipSource().size
+        clipBoxes(panel).forEachIndexed { i, b -> if (i < count && b.contains(x, y)) return i }
+        return -1
+    }
+
+    private fun drawPanel(canvas: Canvas, panel: Box) {
+        val inset = GAP_MM * pxPerMmX / 2f
+        val radius = RADIUS_MM * pxPerMmX
+        val boxes = clipBoxes(panel)
+        if (boxes.isNotEmpty()) {
+            val clips = clipSource()
+            hint.textAlign = Paint.Align.LEFT
+            hint.typeface = Typeface.DEFAULT
+            hint.textSize = CLIP_TEXT_MM * pxPerMmY
+            if (clips.isEmpty()) {
+                hint.color = palette.hint
+                val b = boxes[0]
+                drawFitted(canvas, context.getString(R.string.panel_clip_empty), b.left + 2f * inset, b.centerY, b.width - 4f * inset, hint)
+            }
+            for ((i, b) in boxes.withIndex()) {
+                val text = clips.getOrNull(i) ?: break
+                rect.set(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset)
+                fill.color = if (clipPointer >= 0 && clipIndex == i) palette.pressed else palette.modKey
+                canvas.drawRoundRect(rect, radius, radius, fill)
+                hint.color = palette.text
+                drawFitted(canvas, preview(text), rect.left + 2f * inset, rect.centerY(), rect.width() - 4f * inset, hint)
+            }
+        }
+        echoBox(panel)?.let { drawEcho(canvas, it) }
+    }
+
+    private fun preview(text: String): String =
+        text.take(PREVIEW_CHARS).trim().replace(Regex("[ \\t]*\\r?\\n\\s*"), " ⏎ ").replace('\t', ' ')
+
+    private fun drawFitted(canvas: Canvas, text: String, x: Float, centerY: Float, maxWidth: Float, paint: Paint) {
+        var shown = text
+        if (maxWidth <= 0f) return
+        if (paint.measureText(shown) > maxWidth) {
+            var n = paint.breakText(text, true, maxWidth - paint.measureText("…"), null)
+            if (n > 0 && Character.isHighSurrogate(text[n - 1])) n--
+            shown = text.substring(0, n) + "…"
+        }
+        canvas.drawText(shown, x, centerY - (paint.descent() + paint.ascent()) / 2f, paint)
+    }
+
+    private fun echoRuns(): List<Run> {
+        val ctx = engine.context
+        val runs = ArrayList<Run>()
+        if (ctx.raw) {
+            if (prefs.terminalEcho) {
+                for (seg in engine.typedSegments) {
+                    runs.add(if (seg.token) Run(" ${seg.display} ", palette.hint) else Run(seg.display, palette.text))
+                }
+            }
+            val pre = engine.preedit
+            if (pre.isNotEmpty()) runs.add(Run(pre, palette.accent, underline = true))
+        } else if (!ctx.secret) {
+            val line = editorLine.trimStart()
+            val composing = engine.composingText
+            if (composing.isNotEmpty() && line.endsWith(composing)) {
+                runs.add(Run(line.dropLast(composing.length), palette.text))
+                runs.add(Run(composing, palette.accent, underline = true))
+            } else {
+                runs.add(Run(line, palette.text))
+            }
+        }
+        return runs
+    }
+
+    private fun wrapTail(runs: List<Run>, paint: Paint, maxWidth: Float, maxLines: Int): List<List<Cell>> {
+        val cells = ArrayList<Cell>()
+        for (r in runs) {
+            var i = 0
+            while (i < r.text.length) {
+                val n = Character.charCount(r.text.codePointAt(i))
+                val g = r.text.substring(i, i + n)
+                cells.add(Cell(g, r.color, r.underline, paint.measureText(g)))
+                i += n
+            }
+        }
+        val lines = ArrayDeque<List<Cell>>()
+        var current = ArrayList<Cell>()
+        var w = 0f
+        for (k in cells.indices.reversed()) {
+            val c = cells[k]
+            if (w + c.width > maxWidth && current.isNotEmpty()) {
+                lines.addFirst(current.asReversed().toList())
+                if (lines.size == maxLines) return lines.toList()
+                current = ArrayList()
+                w = 0f
+            }
+            current.add(c)
+            w += c.width
+        }
+        if (current.isNotEmpty()) lines.addFirst(current.asReversed().toList())
+        return lines.toList()
+    }
+
+    private fun drawEcho(canvas: Canvas, box: Box) {
+        val inset = GAP_MM * pxPerMmX
+        label.textAlign = Paint.Align.LEFT
+        label.typeface = Typeface.MONOSPACE
+        label.textSize = ECHO_TEXT_MM * pxPerMmY
+        val lineH = label.textSize * 1.35f
+        val maxLines = max(1, ((box.height - inset) / lineH).toInt())
+        val caretW = 0.3f * pxPerMmX
+        val lines = wrapTail(echoRuns(), label, box.width - 2f * inset - 2f * caretW, maxLines)
+        val last = box.bottom - inset - label.descent()
+        var x = box.left + inset
+        for ((k, line) in lines.withIndex()) {
+            val baseline = last - (lines.size - 1 - k) * lineH
+            x = box.left + inset
+            for (c in line) {
+                label.color = c.color
+                canvas.drawText(c.glyph, x, baseline, label)
+                if (c.underline) {
+                    fill.color = c.color
+                    canvas.drawRect(x, baseline + label.descent() * 0.4f, x + c.width, baseline + label.descent() * 0.4f + 0.25f * pxPerMmY, fill)
+                }
+                x += c.width
+            }
+        }
+        fill.color = palette.accent
+        canvas.drawRect(x + caretW, last + label.ascent() * 0.9f, x + 2f * caretW, last + label.descent() * 0.6f, fill)
+        label.typeface = Typeface.DEFAULT
     }
 
     private fun drawKey(canvas: Canvas, key: Key, pressed: Boolean) {
@@ -425,12 +602,19 @@ class KeyboardView(
                         performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                     }
                 } else {
-                    tracker.down(id, x, y, t)
+                    val clip = clipAt(x, y)
+                    if (clip < 0) {
+                        tracker.down(id, x, y, t)
+                    } else if (clipPointer < 0) {
+                        clipPointer = id
+                        clipIndex = clip
+                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
                 }
             }
             MotionEvent.ACTION_MOVE -> for (i in 0 until event.pointerCount) {
                 val id = event.getPointerId(i)
-                if (id != stripPointer) tracker.move(id, event.getX(i), event.getY(i), t)
+                if (id != stripPointer && id != clipPointer) tracker.move(id, event.getX(i), event.getY(i), t)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val i = event.actionIndex
@@ -441,9 +625,18 @@ class KeyboardView(
                     if (id == stripPointer) {
                         stripPointer = -1
                         stripCommand = null
+                    } else if (id == clipPointer) {
+                        clipPointer = -1
+                        clipIndex = -1
                     } else {
                         tracker.cancel(id, t)
                     }
+                } else if (id == clipPointer) {
+                    val index = clipIndex
+                    val hit = clipAt(event.getX(i), event.getY(i))
+                    clipPointer = -1
+                    clipIndex = -1
+                    if (index >= 0 && index == hit) clipSource().getOrNull(index)?.let { engine.pasteText(it) }
                 } else if (id == stripPointer) {
                     val cmd = stripCommand
                     val hitCmd = stripButtons.firstOrNull { it.first.contains(event.getX(i), event.getY(i)) }?.second
@@ -457,6 +650,8 @@ class KeyboardView(
             MotionEvent.ACTION_CANCEL -> {
                 tracker.cancelAll(t)
                 stripPointer = -1
+                clipPointer = -1
+                clipIndex = -1
             }
         }
         scheduleTick()
@@ -521,6 +716,15 @@ class KeyboardView(
 
     override fun cursor(steps: Int) {
         engine.moveCursor(steps)
+        detent()
+    }
+
+    override fun cursorRows(steps: Int) {
+        engine.moveCursorRows(steps)
+        detent()
+    }
+
+    private fun detent() {
         val now = SystemClock.uptimeMillis()
         if (now - lastDetent >= DETENT_MIN_INTERVAL_MS) {
             lastDetent = now
@@ -548,12 +752,7 @@ class KeyboardView(
         if (added) offsetsDirty = true
     }
 
-    private fun physicalDpi(horizontal: Boolean): Float {
-        val dm: DisplayMetrics = resources.displayMetrics
-        val reported = if (horizontal) dm.xdpi else dm.ydpi
-        val nominal = dm.densityDpi.toFloat()
-        return if (reported > 0f && abs(reported - nominal) / nominal < 0.35f) reported else nominal
-    }
+    private fun physicalDpi(horizontal: Boolean): Float = Dpi.physical(resources.displayMetrics, horizontal)
 
     companion object {
         const val MM_PER_INCH = 25.4f
@@ -566,9 +765,15 @@ class KeyboardView(
         const val SHADOW_MM = 0.25f
         const val MAX_UNIT_MM = 11.5f
         const val GHOST_UNITS = 1f
+        const val PANEL_MIN_MM = 16f
+        const val CLIP_ROWS = 2
+        const val CLIP_TEXT_MM = 2.3f
+        const val ECHO_TEXT_MM = 2.6f
+        const val PREVIEW_CHARS = 200
         const val SWIPE_MM = 4.0f
         const val CURSOR_START_MM = 3.0f
         const val CURSOR_STEP_MM = 2.5f
+        const val CURSOR_ROW_STEP_MM = 4.0f
         const val ANCHOR_SHARE = 0.25f
         const val COMPACT_MAX_MM = 110f
         const val MAX_HEIGHT_SHARE = 0.5f

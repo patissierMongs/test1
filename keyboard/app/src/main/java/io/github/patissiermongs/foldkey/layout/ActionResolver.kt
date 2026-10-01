@@ -7,8 +7,12 @@ data class Resolved(val action: KeyAction, val forceShift: Boolean = false, val 
 
 object ActionResolver {
     fun resolve(def: KeyDef, gesture: Gesture, fnActive: Boolean, swipeDownCtrl: Boolean): Resolved {
-        val fn = def.fn
-        if (fnActive && fn != null && (gesture == Gesture.TAP || gesture == Gesture.REPEAT)) return Resolved(fn)
+        if (fnActive) {
+            val fn = def.fn
+            if (fn != null && (gesture == Gesture.TAP || gesture == Gesture.REPEAT)) return Resolved(fn)
+            val fnUp = def.fnUp
+            if (fnUp != null && (gesture == Gesture.UP || gesture == Gesture.LONG)) return Resolved(fnUp)
+        }
         val action = def.action
         return when (gesture) {
             Gesture.TAP, Gesture.REPEAT -> Resolved(action)

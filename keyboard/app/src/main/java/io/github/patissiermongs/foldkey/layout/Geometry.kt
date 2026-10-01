@@ -16,9 +16,18 @@ data class GeometrySpec(
     val splitUnitMm: Float,
     val ghostUnits: Float,
     val zonesPerRow: Int = 4,
+    val liftPx: Float = 0f,
+    val panelMinPx: Float = 0f,
+    val panelGhostUnits: Float = 0.5f,
 )
 
-class KeyboardGeometry(val keys: List<Key>, val heightPx: Float, val unitPx: Float, val zoneCount: Int) {
+class KeyboardGeometry(
+    val keys: List<Key>,
+    val heightPx: Float,
+    val unitPx: Float,
+    val zoneCount: Int,
+    val panel: Box? = null,
+) {
     fun keyAt(x: Float, y: Float): Key? = keys.firstOrNull { it.touch.contains(x, y) }
 
     fun zoneAt(x: Float, y: Float): Int {
@@ -88,11 +97,21 @@ class KeyboardGeometry(val keys: List<Key>, val heightPx: Float, val unitPx: Flo
             val rightEdge = spec.widthPx - side
             val leftInner = leftEdge + leftUnits * unit
             val rightInner = rightEdge - rightUnits * unit
+            val gap = rightInner - leftInner
+            var ghostUnits = spec.ghostUnits
+            var panel: Box? = null
+            if (spec.panelMinPx > 0f) {
+                if (gap - 2f * spec.panelGhostUnits * unit >= spec.panelMinPx) {
+                    if (gap - 2f * ghostUnits * unit < spec.panelMinPx) ghostUnits = spec.panelGhostUnits
+                    val g = ghostUnits * unit
+                    panel = Box(leftInner + g, spec.topPx, rightInner - g, spec.topPx + rows.size * rowH)
+                }
+            }
             rows.forEachIndexed { r, row ->
                 val top = spec.topPx + r * rowH
                 val bottom = top + rowH
                 val touchTop = if (r == 0) spec.topPx else top
-                val touchBottom = bottom
+                val touchBottom = if (r == rows.lastIndex) bottom + spec.liftPx else bottom
                 var x = leftEdge + (leftUnits - row.left.units) * unit
                 row.left.keys.forEachIndexed { i, def ->
                     val left = x
@@ -111,12 +130,12 @@ class KeyboardGeometry(val keys: List<Key>, val heightPx: Float, val unitPx: Flo
                 }
                 val leftLast = row.left.keys.last()
                 val rightFirst = row.right.keys.first()
-                if (spec.ghostUnits > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL) {
+                if (ghostUnits > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL) {
                     val gl = leftInner
-                    val gr = minOf(leftInner + spec.ghostUnits * unit, (leftInner + rightInner) / 2f)
+                    val gr = minOf(leftInner + ghostUnits * unit, (leftInner + rightInner) / 2f)
                     keys.add(Key(rightFirst, Box(gl, top, gr, bottom), Box(gl, touchTop, gr, touchBottom), r, r * spec.zonesPerRow + 1, ghost = true))
                     val hr = rightInner
-                    val hl = maxOf(rightInner - spec.ghostUnits * unit, (leftInner + rightInner) / 2f)
+                    val hl = maxOf(rightInner - ghostUnits * unit, (leftInner + rightInner) / 2f)
                     keys.add(Key(leftLast, Box(hl, top, hr, bottom), Box(hl, touchTop, hr, touchBottom), r, r * spec.zonesPerRow + 2, ghost = true))
                 }
                 x = rightInner
@@ -136,8 +155,8 @@ class KeyboardGeometry(val keys: List<Key>, val heightPx: Float, val unitPx: Flo
                     x = right
                 }
             }
-            val height = spec.topPx + rows.size * rowH + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow)
+            val height = spec.topPx + rows.size * rowH + spec.liftPx + spec.bottomPaddingPx
+            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel)
         }
 
         private fun zoneColumn(cx: Float, width: Float, zones: Int): Int =

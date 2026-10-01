@@ -284,6 +284,21 @@ class KeyboardEngineTest {
     }
 
     @Test
+    fun rowMoveUsesUpDownArrowsAndFinishesHangulFirst() {
+        engine.perform(KeyAction.Lang)
+        type("gks")
+        engine.moveCursorRows(-2)
+        engine.moveCursorRows(1)
+        engine.endCursorMove()
+        assertEquals("한", editor.text.toString())
+        assertEquals("", editor.composing)
+        assertEquals(
+            listOf(KeyEvent.KEYCODE_DPAD_UP to 0, KeyEvent.KEYCODE_DPAD_UP to 0, KeyEvent.KEYCODE_DPAD_DOWN to 0),
+            editor.keys,
+        )
+    }
+
+    @Test
     fun specialKeysAreEchoedForTheStrip() {
         engine.startInput(EditorContext(raw = true, preferLatin = true))
         type("ls")
@@ -309,6 +324,97 @@ class KeyboardEngineTest {
         engine.perform(ch('x'), forceCtrl = true)
         engine.release(KeyAction.Mod(Modifier.ALT), now + 50)
         assertEquals(listOf(KeyEvent.KEYCODE_X to (Modifiers.CTRL_META or Modifiers.ALT_META)), editor.keys)
+    }
+
+    @Test
+    fun ctrlAltDigitsSpaceAndSlashFollowTermuxControlMapping() {
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        engine.press(KeyAction.Mod(Modifier.ALT), now)
+        for (c in "2345678/") engine.perform(ch(c), forceCtrl = true)
+        engine.press(KeyAction.Mod(Modifier.CTRL), now)
+        engine.perform(KeyAction.Space)
+        engine.release(KeyAction.Mod(Modifier.CTRL), now + 50)
+        engine.release(KeyAction.Mod(Modifier.ALT), now + 50)
+        val expected = listOf(0, 27, 28, 29, 30, 31, 127, 31, 0).joinToString("") { "\u001b" + it.toChar() }
+        assertEquals(expected, editor.text.toString())
+        assertTrue(editor.keys.isEmpty())
+    }
+
+    @Test
+    fun fnSymbolCommitsTextAfterFinishingHangul() {
+        engine.perform(KeyAction.Lang)
+        type("gk")
+        engine.perform(KeyAction.Text("·"))
+        type("rk")
+        engine.perform(KeyAction.Text("…"))
+        assertEquals("하·가…", editor.text.toString())
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        engine.perform(KeyAction.Lang)
+        type("gk")
+        engine.perform(KeyAction.Text("₩"))
+        assertEquals("하·가…하₩", editor.text.toString())
+        assertEquals("", listener.preedit)
+    }
+
+    @Test
+    fun fnWithEscKeySendsInsertAndShiftInsert() {
+        tapMod(Modifier.FN)
+        engine.press(KeyAction.EscCtrl, now)
+        engine.release(KeyAction.EscCtrl, now + 100)
+        now += 200
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
+        tapMod(Modifier.FN)
+        tapMod(Modifier.SHIFT)
+        engine.press(KeyAction.EscCtrl, now)
+        engine.release(KeyAction.EscCtrl, now + 100)
+        now += 200
+        engine.press(KeyAction.EscCtrl, now)
+        engine.release(KeyAction.EscCtrl, now + 100)
+        assertEquals(
+            listOf(
+                KeyEvent.KEYCODE_INSERT to 0,
+                KeyEvent.KEYCODE_INSERT to Modifiers.SHIFT_META,
+                KeyEvent.KEYCODE_ESCAPE to 0,
+            ),
+            editor.keys,
+        )
+        assertTrue("Ins" in listener.echoes && "⇧Ins" in listener.echoes)
+    }
+
+    private fun shownTyped() = engine.typedSegments.joinToString("|") { if (it.token) "<${it.display}>" else it.display }
+
+    @Test
+    fun terminalEchoRecordsWhatWasSentOnlyWhenEnabled() {
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        type("ls")
+        assertEquals("", shownTyped())
+        engine.settings = EngineSettings(terminalEcho = true)
+        type("git co")
+        engine.perform(KeyAction.Code(KeyEvent.KEYCODE_TAB))
+        type("x")
+        engine.perform(KeyAction.Backspace)
+        engine.perform(KeyAction.Lang)
+        type("gks")
+        assertEquals("git co|<Tab>", shownTyped())
+        assertEquals("한", engine.preedit)
+        engine.perform(KeyAction.Space)
+        assertEquals("git co|<Tab>|한 ", shownTyped())
+        engine.perform(KeyAction.Enter)
+        assertEquals("", shownTyped())
+        engine.pasteText("echo a\nmake")
+        assertEquals("make", shownTyped())
+        assertTrue(editor.text.endsWith("echo a\nmake"))
+        engine.settings = EngineSettings(terminalEcho = false)
+        assertEquals("", shownTyped())
+    }
+
+    @Test
+    fun terminalEchoIsNotRecordedForNormalEditors() {
+        engine.settings = EngineSettings(terminalEcho = true)
+        type("abc")
+        engine.pasteText("x")
+        assertEquals("", shownTyped())
+        assertEquals("abcx", editor.text.toString())
     }
 
     @Test

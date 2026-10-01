@@ -25,6 +25,7 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var status: TextView
     private lateinit var column: LinearLayout
+    private var builtUnit = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +48,10 @@ class SettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (prefs.splitUnitMm != builtUnit) {
+            recreate()
+            return
+        }
         refreshStatus()
     }
 
@@ -56,6 +61,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun build() {
+        builtUnit = prefs.splitUnitMm
         heading(getString(R.string.app_name), 24f)
         body(getString(R.string.settings_intro))
         status = body("")
@@ -83,7 +89,14 @@ class SettingsActivity : Activity() {
         toggle(getString(R.string.pref_split_landscape), Prefs.SPLIT_LANDSCAPE, true)
         slider(getString(R.string.pref_row_height), Prefs.ROW_HEIGHT, 95, 70, 130) { "%.1f mm".format(it / 10f) }
         slider(getString(R.string.pref_split_unit), Prefs.SPLIT_UNIT, 85, 70, 110) { "%.1f mm".format(it / 10f) }
+        button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
+        slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, 150) { "%.1f mm".format(it / 10f) }
         toggle(getString(R.string.pref_latin_hints), Prefs.LATIN_HINTS, true)
+
+        heading(getString(R.string.settings_center), 18f)
+        toggle(getString(R.string.pref_center_clipboard), Prefs.CENTER_CLIPBOARD, true)
+        toggle(getString(R.string.pref_center_echo), Prefs.CENTER_ECHO, true)
+        toggle(getString(R.string.pref_terminal_echo), Prefs.TERMINAL_ECHO, false)
 
         heading(getString(R.string.settings_feedback), 18f)
         toggle(getString(R.string.pref_haptic), Prefs.HAPTIC, true)
@@ -112,6 +125,9 @@ class SettingsActivity : Activity() {
         toggle(getString(R.string.pref_esc_latin), Prefs.ESC_TO_LATIN, true)
         slider(getString(R.string.pref_long_press), Prefs.LONG_PRESS, 400, 0, 800) {
             if (it == 0) getString(R.string.off) else "$it ms"
+        }
+        slider(getString(R.string.pref_long_press_action), Prefs.LONG_PRESS_ACTION, Prefs.LONG_PRESS_SHIFT, Prefs.LONG_PRESS_SHIFT, Prefs.LONG_PRESS_REPEAT) {
+            getString(if (it == Prefs.LONG_PRESS_REPEAT) R.string.long_press_repeat else R.string.long_press_shift)
         }
         toggle(getString(R.string.pref_adaptive), Prefs.ADAPTIVE, true)
         button(getString(R.string.pref_adaptive_reset)) { prefs.clearOffsets() }

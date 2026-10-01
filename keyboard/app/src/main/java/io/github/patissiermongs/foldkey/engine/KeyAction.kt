@@ -13,6 +13,8 @@ sealed interface KeyAction {
 
     data class Code(val keyCode: Int) : KeyAction
 
+    data class Text(val text: String) : KeyAction
+
     data class Mod(val modifier: Modifier) : KeyAction
 
     data class Cmd(val command: Command) : KeyAction

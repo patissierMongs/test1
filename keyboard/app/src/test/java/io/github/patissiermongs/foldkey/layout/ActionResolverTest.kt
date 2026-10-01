@@ -32,6 +32,21 @@ class ActionResolverTest {
     }
 
     @Test
+    fun fnSwipeUpGivesSecondSymbolAndSwipeDownStaysCtrl() {
+        val comma = KeyDef(
+            KeyAction.Char(',', '<'),
+            fn = KeyAction.Text("·"),
+            fnUp = KeyAction.Text("≤"),
+        )
+        assertEquals(Resolved(KeyAction.Text("·")), ActionResolver.resolve(comma, Gesture.TAP, true, true))
+        assertEquals(Resolved(KeyAction.Text("≤")), ActionResolver.resolve(comma, Gesture.UP, true, true))
+        assertEquals(Resolved(KeyAction.Text("≤")), ActionResolver.resolve(comma, Gesture.LONG, true, true))
+        assertEquals(Resolved(comma.action, forceCtrl = true), ActionResolver.resolve(comma, Gesture.DOWN, true, true))
+        assertEquals(Resolved(comma.action, forceShift = true), ActionResolver.resolve(comma, Gesture.UP, false, true))
+        assertEquals(Resolved(digit.action, forceShift = true), ActionResolver.resolve(digit, Gesture.UP, true, true))
+    }
+
+    @Test
     fun fnLayerAppliesToTapAndRepeat() {
         assertEquals(Resolved(KeyAction.Code(KeyEvent.KEYCODE_F1)), ActionResolver.resolve(digit, Gesture.TAP, true, true))
         assertEquals(Resolved(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL)), ActionResolver.resolve(backspace, Gesture.REPEAT, true, true))
