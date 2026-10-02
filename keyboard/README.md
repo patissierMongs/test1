@@ -28,6 +28,8 @@ adb shell ime set io.github.patissiermongs.foldkey/.ime.FoldKeyService
 
 ## 배열
 
+FoldKey에는 레이어가 둘 있다. 코드 레이어는 아래 표의 PC(personal computer) 배열이고, 일반 레이어는 메신저·검색·메모처럼 일상 글을 칠 때 쓰는 휴대폰식 배열이다([일반 레이어](#일반-레이어)). 두 레이어는 `일반`/`코드` 키로 바꾼다.
+
 | 화면 | 기본 배열 | 키 간격(폴드7) |
 |---|---|---|
 | 내부 화면 세로(책 자세, 135.8 mm) | 전체 배열: ANSI(American National Standards Institute) 15칸 | 9.0 mm |
@@ -57,6 +59,7 @@ adb shell ime set io.github.patissiermongs.foldkey/.ime.FoldKeyService
 | 방향키 위로 밀기 | Home, PgDn, PgUp, End |
 | 방향키·`⌫` 누르고 있기 | 반복 입력. 첫 입력에 붙은 one-shot 수정키가 반복 내내 붙고, 다른 키를 누르면 반복이 멈춘다 |
 | `한/A` | 한글·영문 전환 |
+| `일반`/`코드` | 코드 레이어와 일반 레이어 전환. 코드 레이어에서는 `일반`, 일반 레이어에서는 `코드`라고 표시된다 |
 
 밀기 동작은 손을 떼기 전에 결과(`^C`, `F5`, `(` 등)를 팝업으로 보여 준다. 손가락을 처음 자리로 되돌리면 일반 탭이 된다.
 
@@ -82,6 +85,30 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 - 숫자판을 누른 위치는 터치 편차 학습에 쓰지 않는다.
 - 0.3.0까지 Fn에 있던 특수문자 53개와 다른 키와 겹치던 Fn 조합(Fn + 숫자의 F1–F12, Fn + 방향키, Fn + h j k l 등)은 뺐다. F1–F12는 숫자 행 아래로 밀기, Home·End·PgUp·PgDn은 방향키 위로 밀기로 입력한다. Fn + Esc(Insert)는 남겼다.
 - 커버 화면 배열에는 방향키가 없다. 0.3.0까지 커버 화면의 방향키였던 Fn + h j k l(Fn + y o, u i는 Home·End·PgDn·PgUp)은 숫자판과 자리가 겹쳐 뺐다. 커버 화면에서는 스페이스를 끌어 커서를 옮긴다.
+
+## 일반 레이어
+
+`일반` 키를 누르면 휴대폰 키보드와 같은 QWERTY(윗줄 왼쪽 여섯 글자로 부르는 영문 배열)로 바뀐다. `코드` 키를 누르면 돌아온다.
+
+```
+1 2 3 4 5 6 7 8 9 0
+q w e r t y u i o p
+ a s d f g h j k l
+⇧  z x c v b n m  ⌫
+코드 한/A  스페이스  , . ⏎
+```
+
+- 숫자 행을 위로 밀면 PC와 같은 Shift 기호(`! @ # $ % ^ & * ( )`), 아래로 밀면 `1`부터 `~ - _ = + ; : ' " /`가 나온다. 아래로 미는 기호는 키 왼쪽 아래에 작게 표시된다.
+- `,`를 위로 밀면 `!`, `.`를 위로 밀면 `?`다. Shift를 켜고 눌러도 같다. 아래로 밀면 `,`와 `.` 그대로다.
+- 글자 키는 코드 레이어와 같다. 위로 밀면 대문자·쌍자음, 아래로 밀면 Ctrl+글자(일반 입력창의 Ctrl+A/C/V/Z), 한글 키에는 영문 글자가 함께 표시된다.
+- Esc/Ctrl, Ctrl, Alt, Fn, Tab, 방향키, F1–F12, 숫자판은 없다. 커서 이동과 선택은 스페이스 끌기로 한다.
+- 분할 배열의 경계는 5|6, T|Y, G|H, V|B다. 두벌식 자음은 모두 왼쪽, 모음은 모두 오른쪽에 온다. 안쪽 가장자리에는 코드 레이어처럼 복제 키가 있다.
+- 분할 배열의 키는 설정한 분할 키 너비보다 좁아지지 않는다. 9.6 mm까지는 두 반쪽이 코드 레이어의 같은 쪽 반쪽보다 멀리 가지 않는 한도에서 커진다. 폴드7 가로 화면에서 키 너비 7.0 mm 설정이면 9.2 mm 키로, 두 반쪽이 옆 끝에서 51.3 mm, 46.6 mm까지 온다. 기본값 8.5 mm에서는 9.6 mm 키로, 53.3 mm, 48.5 mm까지 온다. 같은 화면과 설정에서 코드 레이어는 51.3 mm·56.5 mm, 62.1 mm·68.5 mm다.
+- 전체 배열과 커버 화면에서는 10칸 배열이 가운데에 놓인다. 폴드7 세로 화면의 키 너비는 11.5 mm, 커버 화면은 6.4 mm다. 커버 화면에서는 코드 레이어보다 한 줄 낮다.
+- 터미널 입력창은 늘 코드 레이어로 열린다. 다른 입력창은 터미널이 아닌 곳에서 마지막으로 고른 레이어로 열리고, 이 선택은 키보드를 다시 켜도 남는다. 터미널에서 바꾼 레이어는 그 입력창에만 적용된다. 한글·영문 선택이 따르는 규칙과 같다.
+- 레이어를 바꾸면 조합 중인 한글을 먼저 보내고, 켜 둔 Shift·Ctrl·Alt·Fn은 꺼진다.
+- 터치 편차 학습값은 레이어마다 따로 쌓는다.
+- 근거와 측정값은 [docs/research.md](docs/research.md) 3.10절에 있다.
 
 ## 분할 배열 가운데
 
@@ -160,7 +187,7 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 | `input/TouchTracker.kt` | 다중 터치, 밀기 판정, 반복, 길게 누르기, 스페이스 커서 이동과 선택, 수정키 roll·조합 판정 |
 | `input/OffsetModel.kt` | 터치 편차 학습 |
 | `input/ReachCalibration.kt` | 엄지 도달 거리 계산, 세 획 일치 검사, 키 너비 계산 |
-| `layout/Layouts.kt`, `layout/Geometry.kt` | 전체·분할·compact 배열, Fn 숫자판, mm 단위 배치 |
+| `layout/Layouts.kt`, `layout/Geometry.kt` | 코드 레이어(전체·분할·compact 배열, Fn 숫자판)와 일반 레이어(10칸·분할 배열), mm 단위 배치 |
 | `ime/FoldKeyService.kt` | `InputMethodService` |
 | `ime/InputConnectionEditor.kt` | `InputConnection` 호출, 키 이벤트 생성 |
 | `ime/ClipboardHistory.kt` | 클립보드 기록(메모리, 개수·보관 시간 설정, 고정·삭제) |
@@ -176,7 +203,7 @@ Fn을 켜면 위 네 줄에서 `h` 키부터 오른쪽 끝까지의 키가 사�
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드와 입력 표시, 클립 고정·삭제 버튼, 터미널 입력 표시 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. `ModifierTouchTest`는 실제 시간 간격을 둔 터치로 수정키 roll과 조합, 취소된 터치를 확인하고, `OutputOrderTest`는 겹쳐 누른 Enter·Tab과 글자가 터미널에 도착하는 순서를, `ServiceInputTest`는 입력 다시 시작, 화면 회전, 잠금 화면, 늦게 온 커서 위치 보고를 확인한다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
+JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드와 입력 표시, 클립 고정·삭제 버튼, 터미널 입력 표시 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 획을 넣어 키 너비 저장까지 확인하고 `reach_calibration.png`를 그린다. `LayerTest`는 키보드 뷰에서 `일반`/`코드` 키로 레이어를 바꾸고 일반 레이어에서 한글과 문장 부호를 쳐 본다. `RenderTest`는 일반 레이어도 `general_*.png`로 그린다. `ModifierTouchTest`는 실제 시간 간격을 둔 터치로 수정키 roll과 조합, 취소된 터치를 확인하고, `OutputOrderTest`는 겹쳐 누른 Enter·Tab과 글자가 터미널에 도착하는 순서를, `ServiceInputTest`는 입력 다시 시작, 화면 회전, 잠금 화면, 늦게 온 커서 위치 보고를 확인한다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
 
 ## 알려진 한계
 
