@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subtype_ko">한국어</string>
+
+    <string name="strip_select_all">모두 선택</string>
+    <string name="strip_copy">복사</string>
+    <string name="strip_paste">붙여넣기</string>
+    <string name="strip_split">분할</string>
+    <string name="strip_full">전체</string>
+    <string name="strip_switch">전환</string>
+    <string name="strip_settings">설정</string>
+    <string name="strip_hide">숨김</string>
+    <string name="key_layer_general">일반</string>
+    <string name="key_layer_code">코드</string>
+
+    <string name="settings_intro">갤럭시 Z 폴드7 내부 화면에서 코드와 터미널 작업을 위해 만든 PC 배열 키보드입니다. 한글 두벌식 입력을 지원합니다.</string>
+    <string name="settings_enable">1. 시스템 설정에서 FoldKey 사용 켜기</string>
+    <string name="settings_pick">2. 입력 방법을 FoldKey로 선택</string>
+    <string name="status_disabled">상태: 사용 안 함</string>
+    <string name="status_enabled">상태: 사용 설정됨, 선택되지 않음</string>
+    <string name="status_active">상태: 사용 중</string>
+    <string name="settings_try">입력 시험</string>
+    <string name="settings_try_single">한 줄 입력창</string>
+    <string name="settings_try_multi">여러 줄 입력창(고정폭 글꼴)</string>
+    <string name="settings_echo">키 이벤트 확인창. 터미널처럼 TYPE_NULL 입력을 요청하고 받은 내용을 그대로 보여 줍니다.</string>
+    <string name="settings_echo_clear">확인창 지우기</string>
+    <string name="echo_placeholder">(여기를 누른 뒤 입력)</string>
+
+    <string name="settings_layout">배열</string>
+    <string name="pref_split_portrait">세로 화면에서 분할 배열</string>
+    <string name="pref_split_landscape">가로 화면에서 분할 배열</string>
+    <string name="pref_row_height">행 높이</string>
+    <string name="pref_latin_hints">한글 키에 영문 글자 함께 표시</string>
+
+    <string name="settings_feedback">피드백</string>
+    <string name="pref_haptic">키 누름 햅틱</string>
+    <string name="pref_haptic_level">햅틱 효과</string>
+    <string name="haptic_system">시스템 키보드 진동</string>
+    <string name="haptic_tick">틱</string>
+    <string name="haptic_click">클릭</string>
+    <string name="pref_sound">키 소리</string>
+    <string name="pref_popup">탭할 때 미리보기 팝업 (밀기 동작은 항상 미리보기 표시)</string>
+    <string name="popup_auto">자동 (600dp보다 좁은 화면에서만 켬)</string>
+
+    <string name="settings_input">입력</string>
+    <string name="pref_swipe_down_ctrl">키를 아래로 밀면 Ctrl+키</string>
+    <string name="pref_esc_latin">Esc를 누르면 한글에서 영문으로 전환(vim)</string>
+    <string name="pref_long_press">길게 누르기 시간</string>
+    <string name="off">끔</string>
+    <string name="on">켬</string>
+    <string name="label_value">%1$s: %2$s</string>
+    <string name="pref_adaptive">내 터치 편차 학습</string>
+    <string name="pref_adaptive_reset">학습한 터치 편차 초기화</string>
+    <string name="pref_raw_packages">터미널로 취급할 앱(조합 중 글자를 앱에 보내지 않고, Enter를 키 이벤트로 보냄). 패키지 이름을 쉼표로 구분:</string>
+
+    <string name="settings_gestures">제스처</string>
+    <string name="settings_gestures_body">• 위로 밀기: Shift 글자 (9 → (, \' → \")
+• 아래로 밀기: Ctrl+키 (c → ^C), 숫자 행은 F1–F12
+• 길게 누르기: 위로 밀기와 같음, 또는 반복 입력(설정)
+• 스페이스에서 끌기: 좌우는 커서 이동, 위아래는 ↑ ↓ (Shift와 함께면 선택)
+• 스페이스를 꾹 누른 뒤 끌기: 선택 (터미널에서는 커서 이동)
+• Esc/Ctrl 키: 짧게 누르면 Esc, 누른 채 다른 키를 치면 Ctrl. Fn + Esc: Insert
+• Ctrl·Alt·Shift: 한 번 누르면 다음 키 한 번에 적용, 빠르게 두 번 누르면 고정, 누른 채 입력하면 조합
+• Fn: 누르면 오른쪽 끝 숫자판으로 바뀌고 다시 누르면 돌아옴 (7 8 9 / ⌫ … 0 . = + ⏎). 누른 채 입력하면 그동안만 숫자판. 숫자판 ⌫를 위로 밀면 Del
+• 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복
+• 일반/코드 키: 코드 레이어(지금의 PC 배열)와 일반 레이어(휴대폰식 QWERTY)를 바꿈. 일반 레이어에서 , . 을 위로 밀면 ! ?, 숫자 행을 아래로 밀면 ~ - _ = + ; : \' \" /. 터미널은 늘 코드 레이어로 열리고, 다른 입력창은 마지막에 쓴 레이어로 열림
+• 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
+    <string name="pref_long_press_action">길게 누르기 동작</string>
+    <string name="long_press_shift">윗글자 (위로 밀기와 같음)</string>
+    <string name="long_press_repeat">반복 입력 (vim hjkl, x 등)</string>
+    <string name="settings_center">분할 배열 가운데</string>
+    <string name="pref_center_clipboard">복사한 글 표시 (누르면 붙여넣기, 끌면 넘기기, 길게 누르면 고정·삭제, 고정한 글만 기기에 저장, 민감한 클립은 제외)</string>
+    <string name="pref_clip_count">복사 기록 개수</string>
+    <string name="pref_clip_hours">복사 기록 보관 시간</string>
+    <string name="hours_value">%1$d시간</string>
+    <string name="pref_center_echo">커서 앞 글자 표시 (비밀번호 입력창 제외)</string>
+    <string name="pref_terminal_echo">터미널에서 친 글자도 표시 (비밀번호 입력도 보임)</string>
+    <string name="pref_split_lift">분할 반쪽을 화면 아래 끝에서 띄우는 높이</string>
+    <string name="pref_side_left">화면 왼쪽 끝에서 띄우는 거리</string>
+    <string name="pref_side_right">화면 오른쪽 끝에서 띄우는 거리</string>
+    <string name="pref_unit">키 너비</string>
+    <string name="unit_auto">자동(코드 레이어에 맞춤)</string>
+    <string name="settings_split_code">코드 레이어 분할 배열</string>
+    <string name="settings_split_general">일반 레이어 분할 배열</string>
+    <string name="offsets_view">학습한 터치 편차 보기</string>
+    <string name="settings_reach">엄지 범위와 타이핑으로 분할 배열 맞추기</string>
+    <string name="settings_typing">타이핑만 다시 해서 맞추기</string>
+    <string name="panel_clip_empty">복사한 글</string>
+    <string name="clip_pin">고정</string>
+    <string name="clip_unpin">해제</string>
+    <string name="clip_delete">삭제</string>
+    <string name="clip_pins_full">가득</string>
+    <string name="reach_title">엄지 범위 측정</string>
+    <string name="reach_instructions">기기를 평소처럼 양손으로 쥐고, 엄지마다 편하게 닿는 곳을 문질러 칠하듯 그려 주세요. 손을 뗄 때까지가 한 번이고, 엄지마다 세 번 합니다. 잰 범위로 시작 키 크기와 반쪽 자리를 정하고, 다음 단계의 타이핑으로 키 크기와 보정값을 맞춥니다.</string>
+    <string name="reach_progress">왼쪽 %1$d/%3$d · 오른쪽 %2$d/%3$d</string>
+    <string name="reach_invalid">엄지를 떼지 말고 편한 곳을 넓게 문질러 주세요.</string>
+    <string name="reach_inconsistent">%1$s 엄지의 세 번 측정이 %2$.1f mm까지 다릅니다. 다시 그려 주세요.</string>
+    <string name="reach_zone">%1$s 엄지: 옆 끝에서 %2$.1f–%3$.1f mm, 높이 %4$.1f–%5$.1f mm</string>
+    <string name="reach_result">시작 크기: 코드 키 %1$.1f mm, 일반 키 %2$.1f mm, 행 높이 %3$.1f mm</string>
+    <string name="reach_preview_code">미리보기: 코드 레이어</string>
+    <string name="reach_preview_general">미리보기: 일반 레이어</string>
+    <string name="reach_rotate">가로 화면에서 측정합니다. 기기를 가로로 돌려 주세요.</string>
+    <string name="reach_left">왼쪽</string>
+    <string name="reach_right">오른쪽</string>
+    <string name="reach_next">다음: 타이핑 보정</string>
+    <string name="reach_reset">다시 측정</string>
+    <string name="reach_close">닫기</string>
+    <string name="offsets_title">학습한 터치 편차</string>
+    <string name="offsets_intro">줄과 화면 4등분 구역마다, 키를 누른 자리가 키 가운데에서 평균적으로 어느 쪽으로 벗어났는지 보여 줍니다. 화살표는 판정에 실제로 쓰는 보정량을 4배로 늘려 그렸고, 숫자는 구역별 학습 표본 수입니다. 키보드 그림은 지금 설정으로 그립니다.</string>
+    <string name="offsets_empty">아직 학습한 터치 편차가 없습니다. 키보드로 몇 문장을 치면 생깁니다.</string>
+    <string name="offsets_slot">%1$s · %2$s · 키보드 폭 %3$d mm</string>
+    <string name="offsets_kind_split">분할</string>
+    <string name="offsets_kind_full">전체</string>
+    <string name="offsets_kind_compact">커버</string>
+    <string name="offsets_layer_code">코드 레이어</string>
+    <string name="offsets_layer_general">일반 레이어</string>
+    <plurals name="offsets_summary">
+        <item quantity="other">표본 %1$d개 · 키 가운데에서 벗어난 평균: 가로 %2$+.1f mm(+는 오른쪽), 세로 %3$+.1f mm(+는 아래쪽)</item>
+    </plurals>
+    <string name="typing_title">타이핑 보정</string>
+    <string name="typing_intro">기기를 평소처럼 쥐고 위에 나온 글을 아래 키보드로 따라 쳐 주세요. 다른 키가 눌리면 글이 넘어가지 않으니 맞는 키를 다시 누르면 됩니다. 누른 자리가 노린 키에서 벗어난 거리를 재서 레이어마다 보정값과 키 크기를 정합니다. 한 회차는 글자 60개이고, 키를 키워야 하면 키운 크기로 한 회차를 더 칩니다(레이어마다 최대 3회차).</string>
+    <string name="typing_status">%1$s · %2$d회차 · %3$d/%4$d · 적중 %5$d%%</string>
+    <string name="typing_skip">이 레이어 건너뛰기</string>
+    <string name="typing_restart">처음부터</string>
+    <string name="typing_apply">적용</string>
+    <string name="typing_close">닫기</string>
+    <string name="typing_result_skipped">%1$s: 건너뜀</string>
+    <string name="typing_result_size">%1$s: 키 %2$.1f → %3$.1f mm, 행 높이 %4$.1f → %5$.1f mm, 옆 거리 왼쪽 %6$.1f · 오른쪽 %7$.1f mm</string>
+    <string name="typing_result_rounds">  회차별 적중률(다른 키가 눌리지 않은 탭의 비율): %1$s</string>
+    <string name="typing_result_spread">  흩어짐(표준편차): 왼쪽 엄지 가로 %1$.1f · 세로 %2$.1f mm, 오른쪽 엄지 가로 %3$.1f · 세로 %4$.1f mm</string>
+    <string name="typing_result_common">두 레이어 공통: 행 높이 %1$.1f mm, 올림 %2$.1f mm. 적용하면 이 값들과 보정값을 저장합니다.</string>
+</resources>
