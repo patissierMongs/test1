@@ -3,6 +3,8 @@ package io.github.patissiermongs.foldkey.ime
 import android.content.Context
 import android.content.SharedPreferences
 import io.github.patissiermongs.foldkey.engine.Layer
+import io.github.patissiermongs.foldkey.input.ThumbZones
+import kotlin.math.roundToInt
 
 class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -23,7 +25,12 @@ class Prefs(context: Context) {
     val rowHeightMm: Float get() = sp.getInt(ROW_HEIGHT, 95) / 10f
     val splitUnitMm: Float get() = sp.getInt(SPLIT_UNIT, 85) / 10f
     val splitLiftMm: Float get() = sp.getInt(SPLIT_LIFT, 0) / 10f
-    val generalMarginMm: Float get() = sp.getInt(GENERAL_MARGIN, DEFAULT_GENERAL_MARGIN) / 10f
+    val generalUnitMm: Float? get() = sp.getInt(GENERAL_UNIT, GENERAL_UNIT_AUTO).takeIf { it > GENERAL_UNIT_AUTO }?.let { it / 10f }
+    val codeSideLeftMm: Float get() = sp.getInt(CODE_SIDE_LEFT, DEFAULT_CODE_SIDE) / 10f
+    val codeSideRightMm: Float get() = sp.getInt(CODE_SIDE_RIGHT, DEFAULT_CODE_SIDE) / 10f
+    val generalSideLeftMm: Float get() = sp.getInt(GENERAL_SIDE_LEFT, legacyGeneralSide) / 10f
+    val generalSideRightMm: Float get() = sp.getInt(GENERAL_SIDE_RIGHT, legacyGeneralSide) / 10f
+    private val legacyGeneralSide: Int get() = sp.getInt(GENERAL_MARGIN, DEFAULT_GENERAL_SIDE)
     val centerEcho: Boolean get() = sp.getBoolean(CENTER_ECHO, true)
     val centerClipboard: Boolean get() = sp.getBoolean(CENTER_CLIPBOARD, true)
     val terminalEcho: Boolean get() = sp.getBoolean(TERMINAL_ECHO, false)
@@ -43,7 +50,23 @@ class Prefs(context: Context) {
         get() = (sp.getString(RAW_PACKAGES, DEFAULT_RAW_PACKAGES) ?: "")
             .split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
+    fun applyFit(fit: ThumbZones.Fit) {
+        fun t(mm: Float) = (mm * 10f).roundToInt()
+        sp.edit()
+            .putInt(SPLIT_UNIT, t(fit.codeUnitMm))
+            .putInt(GENERAL_UNIT, t(fit.generalUnitMm))
+            .putInt(CODE_SIDE_LEFT, t(fit.leftMm))
+            .putInt(CODE_SIDE_RIGHT, t(fit.rightMm))
+            .putInt(GENERAL_SIDE_LEFT, t(fit.leftMm))
+            .putInt(GENERAL_SIDE_RIGHT, t(fit.rightMm))
+            .putInt(SPLIT_LIFT, t(fit.liftMm))
+            .putInt(ROW_HEIGHT, t(fit.rowHeightMm))
+            .apply()
+    }
+
     fun offsets(slot: String): String? = sp.getString(OFFSETS_PREFIX + slot, null)
+
+    fun offsetSlots(): List<String> = sp.all.keys.filter { it.startsWith(OFFSETS_PREFIX) }.map { it.removePrefix(OFFSETS_PREFIX) }.sorted()
 
     fun saveOffsets(slot: String, data: String) {
         sp.edit().putString(OFFSETS_PREFIX + slot, data).apply()
@@ -67,8 +90,20 @@ class Prefs(context: Context) {
         const val SPLIT_UNIT = "split_unit_tenth_mm"
         const val SPLIT_LIFT = "split_lift_tenth_mm"
         const val GENERAL_MARGIN = "general_margin_tenth_mm"
-        const val DEFAULT_GENERAL_MARGIN = 140
-        const val GENERAL_MARGIN_MAX = 250
+        const val GENERAL_UNIT = "general_unit_tenth_mm"
+        const val GENERAL_UNIT_AUTO = 39
+        const val CODE_SIDE_LEFT = "code_side_left_tenth_mm"
+        const val CODE_SIDE_RIGHT = "code_side_right_tenth_mm"
+        const val GENERAL_SIDE_LEFT = "general_side_left_tenth_mm"
+        const val GENERAL_SIDE_RIGHT = "general_side_right_tenth_mm"
+        const val DEFAULT_CODE_SIDE = 5
+        const val DEFAULT_GENERAL_SIDE = 140
+        const val SIDE_MAX = 400
+        const val UNIT_MIN = 40
+        const val UNIT_MAX = 110
+        const val ROW_MIN = 50
+        const val ROW_MAX = 150
+        const val LIFT_MAX = 300
         const val CENTER_ECHO = "center_echo"
         const val CENTER_CLIPBOARD = "center_clipboard"
         const val TERMINAL_ECHO = "terminal_echo"

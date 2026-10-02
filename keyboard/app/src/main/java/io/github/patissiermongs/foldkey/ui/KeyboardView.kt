@@ -28,7 +28,6 @@ import io.github.patissiermongs.foldkey.input.TouchSink
 import io.github.patissiermongs.foldkey.input.TouchTracker
 import io.github.patissiermongs.foldkey.layout.ActionResolver
 import io.github.patissiermongs.foldkey.layout.Box
-import io.github.patissiermongs.foldkey.layout.GeometrySpec
 import io.github.patissiermongs.foldkey.layout.Key
 import io.github.patissiermongs.foldkey.layout.KeyLabels
 import io.github.patissiermongs.foldkey.layout.KeyStyle
@@ -251,32 +250,15 @@ class KeyboardView(
         val lift = liftPx(kind)
         rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
         val panelWanted = kind == LayoutKind.SPLIT && (prefs.centerEcho || prefs.centerClipboard)
-        val margin = if (general && kind == LayoutKind.SPLIT) prefs.generalMarginMm else 0f
-        val spec = GeometrySpec(
-            widthPx = width.toFloat(),
-            pxPerMmX = pxPerMmX,
-            pxPerMmY = pxPerMmY,
-            topPx = stripHeightPx,
-            rowHeightMm = rowMm,
-            gapMm = GAP_MM,
-            sidePaddingMm = SIDE_MM,
+        val spec = LayoutBuilder.spec(
+            prefs, kind, layer, width.toFloat(), pxPerMmX, pxPerMmY, stripHeightPx, rowMm,
+            bottomPx = bottomInset.toFloat(),
             sideInsetPx = sideInset.toFloat(),
-            splitMarginPx = margin * pxPerMmX,
-            bottomPaddingPx = bottomInset.toFloat(),
-            maxUnitMm = MAX_UNIT_MM,
-            splitUnitMm = if (general) Layouts.generalSplitUnitMm(prefs.splitUnitMm, maxOf(0f, margin - SIDE_MM)) else prefs.splitUnitMm,
-            ghostUnits = if (kind == LayoutKind.SPLIT) GHOST_UNITS else 0f,
             liftPx = lift,
             panelMinPx = if (panelWanted) PANEL_MIN_MM * pxPerMmX else 0f,
         )
         dropStaleOffsets()
-        val g = when {
-            general && kind == LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.generalSplit, spec)
-            general -> KeyboardGeometry.full(Layouts.general, spec)
-            kind == LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec, Layouts.pad)
-            kind == LayoutKind.FULL -> KeyboardGeometry.full(Layouts.full, spec, Layouts.pad)
-            else -> KeyboardGeometry.full(Layouts.compact, spec, Layouts.pad)
-        }
+        val g = LayoutBuilder.build(kind, layer, spec)
         tracker.params = TouchParams(
             swipeThresholdPx = SWIPE_MM * pxPerMmY,
             cursorStartPx = CURSOR_START_MM * pxPerMmX,
@@ -1003,7 +985,7 @@ class KeyboardView(
         const val CURSOR_ROW_STEP_MM = 4.0f
         const val ANCHOR_SHARE = 0.25f
         const val COMPACT_MAX_MM = 110f
-        const val MAX_HEIGHT_SHARE = 0.5f
+        const val MAX_HEIGHT_SHARE = 0.6f
         const val LARGE_SCREEN_DP = 600
         const val DETENT_MIN_INTERVAL_MS = 40L
         const val MAX_ECHOES = 8

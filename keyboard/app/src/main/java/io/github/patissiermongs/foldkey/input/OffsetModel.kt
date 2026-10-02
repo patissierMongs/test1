@@ -16,6 +16,8 @@ class OffsetModel(val zones: Int) {
 
     fun samples(zone: Int): Int = if (zone in 0 until zones) count[zone] else 0
 
+    fun meanMm(zone: Int): Pair<Float, Float> = if (zone in 0 until zones) dx[zone] to dy[zone] else 0f to 0f
+
     fun correctionMm(zone: Int, keyWidthMm: Float, keyHeightMm: Float): Pair<Float, Float> {
         if (zone !in 0 until zones || count[zone] == 0) return 0f to 0f
         val weight = min(1f, count[zone].toFloat() / warmup)

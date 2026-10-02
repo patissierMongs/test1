@@ -2,6 +2,7 @@ package io.github.patissiermongs.foldkey.settings
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
@@ -13,6 +14,7 @@ import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.ui.Dpi
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -29,17 +32,16 @@ import org.robolectric.annotation.GraphicsMode
 class ReachCalibrationActivityTest {
     private fun all(v: View): List<View> = if (v is ViewGroup) listOf(v) + (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else listOf(v)
 
-    private fun stroke(view: View, side: Int, reachMm: Float) {
+    private fun scribble(view: View, side: Int, near: Float, far: Float, bottom: Float, top: Float) {
         val dm = view.resources.displayMetrics
         val px = Dpi.physical(dm, true) / 25.4f
         val py = Dpi.physical(dm, false) / 25.4f
-        val bottom = view.height.toFloat()
-        val points = (0..4).flatMap { r ->
-            val yMm = (4 - r) * 9.5f + 4.75f
-            listOf(yMm - 3f, yMm, yMm + 3f).map { y ->
-                val x = if (side < 0) reachMm * px else view.width - reachMm * px
-                x to bottom - y * py
-            }
+        val base = view.height.toFloat()
+        val sweeps = ((top - bottom) / 0.4f).toInt()
+        val points = (0..sweeps).flatMap { k ->
+            val y = bottom + (top - bottom) * k / sweeps
+            val ends = if (k % 2 == 0) listOf(near, far) else listOf(far, near)
+            ends.map { d -> (if (side < 0) d * px else view.width - d * px) to base - y * py }
         }
         val t = SystemClock.uptimeMillis()
         points.forEachIndexed { i, (x, y) ->
@@ -48,46 +50,66 @@ class ReachCalibrationActivityTest {
                 points.lastIndex -> MotionEvent.ACTION_UP
                 else -> MotionEvent.ACTION_MOVE
             }
-            val e = MotionEvent.obtain(t, t + i * 16L, action, x, y, 0)
+            val e = MotionEvent.obtain(t, t + i * 8L, action, x, y, 0)
             view.dispatchTouchEvent(e)
             e.recycle()
         }
     }
 
+    private fun near(expected: Int, actual: Int) = assertTrue("expected $expected got $actual", abs(expected - actual) <= 1)
+
     @Test
-    fun threeConsistentStrokesPerThumbSetTheSplitKeyWidth() {
+    fun threeScribblesPerThumbFitBothLayers() {
         val controller = Robolectric.buildActivity(ReachCalibrationActivity::class.java).setup()
         val activity = controller.get()
         val prefs = Prefs(activity)
         prefs.sp.edit().clear().commit()
         val views = all(activity.window.decorView)
-        val reach = views.first { it.javaClass.simpleName == "ReachView" }
+        val zones = views.first { it.javaClass.simpleName == "ZoneView" }
         val apply = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_apply) }
-        assertTrue(reach.width > 0)
+        assertTrue(zones.width > 0)
         assertFalse(apply.isEnabled)
-        for (mm in listOf(60f, 61f, 62f)) stroke(reach, -1, mm)
-        for (mm in listOf(69f, 70f, 68f)) stroke(reach, 1, mm)
-        val status = views.filterIsInstance<TextView>().filter { it !is Button }.map { it.text.toString() }
-        assertTrue(status.joinToString("\n"), status.any { "8.3" in it })
+        for (shift in listOf(0f, 0.6f, -0.5f)) scribble(zones, -1, 13.7f + shift, 47.5f + shift, 6.2f, 50.5f + shift)
+        for (shift in listOf(0f, -0.4f, 0.7f)) scribble(zones, 1, 17.4f + shift, 52.2f + shift, 6.2f + shift, 50.5f)
+        val status = views.filterIsInstance<TextView>().filter { it !is Button }.joinToString("\n") { it.text.toString() }
+        assertTrue(status, status.contains("Code keys 4.3 mm"))
+        assertTrue(status, status.contains("text keys 6.1 mm"))
         assertTrue(apply.isEnabled)
-        val bmp = Bitmap.createBitmap(reach.rootView.width, reach.rootView.height, Bitmap.Config.ARGB_8888)
-        reach.rootView.draw(Canvas(bmp))
+        val preview = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_preview_code) }
         val dir = File("build/render").apply { mkdirs() }
-        FileOutputStream(File(dir, "reach_calibration.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        for (name in listOf("reach_calibration_code.png", "reach_calibration_general.png")) {
+            shadowOf(Looper.getMainLooper()).idle()
+            val bmp = Bitmap.createBitmap(zones.rootView.width, zones.rootView.height, Bitmap.Config.ARGB_8888)
+            zones.rootView.draw(Canvas(bmp))
+            FileOutputStream(File(dir, name)).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            preview.performClick()
+        }
         apply.performClick()
-        assertEquals(83, prefs.sp.getInt(Prefs.SPLIT_UNIT, 0))
+        near(43, prefs.sp.getInt(Prefs.SPLIT_UNIT, 0))
+        near(61, prefs.sp.getInt(Prefs.GENERAL_UNIT, 0))
+        near(137, prefs.sp.getInt(Prefs.CODE_SIDE_LEFT, 0))
+        near(174, prefs.sp.getInt(Prefs.CODE_SIDE_RIGHT, 0))
+        near(137, prefs.sp.getInt(Prefs.GENERAL_SIDE_LEFT, 0))
+        near(174, prefs.sp.getInt(Prefs.GENERAL_SIDE_RIGHT, 0))
+        near(62, prefs.sp.getInt(Prefs.SPLIT_LIFT, 0))
+        near(88, prefs.sp.getInt(Prefs.ROW_HEIGHT, 0))
+        assertEquals(4.3f, prefs.splitUnitMm, 0.11f)
     }
 
     @Test
-    fun strokesThatDisagreeKeepApplyDisabled() {
+    fun scribblesThatDisagreeKeepApplyDisabled() {
         val activity = Robolectric.buildActivity(ReachCalibrationActivity::class.java).setup().get()
         val views = all(activity.window.decorView)
-        val reach = views.first { it.javaClass.simpleName == "ReachView" }
+        val zones = views.first { it.javaClass.simpleName == "ZoneView" }
         val apply = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_apply) }
-        for (mm in listOf(50f, 61f, 62f)) stroke(reach, -1, mm)
-        for (mm in listOf(66f, 67f, 65f)) stroke(reach, 1, mm)
+        for (far in listOf(58f, 47f, 48f)) scribble(zones, -1, 14f, far, 6f, 50f)
+        for (far in listOf(52f, 52f, 53f)) scribble(zones, 1, 17f, far, 6f, 50f)
         assertFalse(apply.isEnabled)
-        stroke(reach, -1, 60f)
+        scribble(zones, -1, 14f, 47f, 6f, 50f)
+        assertTrue(apply.isEnabled)
+        scribble(zones, 1, 30f, 31f, 6f, 50f)
+        val status = views.filterIsInstance<TextView>().filter { it !is Button }.joinToString("\n") { it.text.toString() }
+        assertTrue(status, status.contains(activity.getString(R.string.reach_invalid)))
         assertTrue(apply.isEnabled)
     }
 }

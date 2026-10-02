@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.RectF
 import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
@@ -18,27 +19,32 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.patissiermongs.foldkey.R
+import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
-import io.github.patissiermongs.foldkey.input.ReachCalibration
-import io.github.patissiermongs.foldkey.input.ReachCalibration.Side
+import io.github.patissiermongs.foldkey.input.ThumbZones
+import io.github.patissiermongs.foldkey.input.ThumbZones.Side
+import io.github.patissiermongs.foldkey.input.ThumbZones.Zone
+import io.github.patissiermongs.foldkey.layout.GeometrySpec
+import io.github.patissiermongs.foldkey.layout.LayoutKind
 import io.github.patissiermongs.foldkey.layout.Layouts
 import io.github.patissiermongs.foldkey.ui.Dpi
 import io.github.patissiermongs.foldkey.ui.KeyboardView
+import io.github.patissiermongs.foldkey.ui.LayoutBuilder
 import io.github.patissiermongs.foldkey.ui.Palette
-import kotlin.math.roundToInt
 
 class ReachCalibrationActivity : Activity() {
     private lateinit var prefs: Prefs
-    private lateinit var reach: ReachView
+    private lateinit var zones: ZoneView
     private lateinit var status: TextView
     private lateinit var apply: Button
-    private var pendingUnit: Float? = null
+    private lateinit var preview: Button
+    private var pendingFit: ThumbZones.Fit? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
         val palette = Palette.of(resources.configuration)
-        reach = ReachView(this, prefs, palette) { update() }
+        zones = ZoneView(this, prefs, palette) { update() }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -56,22 +62,27 @@ class ReachCalibrationActivity : Activity() {
         panel.addView(status)
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         apply = button(getString(R.string.reach_apply)) {
-            pendingUnit?.let { prefs.sp.edit().putInt(Prefs.SPLIT_UNIT, (it * 10f).roundToInt()).apply() }
+            pendingFit?.let { prefs.applyFit(it) }
             finish()
         }
         buttons.addView(apply)
-        buttons.addView(button(getString(R.string.reach_reset)) { reach.reset() })
+        buttons.addView(button(getString(R.string.reach_reset)) { zones.reset() })
+        preview = button("") {
+            zones.previewLayer = if (zones.previewLayer == Layer.CODE) Layer.GENERAL else Layer.CODE
+            update()
+        }
+        buttons.addView(preview)
         buttons.addView(button(getString(R.string.reach_close)) { finish() })
         panel.addView(buttons)
         val root = FrameLayout(this)
-        root.addView(reach, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        root.addView(zones, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.addView(panel, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         root.setOnApplyWindowInsetsListener { _, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
             val pad = dp(16)
             panel.setPadding(bars.left + pad, bars.top + pad, bars.right + pad, pad)
-            reach.bottomInset = bars.bottom
-            reach.invalidate()
+            zones.bottomInset = bars.bottom
+            zones.invalidate()
             insets
         }
         setContentView(root)
@@ -89,68 +100,71 @@ class ReachCalibrationActivity : Activity() {
         if (resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) {
             lines.add(getString(R.string.reach_rotate))
         }
-        val left = reach.reaches.getValue(Side.LEFT)
-        val right = reach.reaches.getValue(Side.RIGHT)
-        lines.add(getString(R.string.reach_progress, left.size, right.size, ReachCalibration.STROKES))
-        if (reach.lastInvalid) lines.add(getString(R.string.reach_invalid))
-        val l = ReachCalibration.summarize(left)
-        val r = ReachCalibration.summarize(right)
-        for ((name, list, summary) in listOf(
-            Triple(getString(R.string.reach_left), left, l),
-            Triple(getString(R.string.reach_right), right, r),
-        )) {
-            if (summary != null && list.size == ReachCalibration.STROKES && !summary.consistent) {
+        val left = zones.strokes.getValue(Side.LEFT)
+        val right = zones.strokes.getValue(Side.RIGHT)
+        lines.add(getString(R.string.reach_progress, left.size, right.size, ThumbZones.STROKES))
+        if (zones.lastInvalid) lines.add(getString(R.string.reach_invalid))
+        val summaries = mapOf(Side.LEFT to ThumbZones.summarize(left), Side.RIGHT to ThumbZones.summarize(right))
+        for ((side, list) in listOf(Side.LEFT to left, Side.RIGHT to right)) {
+            val summary = summaries[side] ?: continue
+            val name = getString(if (side == Side.LEFT) R.string.reach_left else R.string.reach_right)
+            val z = summary.zone
+            lines.add(getString(R.string.reach_zone, name, z.nearMm, z.farMm, z.bottomMm, z.topMm))
+            if (list.size == ThumbZones.STROKES && !summary.consistent) {
                 lines.add(getString(R.string.reach_inconsistent, name, summary.spreadMm))
             }
         }
-        pendingUnit = null
-        if (l != null && r != null && left.size == ReachCalibration.STROKES && right.size == ReachCalibration.STROKES &&
+        val l = summaries[Side.LEFT]
+        val r = summaries[Side.RIGHT]
+        pendingFit = if (l != null && r != null && left.size == ThumbZones.STROKES && right.size == ThumbZones.STROKES &&
             l.consistent && r.consistent
         ) {
-            val unit = ReachCalibration.unitMm(
-                l.medianMm, r.medianMm, KeyboardView.SIDE_MM,
-                Layouts.splitLeftUnits, Layouts.splitRightUnits,
-                UNIT_MIN_MM, UNIT_MAX_MM,
+            ThumbZones.fit(
+                l.zone, r.zone, Layouts.split.size,
+                Layouts.splitLeftUnits to Layouts.splitRightUnits,
+                Layouts.generalSplitLeftUnits to Layouts.generalSplitRightUnits,
             )
-            pendingUnit = unit
-            lines.add(getString(R.string.reach_result, l.medianMm, r.medianMm, unit, prefs.splitUnitMm))
+        } else {
+            null
         }
+        pendingFit?.let { lines.add(getString(R.string.reach_result, it.codeUnitMm, it.generalUnitMm, it.leftMm, it.rightMm, it.liftMm, it.rowHeightMm)) }
         status.text = lines.joinToString("\n")
-        apply.isEnabled = pendingUnit != null
+        apply.isEnabled = pendingFit != null
+        preview.text = getString(if (zones.previewLayer == Layer.CODE) R.string.reach_preview_code else R.string.reach_preview_general)
+        zones.summaries = summaries.mapNotNull { (k, v) -> v?.let { k to it.zone } }.toMap()
+        zones.fit = pendingFit
+        zones.invalidate()
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
-
-    companion object {
-        const val UNIT_MIN_MM = 7.0f
-        const val UNIT_MAX_MM = 11.0f
-    }
 }
 
 @SuppressLint("ViewConstructor")
-private class ReachView(
+private class ZoneView(
     context: Context,
     private val prefs: Prefs,
     private val palette: Palette,
     private val onChange: () -> Unit,
 ) : View(context) {
-    val reaches = mapOf(Side.LEFT to ArrayList<Float>(), Side.RIGHT to ArrayList<Float>())
+    val strokes = mapOf(Side.LEFT to ArrayList<Zone>(), Side.RIGHT to ArrayList<Zone>())
+    var summaries: Map<Side, Zone> = emptyMap()
+    var fit: ThumbZones.Fit? = null
+    var previewLayer = Layer.CODE
     var lastInvalid = false
     var bottomInset = 0
-    private val strokes = HashMap<Int, Pair<Side, ArrayList<PointF>>>()
-    private val finished = ArrayList<Pair<Side, List<PointF>>>()
+    private val active = HashMap<Int, Pair<Side, ArrayList<PointF>>>()
+    private val drawn = ArrayList<Pair<Side, List<PointF>>>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = RectF()
 
-    private val pxPerMmX: Float get() = Dpi.physical(resources.displayMetrics, true) / MM_PER_INCH
-    private val pxPerMmY: Float get() = Dpi.physical(resources.displayMetrics, false) / MM_PER_INCH
-    private val bandBottom: Float get() = height - bottomInset.toFloat()
-    private val bands: ReachCalibration.Bands
-        get() = ReachCalibration.Bands(Layouts.split.size, prefs.rowHeightMm, prefs.splitLiftMm)
+    private val pxPerMmX: Float get() = Dpi.physical(resources.displayMetrics, true) / KeyboardView.MM_PER_INCH
+    private val pxPerMmY: Float get() = Dpi.physical(resources.displayMetrics, false) / KeyboardView.MM_PER_INCH
+    private val baseline: Float get() = height - bottomInset.toFloat()
 
     fun reset() {
-        reaches.values.forEach { it.clear() }
-        strokes.clear()
-        finished.clear()
+        strokes.values.forEach { it.clear() }
+        active.clear()
+        drawn.clear()
         lastInvalid = false
         invalidate()
         onChange()
@@ -162,74 +176,112 @@ private class ReachView(
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val i = event.actionIndex
                 val side = if (event.getX(i) < width / 2f) Side.LEFT else Side.RIGHT
-                strokes[event.getPointerId(i)] = side to arrayListOf(PointF(event.getX(i), event.getY(i)))
+                active[event.getPointerId(i)] = side to arrayListOf(PointF(event.getX(i), event.getY(i)))
             }
             MotionEvent.ACTION_MOVE -> for (i in 0 until event.pointerCount) {
-                val points = strokes[event.getPointerId(i)]?.second ?: continue
+                val points = active[event.getPointerId(i)]?.second ?: continue
                 for (h in 0 until event.historySize) points.add(PointF(event.getHistoricalX(i, h), event.getHistoricalY(i, h)))
                 points.add(PointF(event.getX(i), event.getY(i)))
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> finish(event.getPointerId(event.actionIndex))
-            MotionEvent.ACTION_CANCEL -> strokes.clear()
+            MotionEvent.ACTION_CANCEL -> active.clear()
         }
         invalidate()
         return true
     }
 
     private fun finish(pointer: Int) {
-        val (side, points) = strokes.remove(pointer) ?: return
-        val samples = points.map { ReachCalibration.Sample(it.x / pxPerMmX, (bandBottom - it.y) / pxPerMmY) }
-        val reach = ReachCalibration.strokeReach(samples, side, width / pxPerMmX, bands)
-        finished.add(side to points)
-        while (finished.size > 2 * ReachCalibration.STROKES) finished.removeAt(0)
-        lastInvalid = reach == null
-        if (reach != null) {
-            val list = reaches.getValue(side)
-            if (list.size >= ReachCalibration.STROKES) list.removeAt(0)
-            list.add(reach)
+        val (side, points) = active.remove(pointer) ?: return
+        val samples = points.map { ThumbZones.Sample(it.x / pxPerMmX, (baseline - it.y) / pxPerMmY) }
+        val zone = ThumbZones.strokeZone(samples, side, width / pxPerMmX)
+        lastInvalid = zone == null
+        if (zone != null) {
+            val list = strokes.getValue(side)
+            if (list.size >= ThumbZones.STROKES) list.removeAt(0)
+            list.add(zone)
+            drawn.add(side to points)
+            while (drawn.count { it.first == side } > ThumbZones.STROKES) drawn.remove(drawn.first { it.first == side })
         }
         onChange()
     }
 
-    override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(palette.background)
-        val b = bands
-        val rowH = b.rowHeightMm * pxPerMmY
-        val rowsBottom = bandBottom - b.liftMm * pxPerMmY
-        val rowsTop = rowsBottom - b.rows * rowH
-        paint.style = Paint.Style.FILL
-        paint.color = palette.strip
-        canvas.drawRect(0f, rowsTop, width.toFloat(), rowsBottom, paint)
-        paint.color = palette.hint
-        paint.strokeWidth = 0.15f * pxPerMmY
-        for (r in 0..b.rows) canvas.drawLine(0f, rowsTop + r * rowH, width.toFloat(), rowsTop + r * rowH, paint)
-        val unit = prefs.splitUnitMm
-        paint.strokeWidth = 0.3f * pxPerMmX
-        for ((r, row) in Layouts.split.withIndex()) {
-            val top = rowsTop + r * rowH
-            val leftInner = (KeyboardView.SIDE_MM + row.left.span * unit) * pxPerMmX
-            val rightInner = width - (KeyboardView.SIDE_MM + (Layouts.splitUnits - row.left.span) * unit) * pxPerMmX
-            canvas.drawLine(leftInner, top, leftInner, top + rowH, paint)
-            canvas.drawLine(rightInner, top, rightInner, top + rowH, paint)
-        }
-        paint.strokeWidth = 0.6f * pxPerMmX
-        paint.color = palette.accent
-        ReachCalibration.summarize(reaches.getValue(Side.LEFT))?.let {
-            val x = it.medianMm * pxPerMmX
-            canvas.drawLine(x, rowsTop, x, rowsBottom, paint)
-        }
-        ReachCalibration.summarize(reaches.getValue(Side.RIGHT))?.let {
-            val x = width - it.medianMm * pxPerMmX
-            canvas.drawLine(x, rowsTop, x, rowsBottom, paint)
-        }
-        paint.strokeWidth = 0.4f * pxPerMmX
-        for ((side, points) in finished + strokes.values.map { it.first to it.second }) {
-            paint.color = if (side == Side.LEFT) palette.accent else palette.locked
-            for (k in 1 until points.size) canvas.drawLine(points[k - 1].x, points[k - 1].y, points[k].x, points[k].y, paint)
-        }
+    private fun previewSpec(): GeometrySpec {
+        val f = fit
+        val rowMm = f?.rowHeightMm ?: prefs.rowHeightMm
+        val spec = LayoutBuilder.spec(prefs, LayoutKind.SPLIT, previewLayer, width.toFloat(), pxPerMmX, pxPerMmY, 0f, rowMm)
+        if (f == null) return spec
+        return spec.copy(
+            splitMarginLeftPx = f.leftMm * pxPerMmX,
+            splitMarginRightPx = f.rightMm * pxPerMmX,
+            splitUnitMm = if (previewLayer == Layer.GENERAL) f.generalUnitMm else f.codeUnitMm,
+        )
     }
 
-    companion object {
-        const val MM_PER_INCH = 25.4f
+    override fun onDraw(canvas: Canvas) {
+        canvas.drawColor(palette.background)
+        if (width == 0) return
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 0.3f * pxPerMmX
+        for ((side, points) in drawn + active.values.map { it.first to it.second }) {
+            paint.color = if (side == Side.LEFT) palette.accent else palette.locked
+            paint.alpha = 70
+            for (k in 1 until points.size) canvas.drawLine(points[k - 1].x, points[k - 1].y, points[k].x, points[k].y, paint)
+        }
+        for ((side, zone) in summaries) {
+            zoneRect(side, zone)
+            paint.style = Paint.Style.FILL
+            paint.color = if (side == Side.LEFT) palette.accent else palette.locked
+            paint.alpha = 45
+            canvas.drawRect(rect, paint)
+        }
+        val spec = previewSpec()
+        val geometry = LayoutBuilder.build(LayoutKind.SPLIT, previewLayer, spec)
+        val lift = (fit?.liftMm ?: prefs.splitLiftMm) * pxPerMmY
+        val rowsHeight = Layouts.rows(LayoutKind.SPLIT, previewLayer) * spec.rowHeightMm * pxPerMmY
+        canvas.save()
+        canvas.translate(0f, baseline - lift - rowsHeight)
+        val radius = KeyboardView.RADIUS_MM * pxPerMmX
+        paint.textAlign = Paint.Align.CENTER
+        for (key in geometry.keys) {
+            if (key.ghost) continue
+            rect.set(key.face.left, key.face.top, key.face.right, key.face.bottom)
+            paint.style = Paint.Style.FILL
+            paint.color = palette.key
+            paint.alpha = 175
+            canvas.drawRoundRect(rect, radius, radius, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 0.15f * pxPerMmX
+            paint.color = palette.text
+            paint.alpha = 120
+            canvas.drawRoundRect(rect, radius, radius, paint)
+            val label = LayoutBuilder.previewLabel(context, key.def, previewLayer)
+            if (label.isNotEmpty()) {
+                paint.style = Paint.Style.FILL
+                paint.color = palette.text
+                paint.alpha = 230
+                paint.textSize = key.face.height * if (label.length == 1) 0.42f else 0.26f
+                val max = key.face.width * 0.9f
+                if (paint.measureText(label) > max) paint.textSize *= max / paint.measureText(label)
+                canvas.drawText(label, key.face.centerX, key.face.centerY - (paint.descent() + paint.ascent()) / 2f, paint)
+            }
+        }
+        canvas.restore()
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 0.4f * pxPerMmX
+        for ((side, zone) in summaries) {
+            zoneRect(side, zone)
+            paint.color = if (side == Side.LEFT) palette.accent else palette.locked
+            paint.alpha = 255
+            canvas.drawRect(rect, paint)
+        }
+        paint.alpha = 255
+    }
+
+    private fun zoneRect(side: Side, zone: Zone) {
+        val near = zone.nearMm * pxPerMmX
+        val far = zone.farMm * pxPerMmX
+        val left = if (side == Side.LEFT) near else width - far
+        val right = if (side == Side.LEFT) far else width - near
+        rect.set(left, baseline - zone.topMm * pxPerMmY, right, baseline - zone.bottomMm * pxPerMmY)
     }
 }

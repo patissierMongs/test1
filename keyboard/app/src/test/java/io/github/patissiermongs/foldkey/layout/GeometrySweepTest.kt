@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeometrySweepTest {
-    private fun spec(widthPx: Float, ppi: Float, unitMm: Float, lift: Float, panelMm: Float, inset: Float, ghost: Float, marginMm: Float = 0f) = GeometrySpec(
+    private fun spec(widthPx: Float, ppi: Float, unitMm: Float, lift: Float, panelMm: Float, inset: Float, ghost: Float, margin: Pair<Float, Float> = 0f to 0f) = GeometrySpec(
         widthPx = widthPx,
         pxPerMmX = ppi / 25.4f,
         pxPerMmY = ppi / 25.4f,
@@ -14,7 +14,8 @@ class GeometrySweepTest {
         gapMm = 0.9f,
         sidePaddingMm = 0.5f,
         sideInsetPx = inset,
-        splitMarginPx = marginMm * ppi / 25.4f,
+        splitMarginLeftPx = margin.first * ppi / 25.4f,
+        splitMarginRightPx = margin.second * ppi / 25.4f,
         bottomPaddingPx = 0f,
         maxUnitMm = 11.5f,
         splitUnitMm = unitMm,
@@ -55,10 +56,9 @@ class GeometrySweepTest {
         val problems = ArrayList<String>()
         for ((layout, rows) in listOf("code" to Layouts.split, "general" to Layouts.generalSplit)) for (ppi in listOf(368f, 422f)) {
             val pxPerMm = ppi / 25.4f
-            val margins = if (rows === Layouts.split) listOf(0f) else listOf(0f, 14f, 25f)
-            for (widthMm in (110..260 step 5)) for (setting in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) for (margin in margins) {
+            for (widthMm in (110..260 step 5)) for (setting in listOf(4f, 7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) for (margin in MARGINS) {
                 val w = widthMm * pxPerMm
-                val unit = if (rows === Layouts.split) setting else Layouts.generalSplitUnitMm(setting, maxOf(0f, margin - 0.5f))
+                val unit = if (rows === Layouts.split) setting else Layouts.generalSplitUnitMm(setting, maxOf(0f, margin.first - 0.5f), maxOf(0f, margin.second - 0.5f))
                 val g = KeyboardGeometry.split(rows, spec(w, ppi, unit, lift, panel, 0f, 1f, margin), if (rows === Layouts.split) Layouts.pad else emptyList())
                 val keys = g.keys
                 val rowsBottom = keys.maxOf { it.touch.bottom }
@@ -100,14 +100,14 @@ class GeometrySweepTest {
         for (ppi in listOf(368f, 422f, 300f)) {
             val pxPerMm = ppi / 25.4f
             for (widthMm in (110..260 step 5)) {
-                for (unit in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) for (inset in listOf(0f, 60f)) {
+                for (unit in listOf(4f, 7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) for (inset in listOf(0f, 60f)) {
                     val w = widthMm * pxPerMm
-                    val g = KeyboardGeometry.split(Layouts.split, spec(w, ppi, unit, lift, panel, inset, 1f), Layouts.pad)
-                    check("split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset", g, problems)
-                    for (margin in listOf(0f, 14f, 25f)) {
+                    for (margin in MARGINS) {
+                        val g = KeyboardGeometry.split(Layouts.split, spec(w, ppi, unit, lift, panel, inset, 1f, margin), Layouts.pad)
+                        check("split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset margin=$margin", g, problems)
                         val gs = KeyboardGeometry.split(
                             Layouts.generalSplit,
-                            spec(w, ppi, Layouts.generalSplitUnitMm(unit, maxOf(0f, margin - 0.5f)), lift, panel, inset, 1f, margin),
+                            spec(w, ppi, Layouts.generalSplitUnitMm(unit, maxOf(0f, margin.first - 0.5f), maxOf(0f, margin.second - 0.5f)), lift, panel, inset, 1f, margin),
                         )
                         check("general split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset margin=$margin", gs, problems)
                     }
@@ -125,5 +125,9 @@ class GeometrySweepTest {
             }
         }
         assertTrue("${problems.size} problems, e.g. ${problems.take(5)}", problems.isEmpty())
+    }
+
+    companion object {
+        private val MARGINS = listOf(0f to 0f, 14f to 14f, 25f to 25f, 13.7f to 17.4f)
     }
 }

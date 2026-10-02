@@ -36,5 +36,10 @@
             android:name=".settings.ReachCalibrationActivity"
             android:exported="false"
             android:label="@string/reach_title" />
+
+        <activity
+            android:name=".settings.OffsetMapActivity"
+            android:exported="false"
+            android:label="@string/offsets_title" />
     </application>
 </manifest>

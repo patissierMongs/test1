@@ -26,7 +26,7 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var status: TextView
     private lateinit var column: LinearLayout
-    private var builtUnit = 0f
+    private var builtLayout = ""
     private var rawPackages: EditText? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +50,7 @@ class SettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (prefs.splitUnitMm != builtUnit) {
+        if (layoutSignature() != builtLayout) {
             recreate()
             return
         }
@@ -59,8 +59,11 @@ class SettingsActivity : Activity() {
 
     override fun onPause() {
         saveRawPackages()
+        builtLayout = layoutSignature()
         super.onPause()
     }
+
+    private fun layoutSignature(): String = LAYOUT_KEYS.joinToString(",") { prefs.sp.getInt(it, -1).toString() }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -68,7 +71,7 @@ class SettingsActivity : Activity() {
     }
 
     private fun build() {
-        builtUnit = prefs.splitUnitMm
+        builtLayout = layoutSignature()
         heading(getString(R.string.app_name), 24f)
         body(getString(R.string.settings_intro))
         status = body("")
@@ -94,13 +97,19 @@ class SettingsActivity : Activity() {
         heading(getString(R.string.settings_layout), 18f)
         toggle(getString(R.string.pref_split_portrait), Prefs.SPLIT_PORTRAIT, false)
         toggle(getString(R.string.pref_split_landscape), Prefs.SPLIT_LANDSCAPE, true)
-        slider(getString(R.string.pref_row_height), Prefs.ROW_HEIGHT, 95, 70, 130) { "%.1f mm".format(it / 10f) }
-        slider(getString(R.string.pref_split_unit), Prefs.SPLIT_UNIT, 85, 70, 110) { "%.1f mm".format(it / 10f) }
+        slider(getString(R.string.pref_row_height), Prefs.ROW_HEIGHT, 95, Prefs.ROW_MIN, Prefs.ROW_MAX) { mm(it) }
+        slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, Prefs.LIFT_MAX) { mm(it) }
         button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
-        slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, 150) { "%.1f mm".format(it / 10f) }
-        slider(getString(R.string.pref_general_margin), Prefs.GENERAL_MARGIN, Prefs.DEFAULT_GENERAL_MARGIN, 0, Prefs.GENERAL_MARGIN_MAX) {
-            "%.1f mm".format(it / 10f)
+        heading(getString(R.string.settings_split_code), 16f)
+        slider(getString(R.string.pref_unit), Prefs.SPLIT_UNIT, 85, Prefs.UNIT_MIN, Prefs.UNIT_MAX) { mm(it) }
+        slider(getString(R.string.pref_side_left), Prefs.CODE_SIDE_LEFT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
+        slider(getString(R.string.pref_side_right), Prefs.CODE_SIDE_RIGHT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
+        heading(getString(R.string.settings_split_general), 16f)
+        slider(getString(R.string.pref_unit), Prefs.GENERAL_UNIT, Prefs.GENERAL_UNIT_AUTO, Prefs.GENERAL_UNIT_AUTO, Prefs.UNIT_MAX) {
+            if (it <= Prefs.GENERAL_UNIT_AUTO) getString(R.string.unit_auto) else mm(it)
         }
+        slider(getString(R.string.pref_side_left), Prefs.GENERAL_SIDE_LEFT, tenths(prefs.generalSideLeftMm), 0, Prefs.SIDE_MAX) { mm(it) }
+        slider(getString(R.string.pref_side_right), Prefs.GENERAL_SIDE_RIGHT, tenths(prefs.generalSideRightMm), 0, Prefs.SIDE_MAX) { mm(it) }
         toggle(getString(R.string.pref_latin_hints), Prefs.LATIN_HINTS, true)
 
         heading(getString(R.string.settings_center), 18f)
@@ -145,6 +154,7 @@ class SettingsActivity : Activity() {
         }
         toggle(getString(R.string.pref_adaptive), Prefs.ADAPTIVE, true)
         button(getString(R.string.pref_adaptive_reset)) { prefs.clearOffsets() }
+        button(getString(R.string.offsets_view)) { startActivity(Intent(this, OffsetMapActivity::class.java)) }
         body(getString(R.string.pref_raw_packages))
         val packages = EditText(this).apply {
             setText(prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES))
@@ -212,6 +222,10 @@ class SettingsActivity : Activity() {
         })
     }
 
+    private fun mm(tenths: Int): String = "%.1f mm".format(tenths / 10f)
+
+    private fun tenths(mm: Float): Int = Math.round(mm * 10f)
+
     private fun slider(text: String, key: String, default: Int, min: Int, max: Int, format: (Int) -> String) {
         val label = TextView(this).apply { textSize = 15f; setPadding(0, dp(8), 0, 0) }
         val value = prefs.sp.getInt(key, default).coerceIn(min, max)
@@ -242,4 +256,11 @@ class SettingsActivity : Activity() {
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    companion object {
+        private val LAYOUT_KEYS = listOf(
+            Prefs.SPLIT_UNIT, Prefs.GENERAL_UNIT, Prefs.CODE_SIDE_LEFT, Prefs.CODE_SIDE_RIGHT,
+            Prefs.GENERAL_SIDE_LEFT, Prefs.GENERAL_SIDE_RIGHT, Prefs.SPLIT_LIFT, Prefs.ROW_HEIGHT,
+        )
+    }
 }

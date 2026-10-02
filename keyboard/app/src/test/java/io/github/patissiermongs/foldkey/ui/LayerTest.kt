@@ -116,12 +116,46 @@ class LayerTest {
         touch(MotionEvent.ACTION_UP, 2f * pxPerMm, q.centerY)
         idle()
         assertEquals("q", editor.text.toString())
-        prefs.sp.edit().putInt(Prefs.GENERAL_MARGIN, 0).commit()
+        prefs.sp.edit().putInt(Prefs.GENERAL_SIDE_LEFT, 0).putInt(Prefs.GENERAL_SIDE_RIGHT, 0).commit()
         view.reload()
         assertEquals(0.5f, char('q').left / pxPerMm - 0.45f, 0.05f)
         assertEquals(9.6f - 0.9f, char('q').width / pxPerMm, 0.05f)
         tap(layerKey())
         assertEquals(codeFaces, view.layoutKeys.map { it.face })
+    }
+
+    @Test
+    fun generalDistanceSetIn071CarriesOverToBothSides() {
+        setup()
+        prefs.sp.edit().putInt(Prefs.GENERAL_MARGIN, 100).commit()
+        view.reload()
+        tap(layerKey())
+        assertEquals(10f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(10f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
+        prefs.sp.edit().putInt(Prefs.GENERAL_SIDE_LEFT, 50).commit()
+        view.reload()
+        assertEquals(5f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(10f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
+    }
+
+    @Test
+    fun measuredSettingsMoveBothLayersAndSetTheKeyWidths() {
+        setup()
+        prefs.sp.edit()
+            .putInt(Prefs.CODE_SIDE_LEFT, 137).putInt(Prefs.CODE_SIDE_RIGHT, 174).putInt(Prefs.SPLIT_UNIT, 43)
+            .putInt(Prefs.GENERAL_SIDE_LEFT, 137).putInt(Prefs.GENERAL_SIDE_RIGHT, 174).putInt(Prefs.GENERAL_UNIT, 61)
+            .commit()
+        view.reload()
+        val q = char('q')
+        assertEquals(4.3f - 0.9f, q.width / pxPerMm, 0.05f)
+        val leftmost = view.layoutKeys.filter { !it.ghost }.minBy { it.face.left }.face
+        assertEquals(13.7f, leftmost.left / pxPerMm - 0.45f, 0.05f)
+        val rightmost = view.layoutKeys.filter { !it.ghost }.maxBy { it.face.right }.face
+        assertEquals(17.4f, (view.width - rightmost.right) / pxPerMm - 0.45f, 0.05f)
+        tap(layerKey())
+        assertEquals(6.1f - 0.9f, char('q').width / pxPerMm, 0.05f)
+        assertEquals(13.7f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(17.4f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
     }
 
     @Test
