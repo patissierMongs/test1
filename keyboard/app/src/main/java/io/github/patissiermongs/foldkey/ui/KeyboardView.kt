@@ -251,6 +251,7 @@ class KeyboardView(
         val lift = liftPx(kind)
         rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
         val panelWanted = kind == LayoutKind.SPLIT && (prefs.centerEcho || prefs.centerClipboard)
+        val margin = if (general && kind == LayoutKind.SPLIT) prefs.generalMarginMm else 0f
         val spec = GeometrySpec(
             widthPx = width.toFloat(),
             pxPerMmX = pxPerMmX,
@@ -260,9 +261,10 @@ class KeyboardView(
             gapMm = GAP_MM,
             sidePaddingMm = SIDE_MM,
             sideInsetPx = sideInset.toFloat(),
+            splitMarginPx = margin * pxPerMmX,
             bottomPaddingPx = bottomInset.toFloat(),
             maxUnitMm = MAX_UNIT_MM,
-            splitUnitMm = if (general) Layouts.generalSplitUnitMm(prefs.splitUnitMm) else prefs.splitUnitMm,
+            splitUnitMm = if (general) Layouts.generalSplitUnitMm(prefs.splitUnitMm, maxOf(0f, margin - SIDE_MM)) else prefs.splitUnitMm,
             ghostUnits = if (kind == LayoutKind.SPLIT) GHOST_UNITS else 0f,
             liftPx = lift,
             panelMinPx = if (panelWanted) PANEL_MIN_MM * pxPerMmX else 0f,

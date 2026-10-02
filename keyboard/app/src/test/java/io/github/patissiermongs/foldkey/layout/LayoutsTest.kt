@@ -418,6 +418,67 @@ class LayoutsTest {
     }
 
     @Test
+    fun generalSplitKeysShrinkBackWhenTheHalvesAreInset() {
+        assertEquals(9.23f, Layouts.generalSplitUnitMm(7f, 0f), 0.01f)
+        assertEquals(7f, Layouts.generalSplitUnitMm(7f, 13.5f), 1e-4f)
+        assertEquals(8.75f, Layouts.generalSplitUnitMm(8.5f, 13.5f), 0.01f)
+        assertEquals(11f, Layouts.generalSplitUnitMm(11f, 13.5f), 1e-4f)
+        for (inset in listOf(0f, 6.5f, 13.5f, 24.5f)) for (u in listOf(7f, 7.5f, 8.5f, 9.6f, 11f)) {
+            val g = Layouts.generalSplitUnitMm(u, inset)
+            assertTrue("$u $inset", g >= u)
+            if (g > u + 1e-4f) {
+                assertTrue("$u $inset", inset + g * Layouts.generalSplitLeftUnits <= u * Layouts.splitLeftUnits + 1e-3f)
+                assertTrue("$u $inset", inset + g * Layouts.generalSplitRightUnits <= u * Layouts.splitRightUnits + 1e-3f)
+            }
+        }
+    }
+
+    @Test
+    fun fold7GeneralSplitMarginKeepsTheHalvesOffTheSideEdges() {
+        val pxPerMm = 368f / 25.4f
+        val leftDefs = Layouts.generalSplit.flatMap { it.left.keys }
+        for (width in listOf(2184, 1968)) {
+            val g = KeyboardGeometry.split(
+                Layouts.generalSplit,
+                spec(width, 368f, splitUnitMm = Layouts.generalSplitUnitMm(7f, 13.5f), ghost = 1f)
+                    .copy(splitMarginPx = 14f * pxPerMm, panelMinPx = 12f * pxPerMm),
+            )
+            assertEquals(7f, g.unitPx / pxPerMm, 0.01f)
+            val visible = g.keys.filter { !it.ghost }
+            val leftHalf = visible.filter { k -> leftDefs.any { it === k.def } }
+            val rightHalf = visible.filter { k -> leftDefs.none { it === k.def } }
+            assertEquals("$width", 14f, slotLeft(leftHalf.minBy { it.face.left }, pxPerMm) / pxPerMm, 0.02f)
+            assertEquals("$width", 14f, (width - slotRight(rightHalf.maxBy { it.face.right }, pxPerMm)) / pxPerMm, 0.02f)
+            assertEquals("$width", 52.5f, slotRight(leftHalf.maxBy { it.face.right }, pxPerMm) / pxPerMm, 0.02f)
+            assertEquals("$width", 49f, (width - slotLeft(rightHalf.minBy { it.face.left }, pxPerMm)) / pxPerMm, 0.02f)
+            for (r in Layouts.generalSplit.indices) {
+                assertEquals("$width row $r", 0f, visible.filter { it.row == r }.minOf { it.touch.left }, 0.01f)
+                assertEquals("$width row $r", width.toFloat(), visible.filter { it.row == r }.maxOf { it.touch.right }, 0.01f)
+            }
+            assertEquals("$width", Layouts.generalSplit.size, g.panel.size)
+        }
+        val portrait = KeyboardGeometry.split(
+            Layouts.generalSplit,
+            spec(1968, 368f, splitUnitMm = Layouts.generalSplitUnitMm(8.5f, 13.5f), ghost = 1f)
+                .copy(splitMarginPx = 14f * pxPerMm, panelMinPx = 12f * pxPerMm),
+        )
+        assertEquals(8.75f, portrait.unitPx / pxPerMm, 0.01f)
+        assertEquals(14f, slotLeft(portrait.keys.first { base(it) == 'q' }, pxPerMm) / pxPerMm, 0.02f)
+        assertTrue(portrait.panel.isEmpty())
+    }
+
+    @Test
+    fun splitMarginGivesWayToTheKeyWidth() {
+        val pxPerMm = 368f / 25.4f
+        val g = KeyboardGeometry.split(Layouts.generalSplit, spec(1968, 368f, splitUnitMm = 11f, ghost = 1f).copy(splitMarginPx = 14f * pxPerMm))
+        assertEquals(11f, g.unitPx / pxPerMm, 0.01f)
+        assertEquals((1968f / pxPerMm - 12f * 11f) / 2f, slotLeft(g.keys.first { base(it) == 'q' }, pxPerMm) / pxPerMm, 0.02f)
+        val plain = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, splitUnitMm = 8.5f, ghost = 1f), Layouts.pad)
+        val inset = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, splitUnitMm = 8.5f, ghost = 1f).copy(splitMarginPx = 14f * pxPerMm), Layouts.pad)
+        assertEquals(plain.keys.map { it.face }, inset.keys.map { it.face })
+    }
+
+    @Test
     fun generalSplitFollowsThePhoneStagger() {
         val pxPerMm = 368f / 25.4f
         for (width in listOf(1968, 2184)) {

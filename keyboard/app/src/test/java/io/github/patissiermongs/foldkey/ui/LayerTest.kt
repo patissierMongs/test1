@@ -97,12 +97,31 @@ class LayerTest {
         assertEquals(Layer.GENERAL, engine.layer)
         assertTrue(!hasCodeKeys())
         val q = char('q')
-        assertEquals(9.6f - 0.9f, q.width / pxPerMm, 0.05f)
+        assertEquals(8.75f - 0.9f, q.width / pxPerMm, 0.05f)
         assertTrue(q.width > codeQ.width)
         tap(layerKey())
         assertEquals(Layer.CODE, engine.layer)
         assertTrue(hasCodeKeys())
         assertEquals(codeQ, char('q'))
+    }
+
+    @Test
+    fun sideMarginMovesOnlyTheGeneralSplitHalves() {
+        setup()
+        val codeFaces = view.layoutKeys.map { it.face }
+        tap(layerKey())
+        val q = char('q')
+        assertEquals(14f, q.left / pxPerMm - 0.45f, 0.05f)
+        touch(MotionEvent.ACTION_DOWN, 2f * pxPerMm, q.centerY)
+        touch(MotionEvent.ACTION_UP, 2f * pxPerMm, q.centerY)
+        idle()
+        assertEquals("q", editor.text.toString())
+        prefs.sp.edit().putInt(Prefs.GENERAL_MARGIN, 0).commit()
+        view.reload()
+        assertEquals(0.5f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(9.6f - 0.9f, char('q').width / pxPerMm, 0.05f)
+        tap(layerKey())
+        assertEquals(codeFaces, view.layoutKeys.map { it.face })
     }
 
     @Test

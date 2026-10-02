@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeometrySweepTest {
-    private fun spec(widthPx: Float, ppi: Float, unitMm: Float, lift: Float, panelMm: Float, inset: Float, ghost: Float) = GeometrySpec(
+    private fun spec(widthPx: Float, ppi: Float, unitMm: Float, lift: Float, panelMm: Float, inset: Float, ghost: Float, marginMm: Float = 0f) = GeometrySpec(
         widthPx = widthPx,
         pxPerMmX = ppi / 25.4f,
         pxPerMmY = ppi / 25.4f,
@@ -14,6 +14,7 @@ class GeometrySweepTest {
         gapMm = 0.9f,
         sidePaddingMm = 0.5f,
         sideInsetPx = inset,
+        splitMarginPx = marginMm * ppi / 25.4f,
         bottomPaddingPx = 0f,
         maxUnitMm = 11.5f,
         splitUnitMm = unitMm,
@@ -54,17 +55,18 @@ class GeometrySweepTest {
         val problems = ArrayList<String>()
         for ((layout, rows) in listOf("code" to Layouts.split, "general" to Layouts.generalSplit)) for (ppi in listOf(368f, 422f)) {
             val pxPerMm = ppi / 25.4f
-            for (widthMm in (110..260 step 5)) for (setting in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) {
+            val margins = if (rows === Layouts.split) listOf(0f) else listOf(0f, 14f, 25f)
+            for (widthMm in (110..260 step 5)) for (setting in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) for (margin in margins) {
                 val w = widthMm * pxPerMm
-                val unit = if (rows === Layouts.split) setting else Layouts.generalSplitUnitMm(setting)
-                val g = KeyboardGeometry.split(rows, spec(w, ppi, unit, lift, panel, 0f, 1f), if (rows === Layouts.split) Layouts.pad else emptyList())
+                val unit = if (rows === Layouts.split) setting else Layouts.generalSplitUnitMm(setting, maxOf(0f, margin - 0.5f))
+                val g = KeyboardGeometry.split(rows, spec(w, ppi, unit, lift, panel, 0f, 1f, margin), if (rows === Layouts.split) Layouts.pad else emptyList())
                 val keys = g.keys
                 val rowsBottom = keys.maxOf { it.touch.bottom }
                 var y = keys.minOf { it.touch.top } + 0.5f
                 while (y < rowsBottom) {
                     val row = keys.firstOrNull { y >= it.touch.top && y < it.touch.bottom }?.row
                     if (row == null) {
-                        problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel: whole-row hole at y=$y")
+                        problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel margin=$margin: whole-row hole at y=$y")
                         y += 4f
                         continue
                     }
@@ -80,7 +82,7 @@ class GeometrySweepTest {
                         val inDesignedGap = x >= holeFrom - 0.5f && x < holeTo + 0.5f
                         val inKnownStrip = row == 0 && x >= rowEnd - 0.5f
                         if (!inDesignedGap && !inKnownStrip && keys.none { it.touch.contains(x, y) }) {
-                            problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel row=$row hole at x=$x")
+                            problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel margin=$margin row=$row hole at x=$x")
                             break
                         }
                         x += 2f
@@ -102,8 +104,13 @@ class GeometrySweepTest {
                     val w = widthMm * pxPerMm
                     val g = KeyboardGeometry.split(Layouts.split, spec(w, ppi, unit, lift, panel, inset, 1f), Layouts.pad)
                     check("split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset", g, problems)
-                    val gs = KeyboardGeometry.split(Layouts.generalSplit, spec(w, ppi, Layouts.generalSplitUnitMm(unit), lift, panel, inset, 1f))
-                    check("general split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset", gs, problems)
+                    for (margin in listOf(0f, 14f, 25f)) {
+                        val gs = KeyboardGeometry.split(
+                            Layouts.generalSplit,
+                            spec(w, ppi, Layouts.generalSplitUnitMm(unit, maxOf(0f, margin - 0.5f)), lift, panel, inset, 1f, margin),
+                        )
+                        check("general split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset margin=$margin", gs, problems)
+                    }
                 }
                 val f = KeyboardGeometry.full(Layouts.full, spec(widthMm * pxPerMm, ppi, 8.5f, 0f, 0f, 0f, 0f), Layouts.pad)
                 check("full ppi=$ppi w=${widthMm}mm", f, problems)

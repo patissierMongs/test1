@@ -98,6 +98,9 @@ class SettingsActivity : Activity() {
         slider(getString(R.string.pref_split_unit), Prefs.SPLIT_UNIT, 85, 70, 110) { "%.1f mm".format(it / 10f) }
         button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
         slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, 150) { "%.1f mm".format(it / 10f) }
+        slider(getString(R.string.pref_general_margin), Prefs.GENERAL_MARGIN, Prefs.DEFAULT_GENERAL_MARGIN, 0, Prefs.GENERAL_MARGIN_MAX) {
+            "%.1f mm".format(it / 10f)
+        }
         toggle(getString(R.string.pref_latin_hints), Prefs.LATIN_HINTS, true)
 
         heading(getString(R.string.settings_center), 18f)

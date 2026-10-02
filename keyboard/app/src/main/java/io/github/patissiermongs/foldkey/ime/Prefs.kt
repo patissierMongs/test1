@@ -23,6 +23,7 @@ class Prefs(context: Context) {
     val rowHeightMm: Float get() = sp.getInt(ROW_HEIGHT, 95) / 10f
     val splitUnitMm: Float get() = sp.getInt(SPLIT_UNIT, 85) / 10f
     val splitLiftMm: Float get() = sp.getInt(SPLIT_LIFT, 0) / 10f
+    val generalMarginMm: Float get() = sp.getInt(GENERAL_MARGIN, DEFAULT_GENERAL_MARGIN) / 10f
     val centerEcho: Boolean get() = sp.getBoolean(CENTER_ECHO, true)
     val centerClipboard: Boolean get() = sp.getBoolean(CENTER_CLIPBOARD, true)
     val terminalEcho: Boolean get() = sp.getBoolean(TERMINAL_ECHO, false)
@@ -65,6 +66,9 @@ class Prefs(context: Context) {
         const val ROW_HEIGHT = "row_height_tenth_mm"
         const val SPLIT_UNIT = "split_unit_tenth_mm"
         const val SPLIT_LIFT = "split_lift_tenth_mm"
+        const val GENERAL_MARGIN = "general_margin_tenth_mm"
+        const val DEFAULT_GENERAL_MARGIN = 140
+        const val GENERAL_MARGIN_MAX = 250
         const val CENTER_ECHO = "center_echo"
         const val CENTER_CLIPBOARD = "center_clipboard"
         const val TERMINAL_ECHO = "terminal_echo"

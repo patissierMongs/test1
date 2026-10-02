@@ -13,6 +13,7 @@ data class GeometrySpec(
     val gapMm: Float,
     val sidePaddingMm: Float,
     val sideInsetPx: Float = 0f,
+    val splitMarginPx: Float = 0f,
     val bottomPaddingPx: Float,
     val maxUnitMm: Float,
     val splitUnitMm: Float,
@@ -87,7 +88,8 @@ class KeyboardGeometry(
 
         fun split(rows: List<SplitRow>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
             val units = rows.maxOf { it.left.span + it.right.span }
-            val side = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
+            val room = (spec.widthPx - (units + 2f * spec.ghostUnits) * spec.splitUnitMm * spec.pxPerMmX) / 2f
+            val side = maxOf(spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx, minOf(spec.splitMarginPx, room))
             val available = spec.widthPx - 2f * side
             val unit = minOf(spec.splitUnitMm * spec.pxPerMmX, available / (units + 2f * spec.ghostUnits))
             val rowH = spec.rowHeightMm * spec.pxPerMmY

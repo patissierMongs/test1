@@ -64,7 +64,7 @@
 • Ctrl·Alt·Shift: 한 번 누르면 다음 키 한 번에 적용, 빠르게 두 번 누르면 고정, 누른 채 입력하면 조합
 • Fn: 누르면 오른쪽 끝 숫자판으로 바뀌고 다시 누르면 돌아옴 (7 8 9 / ⌫ … 0 . = + ⏎). 누른 채 입력하면 그동안만 숫자판. 숫자판 ⌫를 위로 밀면 Del
 • 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복
-• 일반/코드 키: 코드 레이어(지금의 PC 배열)와 일반 레이어(키가 큰 휴대폰식 QWERTY)를 바꿈. 일반 레이어에서 , . 을 위로 밀면 ! ?, 숫자 행을 아래로 밀면 ~ - _ = + ; : \' \" /. 터미널은 늘 코드 레이어로 열리고, 다른 입력창은 마지막에 쓴 레이어로 열림
+• 일반/코드 키: 코드 레이어(지금의 PC 배열)와 일반 레이어(휴대폰식 QWERTY)를 바꿈. 일반 레이어에서 , . 을 위로 밀면 ! ?, 숫자 행을 아래로 밀면 ~ - _ = + ; : \' \" /. 터미널은 늘 코드 레이어로 열리고, 다른 입력창은 마지막에 쓴 레이어로 열림
 • 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
     <string name="pref_long_press_action">길게 누르기 동작</string>
     <string name="long_press_shift">윗글자 (위로 밀기와 같음)</string>
@@ -77,6 +77,7 @@
     <string name="pref_center_echo">커서 앞 글자 표시 (비밀번호 입력창 제외)</string>
     <string name="pref_terminal_echo">터미널에서 친 글자도 표시 (비밀번호 입력도 보임)</string>
     <string name="pref_split_lift">분할 반쪽을 화면 아래 끝에서 띄우는 높이</string>
+    <string name="pref_general_margin">일반 레이어 분할 반쪽을 화면 옆 끝에서 띄우는 거리</string>
     <string name="settings_reach">엄지 범위를 재서 분할 키 너비 정하기</string>
     <string name="panel_clip_empty">복사한 글</string>
     <string name="clip_pin">고정</string>
