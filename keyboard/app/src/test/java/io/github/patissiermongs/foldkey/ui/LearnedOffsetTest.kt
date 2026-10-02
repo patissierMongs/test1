@@ -13,6 +13,7 @@ import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.RecordingListener
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.layout.Box
 import io.github.patissiermongs.foldkey.layout.Key
 import org.junit.Assert.assertEquals
@@ -125,6 +126,23 @@ class LearnedOffsetTest {
         tap(bs)
         view.saveState()
         assertEquals(2, stored().sum())
+    }
+
+    @Test
+    fun calibrationSeedReachesTheRunningKeyboard() {
+        setup()
+        repeat(12) { tap(letter('f')) }
+        view.saveState()
+        val slot = prefs.offsetSlots().single()
+        val zones = stored().size
+        val seeded = OffsetModel(zones).apply { for (z in 0 until zones) seed(z, 0f, 1.5f, 20) }.serialize()
+        repeat(12) { tap(letter('f')) }
+        prefs.applyCalibration(emptyMap(), mapOf(slot to seeded))
+        view.saveState()
+        assertEquals(seeded, prefs.offsets(slot))
+        repeat(3) { tap(letter('f')) }
+        view.saveState()
+        assertEquals(20 * zones + 3, stored().sum())
     }
 
     @Test

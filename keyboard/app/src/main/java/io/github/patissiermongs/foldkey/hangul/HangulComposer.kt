@@ -32,6 +32,20 @@ object Jamo {
 
     val JONG_SPLIT: Map<Char, Pair<Char, Char>> = JONG_COMBINE.entries.associate { it.value to it.key }
 
+    val JUNG_SPLIT: Map<Char, Pair<Char, Char>> = JUNG_COMBINE.entries.associate { it.value to it.key }
+
+    fun keyJamo(syllable: Char): List<Char>? {
+        val code = syllable.code - SYLLABLE_BASE
+        if (code < 0 || code >= CHO.length * JUNG.length * JONG.length) return null
+        val jong = JONG[code % JONG.length]
+        val jung = JUNG[code / JONG.length % JUNG.length]
+        val cho = CHO[code / (JONG.length * JUNG.length)]
+        val out = arrayListOf(cho)
+        out.addAll(JUNG_SPLIT[jung]?.toList() ?: listOf(jung))
+        if (jong != ' ') out.addAll(JONG_SPLIT[jong]?.toList() ?: listOf(jong))
+        return out
+    }
+
     fun isVowel(c: Char): Boolean = JUNG.indexOf(c) >= 0
 
     fun isConsonant(c: Char): Boolean = CHO.indexOf(c) >= 0

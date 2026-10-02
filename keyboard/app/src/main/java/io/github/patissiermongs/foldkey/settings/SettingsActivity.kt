@@ -100,6 +100,7 @@ class SettingsActivity : Activity() {
         slider(getString(R.string.pref_row_height), Prefs.ROW_HEIGHT, 95, Prefs.ROW_MIN, Prefs.ROW_MAX) { mm(it) }
         slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, Prefs.LIFT_MAX) { mm(it) }
         button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
+        button(getString(R.string.settings_typing)) { startActivity(Intent(this, TypingCalibrationActivity::class.java)) }
         heading(getString(R.string.settings_split_code), 16f)
         slider(getString(R.string.pref_unit), Prefs.SPLIT_UNIT, 85, Prefs.UNIT_MIN, Prefs.UNIT_MAX) { mm(it) }
         slider(getString(R.string.pref_side_left), Prefs.CODE_SIDE_LEFT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
@@ -187,6 +188,10 @@ class SettingsActivity : Activity() {
                 else -> R.string.status_enabled
             }
         )
+        if (id != null && id == current && !prefs.setupShown) {
+            prefs.setupShown = true
+            startActivity(Intent(this, ReachCalibrationActivity::class.java))
+        }
     }
 
     private fun heading(text: String, size: Float): TextView = TextView(this).apply {

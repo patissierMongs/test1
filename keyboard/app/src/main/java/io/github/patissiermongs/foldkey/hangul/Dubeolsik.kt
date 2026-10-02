@@ -11,6 +11,11 @@ object Dubeolsik {
         return if (shift) SHIFT[i] else BASE[i]
     }
 
+    fun key(jamo: Char): Char? {
+        val i = BASE.indexOf(jamo)
+        return if (i >= 0) KEYS[i] else null
+    }
+
     fun hasShiftVariant(latin: Char): Boolean {
         val i = KEYS.indexOf(latin.lowercaseChar())
         return i >= 0 && SHIFT[i] != BASE[i]

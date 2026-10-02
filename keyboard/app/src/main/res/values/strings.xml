@@ -84,25 +84,26 @@
     <string name="settings_split_code">Code layer split</string>
     <string name="settings_split_general">Text layer split</string>
     <string name="offsets_view">Show learned touch offsets</string>
-    <string name="settings_reach">Measure your thumbs and fit the split layouts</string>
+    <string name="settings_reach">Fit the split layouts to your thumbs and typing</string>
+    <string name="settings_typing">Redo the typing calibration only</string>
     <string name="panel_clip_empty">Copied text</string>
     <string name="clip_pin">Pin</string>
     <string name="clip_unpin">Unpin</string>
     <string name="clip_delete">Delete</string>
     <string name="clip_pins_full">Full</string>
     <string name="reach_title">Thumb reach</string>
-    <string name="reach_instructions">Hold the device as usual with both hands and scribble over the area each thumb reaches comfortably. One touch until you lift is one stroke; do three per thumb. The measured areas set the side distances and key widths of both layers, the raise height and the row height.</string>
+    <string name="reach_instructions">Hold the device as usual with both hands and scribble over the area each thumb reaches comfortably. One touch until you lift is one stroke; do three per thumb. The measured areas set the starting key size and where the halves sit; the typing step that follows sets the key size and the touch corrections.</string>
     <string name="reach_progress">Left %1$d/%3$d · right %2$d/%3$d</string>
     <string name="reach_invalid">Keep the thumb down and scribble over a wider area.</string>
     <string name="reach_inconsistent">%1$s thumb: the three strokes differ by up to %2$.1f mm. Draw again.</string>
     <string name="reach_zone">%1$s thumb: %2$.1f–%3$.1f mm from the edge, %4$.1f–%5$.1f mm high</string>
-    <string name="reach_result">Code keys %1$.1f mm, text keys %2$.1f mm, side distance left %3$.1f · right %4$.1f mm, raise %5$.1f mm, row height %6$.1f mm</string>
+    <string name="reach_result">Starting size: code keys %1$.1f mm, text keys %2$.1f mm, row height %3$.1f mm</string>
     <string name="reach_preview_code">Preview: code layer</string>
     <string name="reach_preview_general">Preview: text layer</string>
     <string name="reach_rotate">Measure in landscape. Rotate the device.</string>
     <string name="reach_left">Left</string>
     <string name="reach_right">Right</string>
-    <string name="reach_apply">Apply</string>
+    <string name="reach_next">Next: typing calibration</string>
     <string name="reach_reset">Measure again</string>
     <string name="reach_close">Close</string>
     <string name="offsets_title">Learned touch offsets</string>
@@ -118,4 +119,16 @@
         <item quantity="one">%1$d sample · mean offset from key centres: x %2$+.1f mm (+ is right), y %3$+.1f mm (+ is down)</item>
         <item quantity="other">%1$d samples · mean offset from key centres: x %2$+.1f mm (+ is right), y %3$+.1f mm (+ is down)</item>
     </plurals>
+    <string name="typing_title">Typing calibration</string>
+    <string name="typing_intro">Hold the device as usual and type the text shown above on the keyboard below. If another key registers, the text does not advance; press the right key again. How far your taps land from the intended keys sets the touch corrections and the key size of each layer. A round is 60 characters; if the keys must grow, you type one more round at the new size (up to 3 rounds per layer).</string>
+    <string name="typing_status">%1$s · round %2$d · %3$d/%4$d · hits %5$d%%</string>
+    <string name="typing_skip">Skip this layer</string>
+    <string name="typing_restart">Start over</string>
+    <string name="typing_apply">Apply</string>
+    <string name="typing_close">Close</string>
+    <string name="typing_result_skipped">%1$s: skipped</string>
+    <string name="typing_result_size">%1$s: keys %2$.1f → %3$.1f mm, row height %4$.1f → %5$.1f mm, side distance left %6$.1f · right %7$.1f mm</string>
+    <string name="typing_result_rounds">  Hit rate per round (taps that registered the right key): %1$s</string>
+    <string name="typing_result_spread">  Scatter (standard deviation): left thumb x %1$.1f · y %2$.1f mm, right thumb x %3$.1f · y %4$.1f mm</string>
+    <string name="typing_result_common">Both layers: row height %1$.1f mm, raise %2$.1f mm. Apply saves these values and the corrections.</string>
 </resources>

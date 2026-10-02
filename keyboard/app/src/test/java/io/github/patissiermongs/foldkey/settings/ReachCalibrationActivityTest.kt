@@ -14,7 +14,7 @@ import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.ui.Dpi
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.abs
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -56,25 +56,23 @@ class ReachCalibrationActivityTest {
         }
     }
 
-    private fun near(expected: Int, actual: Int) = assertTrue("expected $expected got $actual", abs(expected - actual) <= 1)
-
     @Test
-    fun threeScribblesPerThumbFitBothLayers() {
+    fun threeScribblesPerThumbLeadToTheTypingStep() {
         val controller = Robolectric.buildActivity(ReachCalibrationActivity::class.java).setup()
         val activity = controller.get()
         val prefs = Prefs(activity)
         prefs.sp.edit().clear().commit()
         val views = all(activity.window.decorView)
         val zones = views.first { it.javaClass.simpleName == "ZoneView" }
-        val apply = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_apply) }
+        val next = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_next) }
         assertTrue(zones.width > 0)
-        assertFalse(apply.isEnabled)
+        assertFalse(next.isEnabled)
         for (shift in listOf(0f, 0.6f, -0.5f)) scribble(zones, -1, 13.7f + shift, 47.5f + shift, 6.2f, 50.5f + shift)
         for (shift in listOf(0f, -0.4f, 0.7f)) scribble(zones, 1, 17.4f + shift, 52.2f + shift, 6.2f + shift, 50.5f)
         val status = views.filterIsInstance<TextView>().filter { it !is Button }.joinToString("\n") { it.text.toString() }
-        assertTrue(status, status.contains("Code keys 4.3 mm"))
+        assertTrue(status, status.contains("code keys 4.3 mm"))
         assertTrue(status, status.contains("text keys 6.1 mm"))
-        assertTrue(apply.isEnabled)
+        assertTrue(next.isEnabled)
         val preview = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_preview_code) }
         val dir = File("build/render").apply { mkdirs() }
         for (name in listOf("reach_calibration_code.png", "reach_calibration_general.png")) {
@@ -84,32 +82,31 @@ class ReachCalibrationActivityTest {
             FileOutputStream(File(dir, name)).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
             preview.performClick()
         }
-        apply.performClick()
-        near(43, prefs.sp.getInt(Prefs.SPLIT_UNIT, 0))
-        near(61, prefs.sp.getInt(Prefs.GENERAL_UNIT, 0))
-        near(137, prefs.sp.getInt(Prefs.CODE_SIDE_LEFT, 0))
-        near(174, prefs.sp.getInt(Prefs.CODE_SIDE_RIGHT, 0))
-        near(137, prefs.sp.getInt(Prefs.GENERAL_SIDE_LEFT, 0))
-        near(174, prefs.sp.getInt(Prefs.GENERAL_SIDE_RIGHT, 0))
-        near(62, prefs.sp.getInt(Prefs.SPLIT_LIFT, 0))
-        near(88, prefs.sp.getInt(Prefs.ROW_HEIGHT, 0))
-        assertEquals(4.3f, prefs.splitUnitMm, 0.11f)
+        next.performClick()
+        val started = shadowOf(activity).nextStartedActivity
+        assertEquals(TypingCalibrationActivity::class.java.name, started.component?.className)
+        val z = started.getFloatArrayExtra(TypingCalibrationActivity.EXTRA_ZONES)!!
+        assertArrayEquals(floatArrayOf(13.7f, 47.5f, 17.4f, 52.2f), floatArrayOf(z[0], z[1], z[4], z[5]), 0.3f)
+        assertEquals(6.2f, z[2], 0.3f)
+        assertArrayEquals(floatArrayOf(4.3f, 6.1f, 8.8f), started.getFloatArrayExtra(TypingCalibrationActivity.EXTRA_START)!!, 0.11f)
+        assertFalse(prefs.sp.contains(Prefs.SPLIT_UNIT))
+        assertTrue(activity.isFinishing)
     }
 
     @Test
-    fun scribblesThatDisagreeKeepApplyDisabled() {
+    fun scribblesThatDisagreeKeepNextDisabled() {
         val activity = Robolectric.buildActivity(ReachCalibrationActivity::class.java).setup().get()
         val views = all(activity.window.decorView)
         val zones = views.first { it.javaClass.simpleName == "ZoneView" }
-        val apply = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_apply) }
+        val next = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_next) }
         for (far in listOf(58f, 47f, 48f)) scribble(zones, -1, 14f, far, 6f, 50f)
         for (far in listOf(52f, 52f, 53f)) scribble(zones, 1, 17f, far, 6f, 50f)
-        assertFalse(apply.isEnabled)
+        assertFalse(next.isEnabled)
         scribble(zones, -1, 14f, 47f, 6f, 50f)
-        assertTrue(apply.isEnabled)
+        assertTrue(next.isEnabled)
         scribble(zones, 1, 30f, 31f, 6f, 50f)
         val status = views.filterIsInstance<TextView>().filter { it !is Button }.joinToString("\n") { it.text.toString() }
         assertTrue(status, status.contains(activity.getString(R.string.reach_invalid)))
-        assertTrue(apply.isEnabled)
+        assertTrue(next.isEnabled)
     }
 }

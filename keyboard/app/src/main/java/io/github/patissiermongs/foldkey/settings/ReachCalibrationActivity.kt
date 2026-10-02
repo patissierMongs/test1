@@ -3,6 +3,7 @@ package io.github.patissiermongs.foldkey.settings
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -24,7 +25,7 @@ import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.input.ThumbZones
 import io.github.patissiermongs.foldkey.input.ThumbZones.Side
 import io.github.patissiermongs.foldkey.input.ThumbZones.Zone
-import io.github.patissiermongs.foldkey.layout.GeometrySpec
+import io.github.patissiermongs.foldkey.input.TypingCalibration
 import io.github.patissiermongs.foldkey.layout.LayoutKind
 import io.github.patissiermongs.foldkey.layout.Layouts
 import io.github.patissiermongs.foldkey.ui.Dpi
@@ -36,7 +37,7 @@ class ReachCalibrationActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var zones: ZoneView
     private lateinit var status: TextView
-    private lateinit var apply: Button
+    private lateinit var next: Button
     private lateinit var preview: Button
     private var pendingFit: ThumbZones.Fit? = null
 
@@ -61,11 +62,8 @@ class ReachCalibrationActivity : Activity() {
         }
         panel.addView(status)
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        apply = button(getString(R.string.reach_apply)) {
-            pendingFit?.let { prefs.applyFit(it) }
-            finish()
-        }
-        buttons.addView(apply)
+        next = button(getString(R.string.reach_next)) { pendingFit?.let { startTyping(it) } }
+        buttons.addView(next)
         buttons.addView(button(getString(R.string.reach_reset)) { zones.reset() })
         preview = button("") {
             zones.previewLayer = if (zones.previewLayer == Layer.CODE) Layer.GENERAL else Layer.CODE
@@ -87,6 +85,17 @@ class ReachCalibrationActivity : Activity() {
         }
         setContentView(root)
         update()
+    }
+
+    private fun startTyping(fit: ThumbZones.Fit) {
+        val l = zones.summaries[Side.LEFT] ?: return
+        val r = zones.summaries[Side.RIGHT] ?: return
+        startActivity(
+            Intent(this, TypingCalibrationActivity::class.java)
+                .putExtra(TypingCalibrationActivity.EXTRA_ZONES, floatArrayOf(l.nearMm, l.farMm, l.bottomMm, l.topMm, r.nearMm, r.farMm, r.bottomMm, r.topMm))
+                .putExtra(TypingCalibrationActivity.EXTRA_START, floatArrayOf(fit.codeUnitMm, fit.generalUnitMm, fit.rowHeightMm))
+        )
+        finish()
     }
 
     private fun button(text: String, onClick: () -> Unit): Button = Button(this).apply {
@@ -127,9 +136,9 @@ class ReachCalibrationActivity : Activity() {
         } else {
             null
         }
-        pendingFit?.let { lines.add(getString(R.string.reach_result, it.codeUnitMm, it.generalUnitMm, it.leftMm, it.rightMm, it.liftMm, it.rowHeightMm)) }
+        pendingFit?.let { lines.add(getString(R.string.reach_result, it.codeUnitMm, it.generalUnitMm, it.rowHeightMm)) }
         status.text = lines.joinToString("\n")
-        apply.isEnabled = pendingFit != null
+        next.isEnabled = pendingFit != null
         preview.text = getString(if (zones.previewLayer == Layer.CODE) R.string.reach_preview_code else R.string.reach_preview_general)
         zones.summaries = summaries.mapNotNull { (k, v) -> v?.let { k to it.zone } }.toMap()
         zones.fit = pendingFit
@@ -205,16 +214,18 @@ private class ZoneView(
         onChange()
     }
 
-    private fun previewSpec(): GeometrySpec {
-        val f = fit
-        val rowMm = f?.rowHeightMm ?: prefs.rowHeightMm
-        val spec = LayoutBuilder.spec(prefs, LayoutKind.SPLIT, previewLayer, width.toFloat(), pxPerMmX, pxPerMmY, 0f, rowMm)
-        if (f == null) return spec
-        return spec.copy(
-            splitMarginLeftPx = f.leftMm * pxPerMmX,
-            splitMarginRightPx = f.rightMm * pxPerMmX,
-            splitUnitMm = if (previewLayer == Layer.GENERAL) f.generalUnitMm else f.codeUnitMm,
+    private fun previewPlacement(): TypingCalibration.Placement? {
+        val f = fit ?: return null
+        val l = summaries[Side.LEFT] ?: return null
+        val r = summaries[Side.RIGHT] ?: return null
+        val frame = TypingCalibration.Frame(
+            width / pxPerMmX,
+            resources.displayMetrics.heightPixels * KeyboardView.MAX_HEIGHT_SHARE / pxPerMmY - KeyboardView.STRIP_MM,
+            KeyboardView.SIDE_MM,
+            KeyboardView.GHOST_UNITS,
         )
+        val unit = if (previewLayer == Layer.GENERAL) f.generalUnitMm else f.codeUnitMm
+        return TypingCalibration.place(TypingCalibration.anchors(l, r), frame, previewLayer, unit, f.rowHeightMm)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -234,9 +245,15 @@ private class ZoneView(
             paint.alpha = 45
             canvas.drawRect(rect, paint)
         }
-        val spec = previewSpec()
+        val placed = previewPlacement()
+        val base = LayoutBuilder.spec(prefs, LayoutKind.SPLIT, previewLayer, width.toFloat(), pxPerMmX, pxPerMmY, 0f, placed?.rowMm ?: prefs.rowHeightMm)
+        val spec = if (placed == null) base else base.copy(
+            splitMarginLeftPx = placed.leftMm * pxPerMmX,
+            splitMarginRightPx = placed.rightMm * pxPerMmX,
+            splitUnitMm = placed.unitMm,
+        )
         val geometry = LayoutBuilder.build(LayoutKind.SPLIT, previewLayer, spec)
-        val lift = (fit?.liftMm ?: prefs.splitLiftMm) * pxPerMmY
+        val lift = (placed?.liftMm ?: prefs.splitLiftMm) * pxPerMmY
         val rowsHeight = Layouts.rows(LayoutKind.SPLIT, previewLayer) * spec.rowHeightMm * pxPerMmY
         canvas.save()
         canvas.translate(0f, baseline - lift - rowsHeight)

@@ -3,7 +3,7 @@ package io.github.patissiermongs.foldkey.ime
 import android.content.Context
 import android.content.SharedPreferences
 import io.github.patissiermongs.foldkey.engine.Layer
-import io.github.patissiermongs.foldkey.input.ThumbZones
+import io.github.patissiermongs.foldkey.input.TypingCalibration
 import kotlin.math.roundToInt
 
 class Prefs(context: Context) {
@@ -50,19 +50,26 @@ class Prefs(context: Context) {
         get() = (sp.getString(RAW_PACKAGES, DEFAULT_RAW_PACKAGES) ?: "")
             .split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
-    fun applyFit(fit: ThumbZones.Fit) {
+    fun applyCalibration(placements: Map<Layer, TypingCalibration.Placement>, offsets: Map<String, String>) {
         fun t(mm: Float) = (mm * 10f).roundToInt()
-        sp.edit()
-            .putInt(SPLIT_UNIT, t(fit.codeUnitMm))
-            .putInt(GENERAL_UNIT, t(fit.generalUnitMm))
-            .putInt(CODE_SIDE_LEFT, t(fit.leftMm))
-            .putInt(CODE_SIDE_RIGHT, t(fit.rightMm))
-            .putInt(GENERAL_SIDE_LEFT, t(fit.leftMm))
-            .putInt(GENERAL_SIDE_RIGHT, t(fit.rightMm))
-            .putInt(SPLIT_LIFT, t(fit.liftMm))
-            .putInt(ROW_HEIGHT, t(fit.rowHeightMm))
-            .apply()
+        val editor = sp.edit()
+        placements[Layer.CODE]?.let {
+            editor.putInt(SPLIT_UNIT, t(it.unitMm)).putInt(CODE_SIDE_LEFT, t(it.leftMm)).putInt(CODE_SIDE_RIGHT, t(it.rightMm))
+        }
+        placements[Layer.GENERAL]?.let {
+            editor.putInt(GENERAL_UNIT, t(it.unitMm)).putInt(GENERAL_SIDE_LEFT, t(it.leftMm)).putInt(GENERAL_SIDE_RIGHT, t(it.rightMm))
+        }
+        placements.values.firstOrNull()?.let { editor.putInt(ROW_HEIGHT, t(it.rowMm)).putInt(SPLIT_LIFT, t(it.liftMm)) }
+        for ((slot, data) in offsets) editor.putString(OFFSETS_PREFIX + slot, data)
+        if (offsets.isNotEmpty()) editor.putInt(OFFSETS_EPOCH, offsetsEpoch + 1)
+        editor.apply()
     }
+
+    var setupShown: Boolean
+        get() = sp.getBoolean(SETUP_SHOWN, false)
+        set(value) {
+            sp.edit().putBoolean(SETUP_SHOWN, value).apply()
+        }
 
     fun offsets(slot: String): String? = sp.getString(OFFSETS_PREFIX + slot, null)
 
@@ -132,6 +139,7 @@ class Prefs(context: Context) {
         const val RAW_PACKAGES = "raw_packages"
         const val OFFSETS_PREFIX = "offsets_"
         const val OFFSETS_EPOCH = "touch_offsets_epoch"
+        const val SETUP_SHOWN = "setup_shown"
         const val DEFAULT_RAW_PACKAGES =
             "com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm"
     }

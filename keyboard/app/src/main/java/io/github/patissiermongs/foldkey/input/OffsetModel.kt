@@ -37,6 +37,13 @@ class OffsetModel(val zones: Int) {
         return true
     }
 
+    fun seed(zone: Int, offsetXMm: Float, offsetYMm: Float, n: Int) {
+        if (zone !in 0 until zones) return
+        dx[zone] = offsetXMm
+        dy[zone] = offsetYMm
+        count[zone] = n
+    }
+
     fun clear() {
         dx.fill(0f)
         dy.fill(0f)

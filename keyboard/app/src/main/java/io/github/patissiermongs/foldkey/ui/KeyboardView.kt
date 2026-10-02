@@ -245,7 +245,6 @@ class KeyboardView(
     private fun geometry(): KeyboardGeometry {
         val layer = engine.layer
         geometry?.let { if (geometryLayer == layer) return it }
-        val general = layer == Layer.GENERAL
         val kind = layoutKind(width)
         val lift = liftPx(kind)
         rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
@@ -268,12 +267,7 @@ class KeyboardView(
             longPressRepeats = prefs.longPressAction == Prefs.LONG_PRESS_REPEAT,
             selectHoldMs = prefs.longPressMs.takeIf { it > 0L } ?: SELECT_HOLD_MS,
         )
-        val suffix = when {
-            general -> GENERAL_SLOT_SUFFIX
-            kind == LayoutKind.SPLIT -> SPLIT_SLOT_SUFFIX
-            else -> ""
-        }
-        val slot = "${kind.name.lowercase()}${suffix}_${(width / pxPerMmX).toInt()}mm"
+        val slot = offsetSlot(kind, layer, width.toFloat(), pxPerMmX)
         if (slot != offsetSlot || offsets.zones != g.zoneCount) {
             saveState()
             offsets = OffsetModel(g.zoneCount)
@@ -937,7 +931,7 @@ class KeyboardView(
         if (epoch == offsetsEpoch) return
         offsetsEpoch = epoch
         samples.clear()
-        offsets = OffsetModel(offsets.zones)
+        offsets = OffsetModel(offsets.zones).also { if (offsetSlot.isNotEmpty()) it.load(prefs.offsets(offsetSlot)) }
         offsetsDirty = false
     }
 
@@ -974,6 +968,15 @@ class KeyboardView(
         const val CLIP_LONG_PRESS_MS = 400L
         const val SELECT_HOLD_MS = 400L
         const val SPLIT_SLOT_SUFFIX = "_ansi"
+
+        fun offsetSlot(kind: LayoutKind, layer: Layer, widthPx: Float, pxPerMmX: Float): String {
+            val suffix = when {
+                layer == Layer.GENERAL -> GENERAL_SLOT_SUFFIX
+                kind == LayoutKind.SPLIT -> SPLIT_SLOT_SUFFIX
+                else -> ""
+            }
+            return "${kind.name.lowercase()}${suffix}_${(widthPx / pxPerMmX).toInt()}mm"
+        }
         const val GENERAL_SLOT_SUFFIX = "_general"
         const val PIN_MARK = "📌 "
         val EDIT_COMMANDS = setOf(Command.SELECT_ALL, Command.COPY)
