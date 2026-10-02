@@ -18,8 +18,10 @@ import android.widget.EditText
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
+import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.UsKeyMap
 import io.github.patissiermongs.foldkey.layout.Box
+import io.github.patissiermongs.foldkey.layout.Layouts
 import io.github.patissiermongs.foldkey.settings.KeyEchoView
 import io.github.patissiermongs.foldkey.ui.KeyboardView
 import org.junit.Assert.assertEquals
@@ -219,5 +221,32 @@ class ServiceInputTest {
         service.onStartInputView(EditorInfo().apply { inputType = InputType.TYPE_CLASS_TEXT }, false)
         assertEquals(listOf("DE89 3704 0044 0532 0130 00"), view.clipSource().map { it.text })
         service.onDestroy()
+    }
+
+    @Test
+    fun layerChoiceIsRememberedForTextFieldsButTerminalsOpenInTheCodeLayer() {
+        val service = Robolectric.setupService(FoldKeyService::class.java)
+        fakeEngine(service)
+        val view = measured(service)
+        val chat = EditorInfo().apply { inputType = InputType.TYPE_CLASS_TEXT; packageName = "com.example.chat" }
+        fun codeKeys() = view.layoutKeys.any { it.def.action == KeyAction.EscCtrl }
+        service.onStartInputView(chat, false)
+        assertTrue(codeKeys())
+        val layer = view.layoutKeys.single { it.def.action == Layouts.LAYER_TOGGLE }.face
+        val t = SystemClock.uptimeMillis()
+        touch(view, MotionEvent.ACTION_DOWN, layer, t)
+        touch(view, MotionEvent.ACTION_UP, layer, t + 40)
+        assertEquals(Layer.GENERAL, Prefs(service).layer)
+        assertTrue(!codeKeys())
+        service.onStartInputView(EditorInfo().apply { inputType = InputType.TYPE_NULL; packageName = "com.termux" }, false)
+        assertTrue(codeKeys())
+        service.onStartInputView(chat, false)
+        assertTrue(!codeKeys())
+        service.onDestroy()
+        val again = Robolectric.setupService(FoldKeyService::class.java)
+        val view2 = measured(again)
+        again.onStartInputView(chat, false)
+        assertTrue(view2.layoutKeys.none { it.def.action == KeyAction.EscCtrl })
+        again.onDestroy()
     }
 }

@@ -2,6 +2,7 @@ package io.github.patissiermongs.foldkey.ime
 
 import android.content.Context
 import android.content.SharedPreferences
+import io.github.patissiermongs.foldkey.engine.Layer
 
 class Prefs(context: Context) {
     val sp: SharedPreferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -11,6 +12,12 @@ class Prefs(context: Context) {
 
     fun toggleSplit(landscape: Boolean) {
         sp.edit().putBoolean(if (landscape) SPLIT_LANDSCAPE else SPLIT_PORTRAIT, !isSplit(landscape)).apply()
+    }
+
+    val layer: Layer get() = if (sp.getBoolean(GENERAL_LAYER, false)) Layer.GENERAL else Layer.CODE
+
+    fun setLayer(layer: Layer) {
+        sp.edit().putBoolean(GENERAL_LAYER, layer == Layer.GENERAL).apply()
     }
 
     val rowHeightMm: Float get() = sp.getInt(ROW_HEIGHT, 95) / 10f
@@ -54,6 +61,7 @@ class Prefs(context: Context) {
         const val NAME = "foldkey"
         const val SPLIT_PORTRAIT = "split_portrait"
         const val SPLIT_LANDSCAPE = "split_landscape"
+        const val GENERAL_LAYER = "general_layer"
         const val ROW_HEIGHT = "row_height_tenth_mm"
         const val SPLIT_UNIT = "split_unit_tenth_mm"
         const val SPLIT_LIFT = "split_lift_tenth_mm"

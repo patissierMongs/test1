@@ -719,4 +719,50 @@ class KeyboardEngineTest {
         assertEquals("하", editor.text.toString())
         assertEquals("", listener.preedit)
     }
+
+    private val layerKey = KeyAction.Cmd(Command.TOGGLE_LAYER)
+
+    @Test
+    fun layerKeySwitchesLayersAndClearsModifiersAfterTheSyllable() {
+        assertEquals(Layer.CODE, engine.layer)
+        engine.perform(KeyAction.Lang)
+        type("gk")
+        tapMod(Modifier.CTRL)
+        engine.press(KeyAction.Mod(Modifier.FN), now)
+        engine.release(KeyAction.Mod(Modifier.FN), now + 40)
+        engine.perform(layerKey)
+        assertEquals(Layer.GENERAL, engine.layer)
+        assertEquals(Layer.GENERAL, engine.preferredLayer)
+        assertEquals(listOf(Command.TOGGLE_LAYER), listener.commands)
+        assertEquals("하", editor.text.toString())
+        assertEquals("", editor.composing)
+        for (m in Modifier.entries) assertFalse(m.name, engine.modifiers.isActive(m))
+        assertEquals(Lang.HANGUL, engine.lang)
+        type("rk")
+        assertEquals("하가", editor.text.toString())
+        engine.perform(layerKey)
+        assertEquals(Layer.CODE, engine.layer)
+        assertEquals(Layer.CODE, engine.preferredLayer)
+    }
+
+    @Test
+    fun terminalsOpenInTheCodeLayerAndOtherFieldsInTheLastOneUsed() {
+        engine.perform(layerKey)
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        assertEquals(Layer.CODE, engine.layer)
+        engine.perform(layerKey)
+        assertEquals(Layer.GENERAL, engine.layer)
+        engine.startInput(EditorContext(raw = true, preferLatin = true), restarting = true)
+        assertEquals(Layer.GENERAL, engine.layer)
+        engine.perform(layerKey)
+        assertEquals(Layer.CODE, engine.layer)
+        assertEquals(Layer.GENERAL, engine.preferredLayer)
+        engine.startInput(EditorContext())
+        assertEquals(Layer.GENERAL, engine.layer)
+        engine.startInput(EditorContext(secret = true, preferLatin = true))
+        assertEquals(Layer.GENERAL, engine.layer)
+        engine.settings = EngineSettings(layer = Layer.CODE)
+        engine.startInput(EditorContext())
+        assertEquals(Layer.CODE, engine.layer)
+    }
 }

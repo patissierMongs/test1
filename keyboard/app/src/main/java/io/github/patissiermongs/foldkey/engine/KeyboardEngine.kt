@@ -12,6 +12,7 @@ data class EngineSettings(
     val dualRoleTapMs: Long = 500L,
     val doubleTapMs: Long = 350L,
     val terminalEcho: Boolean = false,
+    val layer: Layer = Layer.CODE,
 )
 
 interface EngineListener {
@@ -32,6 +33,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             field = value
             modifiers.doubleTapMs = value.doubleTapMs
             if (!value.terminalEcho) typed.clear()
+            preferredLayer = value.layer
         }
 
     val modifiers = Modifiers(settings.doubleTapMs)
@@ -40,6 +42,12 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         private set
 
     var context: EditorContext = EditorContext()
+        private set
+
+    var layer: Layer = Layer.CODE
+        private set
+
+    var preferredLayer: Layer = Layer.CODE
         private set
 
     private var preferredLang = Lang.LATIN
@@ -67,7 +75,10 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         composer.reset()
         context = ctx
         typed.clear()
-        if (!restarting) modifiers.clear()
+        if (!restarting) {
+            modifiers.clear()
+            layer = if (ctx.raw) Layer.CODE else preferredLayer
+        }
         editor.expected.reset(ctx.selStart, ctx.selEnd)
         lang = if (ctx.preferLatin) Lang.LATIN else preferredLang
         listener.onPreedit("")
@@ -346,8 +357,17 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             }
             Command.SELECT_ALL -> if (!context.raw) editor.selectAll()
             Command.COPY -> if (!context.raw) editor.copy()
+            Command.TOGGLE_LAYER -> toggleLayer()
             else -> listener.onCommand(command)
         }
+    }
+
+    private fun toggleLayer() {
+        layer = if (layer == Layer.CODE) Layer.GENERAL else Layer.CODE
+        if (!context.raw) preferredLayer = layer
+        modifiers.clear()
+        listener.onStateChanged()
+        listener.onCommand(Command.TOGGLE_LAYER)
     }
 
     private fun metaControl(control: Char) {

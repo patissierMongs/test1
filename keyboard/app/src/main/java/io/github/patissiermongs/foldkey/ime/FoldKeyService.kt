@@ -76,7 +76,9 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         if (!restarting) keyboardView?.cancelTouches()
+        val layer = engine.layer
         engine.startInput(contextOf(info), restarting)
+        if (engine.layer != layer) keyboardView?.reload()
         locked = getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
         captureClip()
         keyboardView?.showEditCommands = !engine.context.raw
@@ -203,12 +205,16 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
             }
             Command.HIDE -> requestHideSelf(0)
             Command.TOGGLE_SPLIT -> prefs.toggleSplit(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+            Command.TOGGLE_LAYER -> {
+                if (prefs.layer != engine.preferredLayer) prefs.setLayer(engine.preferredLayer)
+                keyboardView?.reload()
+            }
             Command.PASTE, Command.SELECT_ALL, Command.COPY -> Unit
         }
     }
 
     private fun applySettings() {
-        engine.settings = EngineSettings(escToLatin = prefs.escToLatin, terminalEcho = prefs.terminalEcho)
+        engine.settings = EngineSettings(escToLatin = prefs.escToLatin, terminalEcho = prefs.terminalEcho, layer = prefs.layer)
         clipboardHistory.capacity = prefs.clipCount
         clipboardHistory.ttlMs = prefs.clipHours * HOUR_MS
     }

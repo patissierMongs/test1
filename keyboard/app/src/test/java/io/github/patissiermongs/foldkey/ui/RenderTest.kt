@@ -15,6 +15,7 @@ import io.github.patissiermongs.foldkey.engine.EngineSettings
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
+import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.engine.RecordingListener
 import io.github.patissiermongs.foldkey.engine.UsKeyMap
@@ -46,6 +47,7 @@ class RenderTest {
         widthPx: Int,
         ppi: Float = FOLD7_PPI,
         terminalEcho: Boolean = false,
+        layer: Layer = Layer.CODE,
     ): Triple<KeyboardView, KeyboardEngine, FakeEditor> {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val dm = ctx.resources.displayMetrics
@@ -56,7 +58,8 @@ class RenderTest {
             .putBoolean(Prefs.TERMINAL_ECHO, terminalEcho).commit()
         val editor = FakeEditor()
         val engine = KeyboardEngine(editor, RecordingListener())
-        engine.settings = EngineSettings(terminalEcho = terminalEcho)
+        engine.settings = EngineSettings(terminalEcho = terminalEcho, layer = layer)
+        engine.startInput(EditorContext())
         val view = KeyboardView(ctx, engine, prefs, Silent)
         view.measure(
             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
@@ -211,6 +214,34 @@ class RenderTest {
         touch(view, MotionEvent.ACTION_UP, slot.centerX, slot.centerY)
         assertTrue(view.openClipMenu == "git status --short")
         assertTrue(save(view, "split_landscape_clip_menu.png").length() > 0)
+    }
+
+    @Test
+    fun renderGeneralSplitPortrait() {
+        val (view, _, _) = setup(split = true, widthPx = 1968, layer = Layer.GENERAL)
+        assertTrue(save(view, "general_split_portrait.png").length() > 0)
+    }
+
+    @Test
+    fun renderGeneralSplitLandscapeHangulWithPanel() {
+        val (view, engine, _) = setup(split = true, widthPx = 2184, layer = Layer.GENERAL)
+        view.clipSource = { listOf(Clip("내일 3시에 만나요"), Clip("https://example.com/a/b")) }
+        engine.perform(KeyAction.Lang)
+        type(engine, "dkssud")
+        view.setEditorLine("오늘 회의는 몇 시예요? 안녕")
+        assertTrue(save(view, "general_split_landscape_panel.png").length() > 0)
+    }
+
+    @Test
+    fun renderGeneralFullPortrait() {
+        val (view, _, _) = setup(split = false, widthPx = 1968, layer = Layer.GENERAL)
+        assertTrue(save(view, "general_full_portrait.png").length() > 0)
+    }
+
+    @Test
+    fun renderGeneralCoverScreen() {
+        val (view, _, _) = setup(split = false, widthPx = 1080, ppi = COVER_PPI, layer = Layer.GENERAL)
+        assertTrue(save(view, "general_cover.png").length() > 0)
     }
 
     companion object {

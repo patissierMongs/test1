@@ -47,7 +47,7 @@ class KeyboardGeometry(
         private const val EDGE_SLACK_PX = 0.5f
 
         fun full(rows: List<RowDef>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
-            val units = rows.maxOf { it.units }
+            val units = rows.maxOf { it.span }
             val side = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
             val available = spec.widthPx - 2f * side
             val unit = minOf(available / units, spec.maxUnitMm * spec.pxPerMmX)
@@ -58,8 +58,8 @@ class KeyboardGeometry(
             rows.forEachIndexed { r, row ->
                 val top = spec.topPx + r * rowH
                 val bottom = top + rowH
-                val rowWidth = row.units * unit
-                var x = (spec.widthPx - rowWidth) / 2f
+                val rowWidth = row.span * unit
+                var x = (spec.widthPx - rowWidth) / 2f + row.indent * unit
                 val touchTop = if (r == 0) spec.topPx else top
                 val touchBottom = bottom
                 row.keys.forEachIndexed { i, def ->
@@ -86,7 +86,7 @@ class KeyboardGeometry(
         }
 
         fun split(rows: List<SplitRow>, spec: GeometrySpec, pad: List<List<KeyDef>> = emptyList()): KeyboardGeometry {
-            val units = rows.maxOf { it.left.units + it.right.units }
+            val units = rows.maxOf { it.left.span + it.right.span }
             val side = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
             val available = spec.widthPx - 2f * side
             val unit = minOf(spec.splitUnitMm * spec.pxPerMmX, available / (units + 2f * spec.ghostUnits))
@@ -116,7 +116,7 @@ class KeyboardGeometry(
                         )
                     )
                 }
-                var x = side
+                var x = side + row.left.indent * unit
                 row.left.keys.forEachIndexed { i, def ->
                     val right = x + def.width * unit
                     place(def, x, right, if (i == 0) 0f else x, right)
@@ -137,7 +137,7 @@ class KeyboardGeometry(
                     val inset = if (ghosts) ghost else 0f
                     panel.add(Box(innerLeft + inset, top, innerRight - inset, bottom))
                 }
-                x = innerRight
+                x = innerRight + row.right.indent * unit
                 row.right.keys.forEachIndexed { i, def ->
                     val right = x + def.width * unit
                     place(def, x, right, x, if (i == row.right.keys.lastIndex) spec.widthPx else right)

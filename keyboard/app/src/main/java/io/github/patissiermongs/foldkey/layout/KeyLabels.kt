@@ -13,6 +13,7 @@ data class LabelState(
     val fn: Boolean = false,
     val latinHints: Boolean = true,
     val swipeDownCtrl: Boolean = true,
+    val layerLabel: String = "",
 )
 
 object KeyLabels {
@@ -21,6 +22,7 @@ object KeyLabels {
         if (s.fn && fnLabel != null) return fnLabel
         val a = def.action
         if (a is KeyAction.Char) return charLabel(a, s.shiftLetters, s.shiftSymbols, s)
+        if (a == Layouts.LAYER_TOGGLE) return s.layerLabel
         return def.label ?: ""
     }
 

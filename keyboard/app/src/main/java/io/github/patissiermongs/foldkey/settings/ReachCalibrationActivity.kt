@@ -207,8 +207,8 @@ private class ReachView(
         paint.strokeWidth = 0.3f * pxPerMmX
         for ((r, row) in Layouts.split.withIndex()) {
             val top = rowsTop + r * rowH
-            val leftInner = (KeyboardView.SIDE_MM + row.left.units * unit) * pxPerMmX
-            val rightInner = width - (KeyboardView.SIDE_MM + (Layouts.splitUnits - row.left.units) * unit) * pxPerMmX
+            val leftInner = (KeyboardView.SIDE_MM + row.left.span * unit) * pxPerMmX
+            val rightInner = width - (KeyboardView.SIDE_MM + (Layouts.splitUnits - row.left.span) * unit) * pxPerMmX
             canvas.drawLine(leftInner, top, leftInner, top + rowH, paint)
             canvas.drawLine(rightInner, top, rightInner, top + rowH, paint)
         }

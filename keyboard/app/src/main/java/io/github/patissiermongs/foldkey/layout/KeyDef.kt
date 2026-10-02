@@ -21,8 +21,10 @@ data class KeyDef(
     val hasVariants: Boolean get() = action is KeyAction.Char || up != null || down != null
 }
 
-data class RowDef(val keys: List<KeyDef>) {
+data class RowDef(val keys: List<KeyDef>, val indent: Float = 0f) {
     val units: Float get() = keys.sumOf { it.width.toDouble() }.toFloat()
+
+    val span: Float get() = indent + units
 }
 
 data class Box(val left: Float, val top: Float, val right: Float, val bottom: Float) {

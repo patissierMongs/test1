@@ -52,24 +52,25 @@ class GeometrySweepTest {
     @Test
     fun holesOutsideTheDesignedGaps() {
         val problems = ArrayList<String>()
-        for (ppi in listOf(368f, 422f)) {
+        for ((layout, rows) in listOf("code" to Layouts.split, "general" to Layouts.generalSplit)) for (ppi in listOf(368f, 422f)) {
             val pxPerMm = ppi / 25.4f
-            for (widthMm in (110..260 step 5)) for (unit in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) {
+            for (widthMm in (110..260 step 5)) for (setting in listOf(7f, 8.5f, 11f)) for (lift in listOf(0f, 7f)) for (panel in listOf(0f, 12f)) {
                 val w = widthMm * pxPerMm
-                val g = KeyboardGeometry.split(Layouts.split, spec(w, ppi, unit, lift, panel, 0f, 1f), Layouts.pad)
+                val unit = if (rows === Layouts.split) setting else Layouts.generalSplitUnitMm(setting)
+                val g = KeyboardGeometry.split(rows, spec(w, ppi, unit, lift, panel, 0f, 1f), if (rows === Layouts.split) Layouts.pad else emptyList())
                 val keys = g.keys
                 val rowsBottom = keys.maxOf { it.touch.bottom }
                 var y = keys.minOf { it.touch.top } + 0.5f
                 while (y < rowsBottom) {
                     val row = keys.firstOrNull { y >= it.touch.top && y < it.touch.bottom }?.row
                     if (row == null) {
-                        problems.add("split w=$widthMm unit=$unit lift=$lift panel=$panel: whole-row hole at y=$y")
+                        problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel: whole-row hole at y=$y")
                         y += 4f
                         continue
                     }
                     val real = keys.filter { it.row == row && !it.ghost }
-                    val leftEnd = real.filter { k -> Layouts.split[row].left.keys.any { it === k.def } }.maxOf { it.touch.right }
-                    val rightStart = real.filter { k -> Layouts.split[row].right.keys.any { it === k.def } }.minOf { it.touch.left }
+                    val leftEnd = real.filter { k -> rows[row].left.keys.any { it === k.def } }.maxOf { it.touch.right }
+                    val rightStart = real.filter { k -> rows[row].right.keys.any { it === k.def } }.minOf { it.touch.left }
                     val ghosts = keys.filter { it.row == row && it.ghost }
                     val holeFrom = ghosts.filter { it.touch.left < leftEnd + 1f }.maxOfOrNull { it.touch.right } ?: leftEnd
                     val holeTo = ghosts.filter { it.touch.right > rightStart - 1f }.minOfOrNull { it.touch.left } ?: rightStart
@@ -79,7 +80,7 @@ class GeometrySweepTest {
                         val inDesignedGap = x >= holeFrom - 0.5f && x < holeTo + 0.5f
                         val inKnownStrip = row == 0 && x >= rowEnd - 0.5f
                         if (!inDesignedGap && !inKnownStrip && keys.none { it.touch.contains(x, y) }) {
-                            problems.add("split w=$widthMm unit=$unit lift=$lift panel=$panel row=$row hole at x=$x")
+                            problems.add("$layout split w=$widthMm unit=$unit lift=$lift panel=$panel row=$row hole at x=$x")
                             break
                         }
                         x += 2f
@@ -101,13 +102,19 @@ class GeometrySweepTest {
                     val w = widthMm * pxPerMm
                     val g = KeyboardGeometry.split(Layouts.split, spec(w, ppi, unit, lift, panel, inset, 1f), Layouts.pad)
                     check("split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset", g, problems)
+                    val gs = KeyboardGeometry.split(Layouts.generalSplit, spec(w, ppi, Layouts.generalSplitUnitMm(unit), lift, panel, inset, 1f))
+                    check("general split ppi=$ppi w=${widthMm}mm unit=$unit lift=$lift panel=$panel inset=$inset", gs, problems)
                 }
                 val f = KeyboardGeometry.full(Layouts.full, spec(widthMm * pxPerMm, ppi, 8.5f, 0f, 0f, 0f, 0f), Layouts.pad)
                 check("full ppi=$ppi w=${widthMm}mm", f, problems)
+                val gf = KeyboardGeometry.full(Layouts.general, spec(widthMm * pxPerMm, ppi, 8.5f, 0f, 0f, 0f, 0f))
+                check("general full ppi=$ppi w=${widthMm}mm", gf, problems)
             }
             for (widthMm in (50..110 step 5)) {
                 val c = KeyboardGeometry.full(Layouts.compact, spec(widthMm * pxPerMm, ppi, 8.5f, 0f, 0f, 0f, 0f), Layouts.pad)
                 check("compact ppi=$ppi w=${widthMm}mm", c, problems)
+                val gc = KeyboardGeometry.full(Layouts.general, spec(widthMm * pxPerMm, ppi, 8.5f, 0f, 0f, 0f, 0f))
+                check("general compact ppi=$ppi w=${widthMm}mm", gc, problems)
             }
         }
         assertTrue("${problems.size} problems, e.g. ${problems.take(5)}", problems.isEmpty())

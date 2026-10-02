@@ -18,6 +18,7 @@ import io.github.patissiermongs.foldkey.engine.Gesture
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.Lang
+import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.ModState
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.ime.Prefs
@@ -49,6 +50,7 @@ class KeyboardView(
 
     private var palette = Palette.of(resources.configuration)
     private var geometry: KeyboardGeometry? = null
+    private var geometryLayer = Layer.CODE
     private val tracker = TouchTracker(this, TouchParams(1f, 1f, 1f))
     private var offsets = OffsetModel(1)
     private var offsetSlot = ""
@@ -214,7 +216,7 @@ class KeyboardView(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val kind = layoutKind(width)
-        val rows = Layouts.rows(kind)
+        val rows = Layouts.rows(kind, engine.layer)
         val lift = liftPx(kind)
         val height = stripHeightPx + rows * rowHeightMm(rows, lift) * pxPerMmY + lift + bottomInset
         setMeasuredDimension(width, height.toInt())
@@ -242,10 +244,12 @@ class KeyboardView(
     }
 
     private fun geometry(): KeyboardGeometry {
-        geometry?.let { return it }
+        val layer = engine.layer
+        geometry?.let { if (geometryLayer == layer) return it }
+        val general = layer == Layer.GENERAL
         val kind = layoutKind(width)
         val lift = liftPx(kind)
-        rowMm = rowHeightMm(Layouts.rows(kind), lift)
+        rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
         val panelWanted = kind == LayoutKind.SPLIT && (prefs.centerEcho || prefs.centerClipboard)
         val spec = GeometrySpec(
             widthPx = width.toFloat(),
@@ -258,16 +262,18 @@ class KeyboardView(
             sideInsetPx = sideInset.toFloat(),
             bottomPaddingPx = bottomInset.toFloat(),
             maxUnitMm = MAX_UNIT_MM,
-            splitUnitMm = prefs.splitUnitMm,
+            splitUnitMm = if (general) Layouts.generalSplitUnitMm(prefs.splitUnitMm) else prefs.splitUnitMm,
             ghostUnits = if (kind == LayoutKind.SPLIT) GHOST_UNITS else 0f,
             liftPx = lift,
             panelMinPx = if (panelWanted) PANEL_MIN_MM * pxPerMmX else 0f,
         )
         dropStaleOffsets()
-        val g = when (kind) {
-            LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec, Layouts.pad)
-            LayoutKind.FULL -> KeyboardGeometry.full(Layouts.full, spec, Layouts.pad)
-            LayoutKind.COMPACT -> KeyboardGeometry.full(Layouts.compact, spec, Layouts.pad)
+        val g = when {
+            general && kind == LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.generalSplit, spec)
+            general -> KeyboardGeometry.full(Layouts.general, spec)
+            kind == LayoutKind.SPLIT -> KeyboardGeometry.split(Layouts.split, spec, Layouts.pad)
+            kind == LayoutKind.FULL -> KeyboardGeometry.full(Layouts.full, spec, Layouts.pad)
+            else -> KeyboardGeometry.full(Layouts.compact, spec, Layouts.pad)
         }
         tracker.params = TouchParams(
             swipeThresholdPx = SWIPE_MM * pxPerMmY,
@@ -278,7 +284,12 @@ class KeyboardView(
             longPressRepeats = prefs.longPressAction == Prefs.LONG_PRESS_REPEAT,
             selectHoldMs = prefs.longPressMs.takeIf { it > 0L } ?: SELECT_HOLD_MS,
         )
-        val slot = "${kind.name.lowercase()}${if (kind == LayoutKind.SPLIT) SPLIT_SLOT_SUFFIX else ""}_${(width / pxPerMmX).toInt()}mm"
+        val suffix = when {
+            general -> GENERAL_SLOT_SUFFIX
+            kind == LayoutKind.SPLIT -> SPLIT_SLOT_SUFFIX
+            else -> ""
+        }
+        val slot = "${kind.name.lowercase()}${suffix}_${(width / pxPerMmX).toInt()}mm"
         if (slot != offsetSlot || offsets.zones != g.zoneCount) {
             saveState()
             offsets = OffsetModel(g.zoneCount)
@@ -288,6 +299,7 @@ class KeyboardView(
         currentKind = kind
         layoutStrip()
         geometry = g
+        geometryLayer = layer
         return g
     }
 
@@ -390,6 +402,7 @@ class KeyboardView(
                 Command.SETTINGS -> context.getString(R.string.strip_settings)
                 Command.HIDE -> context.getString(R.string.strip_hide)
                 Command.SWITCH_IME -> context.getString(R.string.strip_switch)
+                Command.TOGGLE_LAYER -> layerLabel()
             }
             label.color = if (stripPointer >= 0 && stripCommand == cmd) palette.accent else palette.hint
             label.textSize = textSize * 0.9f
@@ -710,7 +723,11 @@ class KeyboardView(
         fn = engine.modifiers.isActive(Modifier.FN),
         latinHints = prefs.latinHints,
         swipeDownCtrl = prefs.swipeDownCtrl,
+        layerLabel = layerLabel(),
     )
+
+    private fun layerLabel(): String =
+        context.getString(if (engine.layer == Layer.GENERAL) R.string.key_layer_code else R.string.key_layer_general)
 
     private fun drawPopup(canvas: Canvas, key: Key, gesture: Gesture) {
         val def = key.def
@@ -890,7 +907,9 @@ class KeyboardView(
         lastWasBackspace = r.action == KeyAction.Backspace
         lastFireTime = t
         if (lastWasBackspace) samples.removeLastOrNull()
+        val layer = engine.layer
         engine.perform(r.action, r.forceShift, r.forceCtrl, repeat = gesture == Gesture.REPEAT)
+        if (engine.layer != layer) reload()
     }
 
     override fun variant(pointer: Int, key: Key, gesture: Gesture) {
@@ -971,6 +990,7 @@ class KeyboardView(
         const val CLIP_LONG_PRESS_MS = 400L
         const val SELECT_HOLD_MS = 400L
         const val SPLIT_SLOT_SUFFIX = "_ansi"
+        const val GENERAL_SLOT_SUFFIX = "_general"
         const val PIN_MARK = "📌 "
         val EDIT_COMMANDS = setOf(Command.SELECT_ALL, Command.COPY)
         const val ECHO_TEXT_MM = 2.6f

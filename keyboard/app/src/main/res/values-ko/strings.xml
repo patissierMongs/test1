@@ -10,6 +10,8 @@
     <string name="strip_switch">전환</string>
     <string name="strip_settings">설정</string>
     <string name="strip_hide">숨김</string>
+    <string name="key_layer_general">일반</string>
+    <string name="key_layer_code">코드</string>
 
     <string name="settings_intro">갤럭시 Z 폴드7 내부 화면에서 코드와 터미널 작업을 위해 만든 PC 배열 키보드입니다. 한글 두벌식 입력을 지원합니다.</string>
     <string name="settings_enable">1. 시스템 설정에서 FoldKey 사용 켜기</string>
@@ -62,6 +64,7 @@
 • Ctrl·Alt·Shift: 한 번 누르면 다음 키 한 번에 적용, 빠르게 두 번 누르면 고정, 누른 채 입력하면 조합
 • Fn: 누르면 오른쪽 끝 숫자판으로 바뀌고 다시 누르면 돌아옴 (7 8 9 / ⌫ … 0 . = + ⏎). 누른 채 입력하면 그동안만 숫자판. 숫자판 ⌫를 위로 밀면 Del
 • 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복
+• 일반/코드 키: 코드 레이어(지금의 PC 배열)와 일반 레이어(키가 큰 휴대폰식 QWERTY)를 바꿈. 일반 레이어에서 , . 을 위로 밀면 ! ?, 숫자 행을 아래로 밀면 ~ - _ = + ; : \' \" /. 터미널은 늘 코드 레이어로 열리고, 다른 입력창은 마지막에 쓴 레이어로 열림
 • 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
     <string name="pref_long_press_action">길게 누르기 동작</string>
     <string name="long_press_shift">윗글자 (위로 밀기와 같음)</string>

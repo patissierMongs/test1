@@ -11,6 +11,8 @@
     <string name="strip_switch">IME</string>
     <string name="strip_settings">Settings</string>
     <string name="strip_hide">Hide</string>
+    <string name="key_layer_general">Text</string>
+    <string name="key_layer_code">Code</string>
 
     <string name="settings_intro">A PC-style keyboard for code and terminals on the Galaxy Z Fold7 inner screen, with Korean 2-set (dubeolsik) input.</string>
     <string name="settings_enable">1. Enable FoldKey in system settings</string>
@@ -63,6 +65,7 @@
 • Ctrl, Alt, Shift: tap once for the next key, double tap to lock, or hold while typing
 • Fn: tap to switch to the numpad at the right edge and tap again to switch back (7 8 9 / ⌫ … 0 . = + ⏎), or hold it while typing; swipe up on the numpad ⌫ for Del
 • Arrow keys: swipe up for Home/End/PgUp/PgDn, hold to repeat
+• Text / Code key: switches between the code layer (this PC layout) and the text layer (phone-style QWERTY with bigger keys). In the text layer, swipe up on , and . for ! and ?, and swipe down on the number row for ~ - _ = + ; : \' \" /. Terminals always open in the code layer; other fields open in the layer you used last
 • The strip shows special keys you sent (Esc, ^C, Tab…)</string>
     <string name="pref_long_press_action">Long press action</string>
     <string name="long_press_shift">upper symbol (same as swipe up)</string>
