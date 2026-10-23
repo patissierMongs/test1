@@ -40,6 +40,11 @@ class FakeEditor : Editor {
         }
     }
 
+    override fun sendBareKey(keyCode: Int) {
+        log.add("bare:${KeyEvent.keyCodeToString(keyCode)}")
+        keys.add(keyCode to 0)
+    }
+
     override fun performEditorAction(action: Int) {
         log.add("action:$action")
         actions.add(action)
@@ -56,6 +61,10 @@ class FakeEditor : Editor {
 
     override fun copy() {
         log.add("copy")
+    }
+
+    override fun cut() {
+        log.add("cut")
     }
 
     var depth = 0

@@ -1,7 +1,5 @@
 package io.github.patissiermongs.foldkey.ui
 
-import android.content.Context
-import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
@@ -68,12 +66,9 @@ object LayoutBuilder {
         )
     }
 
-    fun previewLabel(context: Context, def: KeyDef, layer: Layer): String {
+    fun previewLabel(def: KeyDef): String {
         val action = def.action
         if (action is KeyAction.Char) return action.base.toString()
-        if (action == Layouts.LAYER_TOGGLE) {
-            return context.getString(if (layer == Layer.GENERAL) R.string.key_layer_code else R.string.key_layer_general)
-        }
         return def.label.orEmpty()
     }
 

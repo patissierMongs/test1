@@ -19,6 +19,8 @@ class ClipboardHistory(
 
     val pinned: List<String> get() = pins.toList()
 
+    val entries: List<Entry> get() = pins.map { Entry(it, 0L, pinned = true) } + recent
+
     val pinsFull: Boolean get() = pins.size >= pinLimit
 
     fun add(text: String, now: Long): Boolean {
@@ -31,8 +33,8 @@ class ClipboardHistory(
     }
 
     fun items(now: Long): List<Entry> {
-        recent.removeAll { now - it.time > ttlMs || now < it.time }
-        return pins.map { Entry(it, 0L, pinned = true) } + recent
+        recent.removeAll { expired(it, now) }
+        return entries
     }
 
     fun pin(text: String): Boolean {
@@ -55,10 +57,14 @@ class ClipboardHistory(
         return pinRemoved || recentRemoved
     }
 
-    fun restorePins(texts: List<String>) {
+    fun restore(saved: List<Entry>, now: Long) {
         pins.clear()
-        texts.filter { accepts(it) }.distinct().take(pinLimit).forEach { pins.add(it) }
-        recent.removeAll { it.text in pins }
+        recent.clear()
+        saved.filter { it.pinned && accepts(it.text) }.map { it.text }.distinct().take(pinLimit).forEach { pins.add(it) }
+        saved.filter { !it.pinned && accepts(it.text) && it.text !in pins && !expired(it, now) }
+            .distinctBy { it.text }
+            .forEach { recent.addLast(it) }
+        trim()
     }
 
     fun clearRecent() = recent.clear()
@@ -69,6 +75,8 @@ class ClipboardHistory(
     }
 
     private fun accepts(text: String): Boolean = text.isNotBlank() && text.length <= maxChars
+
+    private fun expired(entry: Entry, now: Long): Boolean = now - entry.time > ttlMs || now < entry.time
 
     private fun trim() {
         while (recent.size > capacity) recent.removeLast()

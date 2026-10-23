@@ -142,7 +142,7 @@ class TypingCalibrationActivity : Activity() {
     }
 
     private fun geometry(layer: Layer, p: TypingCalibration.Placement, width: Float, px: Float, py: Float): KeyboardGeometry {
-        val panel = prefs.centerEcho || prefs.centerClipboard
+        val panel = prefs.centerClipboard
         val spec = LayoutBuilder.spec(
             prefs, LayoutKind.SPLIT, layer, width, px, py, 0f, p.rowMm,
             liftPx = p.liftMm * py,
@@ -336,13 +336,13 @@ private class TypingView(
         if (s.finished) {
             val f = final ?: return
             val top = baseline - (f.placement.liftMm + Layouts.rows(LayoutKind.SPLIT, f.layer) * f.placement.rowMm) * pxPerMmY
-            keys(canvas, f.geometry, f.layer, top)
+            keys(canvas, f.geometry, top)
             return
         }
-        keys(canvas, s.geometry, s.layer, keyboardTop)
+        keys(canvas, s.geometry, keyboardTop)
     }
 
-    private fun keys(canvas: Canvas, geometry: KeyboardGeometry, layer: Layer, top: Float) {
+    private fun keys(canvas: Canvas, geometry: KeyboardGeometry, top: Float) {
         val radius = KeyboardView.RADIUS_MM * pxPerMmX
         canvas.save()
         canvas.translate(0f, top)
@@ -357,7 +357,7 @@ private class TypingView(
                 else -> palette.modKey
             }
             canvas.drawRoundRect(rect, radius, radius, paint)
-            val label = LayoutBuilder.previewLabel(context, key.def, layer)
+            val label = LayoutBuilder.previewLabel(key.def)
             if (label.isNotEmpty()) {
                 paint.color = if (key === flashKey) palette.accentText else palette.text
                 paint.textSize = key.face.height * if (label.length == 1) 0.42f else 0.26f

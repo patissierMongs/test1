@@ -3,11 +3,14 @@ package io.github.patissiermongs.foldkey.ime
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.os.Looper
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
+import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import android.widget.EditText
 import io.github.patissiermongs.foldkey.engine.Command
@@ -131,7 +134,7 @@ class EditorIntegrationTest {
     }
 
     @Test
-    fun selectAllAndCopyUseTheEditorsOwnActions() {
+    fun selectAllCopyAndCutUseTheEditorsOwnActions() {
         val (edit, engine, _) = editTextSetup(multiLine = false)
         engine.startInput(EditorContext())
         "git log".forEach { engine.perform(if (it == ' ') KeyAction.Space else ch(it)) }
@@ -144,6 +147,54 @@ class EditorIntegrationTest {
         idle()
         val cm = edit.context.getSystemService(ClipboardManager::class.java)
         assertEquals("git log", cm.primaryClip?.getItemAt(0)?.text?.toString())
+        "a -3".forEach { engine.perform(if (it == ' ') KeyAction.Space else ch(it)) }
+        engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
+        engine.perform(KeyAction.Cmd(Command.CUT))
+        idle()
+        assertEquals("", edit.text.toString())
+        assertEquals("a -3", cm.primaryClip?.getItemAt(0)?.text?.toString())
+    }
+
+    private class KeyLog(context: Context) : View(context) {
+        val events = ArrayList<KeyEvent>()
+
+        init {
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
+
+        override fun onCheckIsTextEditor(): Boolean = true
+
+        override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
+            outAttrs.inputType = InputType.TYPE_NULL
+            return BaseInputConnection(this, false)
+        }
+
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            events.add(KeyEvent(event))
+            return true
+        }
+    }
+
+    @Test
+    fun heldLangKeyReachesTheAppAsABareRightAlt() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val view = KeyLog(activity)
+        activity.setContentView(view)
+        view.requestFocus()
+        focusWindow(view)
+        val ic = view.onCreateInputConnection(EditorInfo())
+        val engine = KeyboardEngine(InputConnectionEditor(activity) { ic }, RecordingListener())
+        engine.startInput(EditorContext(raw = true, preferLatin = true))
+        engine.perform(KeyAction.RemoteLang)
+        idle()
+        assertEquals(listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP), view.events.map { it.action })
+        for (e in view.events) {
+            assertEquals(KeyEvent.KEYCODE_ALT_RIGHT, e.keyCode)
+            assertEquals(0, e.metaState)
+            assertEquals(0, e.flags)
+            assertEquals(0, e.repeatCount)
+        }
     }
 
     @Test

@@ -44,54 +44,46 @@ class ServicePanelTest {
     }
 
     @Test
-    fun editorLineComesFromInitialTextAndIsHiddenForPasswords() {
-        val service = Robolectric.setupService(FoldKeyService::class.java)
-        val view = service.onCreateInputView() as KeyboardView
-        val text = "first line\nprint(x"
-        val info = EditorInfo().apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            initialSelStart = text.length
-            initialSelEnd = text.length
-            setInitialSurroundingText(text)
-        }
-        service.onStartInputView(info, false)
-        assertEquals("print(x", view.shownEditorLine)
-        val password = EditorInfo().apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            initialSelStart = 7
-            initialSelEnd = 7
-            setInitialSurroundingText("hunter2")
-        }
-        service.onStartInputView(password, false)
-        assertEquals("", view.shownEditorLine)
-        service.onDestroy()
-    }
-
-    @Test
-    fun pinnedClipsSurviveARestartAndDeletedClipsStayDeleted() {
+    fun clipsSurviveARestartAndDeletedClipsStayDeleted() {
         val service = Robolectric.setupService(FoldKeyService::class.java)
         val view = service.onCreateInputView() as KeyboardView
         val cm = service.getSystemService(ClipboardManager::class.java)
         cm.setPrimaryClip(ClipData.newPlainText("a", "ssh fold@host"))
         cm.setPrimaryClip(ClipData.newPlainText("b", "rm -rf build"))
+        cm.setPrimaryClip(ClipData.newPlainText("c", "git log --oneline"))
         idle()
         view.onClipEdit(ClipEdit.PIN, "ssh fold@host")
         view.onClipEdit(ClipEdit.DELETE, "rm -rf build")
-        assertFalse(cm.hasPrimaryClip())
         service.onStartInputView(EditorInfo(), false)
-        assertEquals(listOf("ssh fold@host" to true), view.clipSource().map { it.text to it.pinned })
+        assertEquals(
+            listOf("ssh fold@host" to true, "git log --oneline" to false),
+            view.clipSource().map { it.text to it.pinned },
+        )
         service.onDestroy()
         val restarted = Robolectric.setupService(FoldKeyService::class.java)
         val view2 = restarted.onCreateInputView() as KeyboardView
         restarted.onStartInputView(EditorInfo(), false)
-        assertEquals(listOf("ssh fold@host" to true), view2.clipSource().map { it.text to it.pinned })
+        assertEquals(
+            listOf("ssh fold@host" to true, "git log --oneline" to false),
+            view2.clipSource().map { it.text to it.pinned },
+        )
         view2.onClipEdit(ClipEdit.UNPIN, "ssh fold@host")
+        view2.onClipEdit(ClipEdit.DELETE, "git log --oneline")
+        assertFalse(cm.hasPrimaryClip())
         assertEquals(listOf("ssh fold@host" to false), view2.clipSource().map { it.text to it.pinned })
         restarted.onDestroy()
         val third = Robolectric.setupService(FoldKeyService::class.java)
         val view3 = third.onCreateInputView() as KeyboardView
-        assertEquals(emptyList<String>(), view3.clipSource().map { it.text })
+        assertEquals(listOf("ssh fold@host" to false), view3.clipSource().map { it.text to it.pinned })
+        Prefs(third).sp.edit().putBoolean(Prefs.CENTER_CLIPBOARD, false).commit()
+        idle()
         third.onDestroy()
+        val fourth = Robolectric.setupService(FoldKeyService::class.java)
+        val view4 = fourth.onCreateInputView() as KeyboardView
+        Prefs(fourth).sp.edit().putBoolean(Prefs.CENTER_CLIPBOARD, true).commit()
+        idle()
+        assertEquals(emptyList<String>(), view4.clipSource().map { it.text })
+        fourth.onDestroy()
     }
 
     @Test

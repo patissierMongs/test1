@@ -75,22 +75,22 @@ class TypingCalibrationTest {
         assertEquals(30.6f, anchors.leftCenterMm, 1e-3f)
         assertEquals(34.8f, anchors.rightCenterMm, 1e-3f)
         val p = TypingCalibration.place(anchors, frame, Layer.CODE, 6f, 9f)
-        assertEquals(30.6f - 7.25f * 3f, p.leftMm, 0.051f)
-        assertEquals(34.8f - 8f * 3f, p.rightMm, 0.051f)
+        assertEquals(30.6f - 6.75f * 3f, p.leftMm, 0.051f)
+        assertEquals(34.8f - 7.75f * 3f, p.rightMm, 0.051f)
         assertEquals(28.25f - 5 * 4.5f, p.liftMm, 0.051f)
         val g = TypingCalibration.place(anchors, frame, Layer.GENERAL, 7f, 9f)
-        assertEquals(30.6f - 5.5f * 3.5f, g.leftMm, 0.051f)
-        assertEquals(34.8f - 5f * 3.5f, g.rightMm, 0.051f)
+        assertEquals(30.6f - 5.75f * 3.5f, g.leftMm, 0.051f)
+        assertEquals(34.8f - 5.5f * 3.5f, g.rightMm, 0.051f)
     }
 
     @Test
     fun halvesMoveOutwardBeforeKeysWouldShrink() {
         val inward = TypingCalibration.Anchors(45f, 45f, 28f)
         val p = TypingCalibration.place(inward, frame, Layer.CODE, 8f, 9f)
-        val used = p.leftMm + p.rightMm + (14.5f + 2f) * 8f
+        val used = p.leftMm + p.rightMm + (13.5f + 2f) * 8f
         assertEquals(150f, used, 0.15f)
-        assertTrue(p.leftMm < 45f - 7.25f * 4f)
-        assertTrue(p.rightMm < 45f - 8f * 4f)
+        assertTrue(p.leftMm < 45f - 6.75f * 4f)
+        assertTrue(p.rightMm < 45f - 7.75f * 4f)
         val wide = TypingCalibration.place(anchors, frame, Layer.CODE, 10f, 9f)
         assertEquals(0.5f, wide.leftMm, 1e-4f)
         assertEquals(0.5f, wide.rightMm, 1e-4f)

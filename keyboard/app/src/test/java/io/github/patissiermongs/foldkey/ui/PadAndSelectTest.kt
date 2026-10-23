@@ -102,7 +102,7 @@ class PadAndSelectTest {
         tap(fnKey())
         assertFalse(engine.modifiers.isActive(Modifier.FN))
         tap(pad("1"))
-        assertEquals("74+(0.5)l", editor.text.toString())
+        assertEquals("74+(0.5)k", editor.text.toString())
     }
 
     @Test
@@ -116,7 +116,7 @@ class PadAndSelectTest {
         tap(fnKey())
         assertFalse(engine.modifiers.isActive(Modifier.FN))
         tap(pad("1"))
-        assertEquals("7+(l", editor.text.toString())
+        assertEquals("7+(k", editor.text.toString())
     }
 
     @Test
@@ -138,7 +138,7 @@ class PadAndSelectTest {
         tap(pad("4"))
         tap(fnKey())
         tap(pad("1"))
-        assertEquals("4l", editor.text.toString())
+        assertEquals("4k", editor.text.toString())
         val fn = fnKey()
         touch(MotionEvent.ACTION_DOWN, fn.centerX, fn.centerY)
         val two = pad("2")
@@ -157,7 +157,7 @@ class PadAndSelectTest {
         assertTrue(engine.modifiers.isHeld(Modifier.FN))
         touch(MotionEvent.ACTION_UP, fn.centerX, fn.centerY)
         assertFalse(engine.modifiers.isActive(Modifier.FN))
-        assertEquals("4l2", editor.text.toString())
+        assertEquals("4k2", editor.text.toString())
     }
 
     private fun space(): Box = view.layoutKeys.filter { it.def.isSpace }.maxBy { it.face.left }.face

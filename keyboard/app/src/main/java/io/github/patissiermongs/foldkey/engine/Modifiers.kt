@@ -92,9 +92,9 @@ class Modifiers(var doubleTapMs: Long = 350L) {
         for (m in oneShots) if (states.getValue(m) == ModState.OFF) states[m] = ModState.ONESHOT
     }
 
-    fun shiftForSymbols(): Boolean = isHeld(Modifier.SHIFT) || state(Modifier.SHIFT) == ModState.ONESHOT
+    fun shiftHeldOrOnce(): Boolean = isHeld(Modifier.SHIFT) || state(Modifier.SHIFT) == ModState.ONESHOT
 
-    fun shiftForLetters(): Boolean = isActive(Modifier.SHIFT)
+    fun shiftForText(): Boolean = isActive(Modifier.SHIFT)
 
     fun hasCommandModifier(): Boolean = isActive(Modifier.CTRL) || isActive(Modifier.ALT)
 

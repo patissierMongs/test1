@@ -14,6 +14,7 @@ import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
+import io.github.patissiermongs.foldkey.engine.Lang
 import io.github.patissiermongs.foldkey.engine.ModState
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.engine.Modifiers
@@ -285,5 +286,60 @@ class ModifierTouchTest {
         prefs.sp.edit().putBoolean(Prefs.HAPTIC, true).commit()
         tap(view.stripBox(Command.PASTE)!!)
         assertEquals(HapticFeedbackConstants.KEYBOARD_TAP, shadowOf(view).lastHapticFeedbackPerformed())
+    }
+
+    @Test
+    fun holdingTheLangKeySendsRightAltForTheRemoteDesktopAndATapSwitchesLocally() {
+        setup()
+        val lang = key { it.def.action == KeyAction.Lang }
+        assertTrue(view.layoutKeys.single { it.def.action == KeyAction.Lang }.face.centerX < view.width / 2f)
+        tap(lang)
+        assertEquals(Lang.HANGUL, engine.lang)
+        down(0, lang)
+        advance(450)
+        up(0)
+        advance(60)
+        assertEquals(listOf(KeyEvent.KEYCODE_ALT_RIGHT to 0), editor.keys)
+        assertEquals(Lang.HANGUL, engine.lang)
+        prefs.sp.edit().putInt(Prefs.LONG_PRESS, 0).putInt(Prefs.LONG_PRESS_ACTION, Prefs.LONG_PRESS_REPEAT).commit()
+        view.reload()
+        down(0, lang)
+        advance(450)
+        up(0)
+        advance(60)
+        assertEquals(listOf(KeyEvent.KEYCODE_ALT_RIGHT to 0, KeyEvent.KEYCODE_ALT_RIGHT to 0), editor.keys)
+        tap(lang)
+        assertEquals(Lang.LATIN, engine.lang)
+        assertEquals(2, editor.keys.size)
+    }
+
+    @Test
+    fun altKeyStaysOnUntilTappedAgain() {
+        setup()
+        tap(mod(Modifier.ALT))
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.ALT))
+        tap(letter('b'))
+        tap(letter('f'))
+        tap(mod(Modifier.ALT))
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.ALT))
+        tap(letter('x'))
+        assertEquals(listOf(KeyEvent.KEYCODE_B to Modifiers.ALT_META, KeyEvent.KEYCODE_F to Modifiers.ALT_META), editor.keys)
+        assertEquals("x", editor.text.toString())
+    }
+
+    @Test
+    fun lockedShiftKeepsTheDigitRowShifted() {
+        setup()
+        down(0, mod(Modifier.SHIFT))
+        advance(30)
+        up(0)
+        advance(60)
+        down(0, mod(Modifier.SHIFT))
+        advance(30)
+        up(0)
+        advance(60)
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.SHIFT))
+        for (c in "a1-9") tap(letter(c))
+        assertEquals("A!_(", editor.text.toString())
     }
 }

@@ -113,7 +113,7 @@ class TypingCalibrationActivityTest {
         assertTrue(prefs.sp.getInt(Prefs.GENERAL_UNIT, 0) >= 61)
         assertEquals(88, prefs.sp.getInt(Prefs.ROW_HEIGHT, 0))
         val left = prefs.sp.getInt(Prefs.CODE_SIDE_LEFT, -1) / 10f
-        assertEquals(30.6f - 7.25f * unit / 20f, left, 0.11f)
+        assertEquals(30.6f - Layouts.splitLeftUnits * unit / 20f, left, 0.11f)
         assertEquals(epoch + 1, prefs.offsetsEpoch)
         val width = activity.resources.displayMetrics.widthPixels.toFloat()
         val px = Dpi.physical(activity.resources.displayMetrics, true) / 25.4f

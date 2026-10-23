@@ -24,6 +24,7 @@ import io.github.patissiermongs.foldkey.layout.Key
 import java.io.File
 import java.io.FileOutputStream
 import java.time.Duration
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,7 +47,6 @@ class RenderTest {
         split: Boolean,
         widthPx: Int,
         ppi: Float = FOLD7_PPI,
-        terminalEcho: Boolean = false,
         layer: Layer = Layer.CODE,
     ): Triple<KeyboardView, KeyboardEngine, FakeEditor> {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
@@ -54,11 +54,10 @@ class RenderTest {
         dm.xdpi = ppi
         dm.ydpi = ppi
         val prefs = Prefs(ctx)
-        prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_PORTRAIT, split).putBoolean(Prefs.SPLIT_LANDSCAPE, split)
-            .putBoolean(Prefs.TERMINAL_ECHO, terminalEcho).commit()
+        prefs.sp.edit().clear().putBoolean(Prefs.SPLIT_PORTRAIT, split).putBoolean(Prefs.SPLIT_LANDSCAPE, split).commit()
         val editor = FakeEditor()
         val engine = KeyboardEngine(editor, RecordingListener())
-        engine.settings = EngineSettings(terminalEcho = terminalEcho, layer = layer)
+        engine.settings = EngineSettings(layer = layer)
         engine.startInput(EditorContext())
         val view = KeyboardView(ctx, engine, prefs, Silent)
         view.measure(
@@ -167,11 +166,17 @@ class RenderTest {
     @Test
     fun renderSplitLandscapeCenterPanel() {
         val (view, engine, _) = setup(split = true, widthPx = 2184)
-        view.clipSource = { listOf(Clip("git status --short"), Clip("ssh fold@192.168.0.7\nls -la")) }
+        view.clipSource = {
+            listOf(
+                Clip("ssh fold@192.168.0.7", pinned = true), Clip("git status --short"), Clip("ssh fold@192.168.0.7\nls -la"),
+                Clip("make test"), Clip("tmux attach -t main"), Clip("내일 3시에 만나요"), Clip("https://example.com/a/b"),
+                Clip("docker compose up -d"), Clip("kubectl get pods"),
+            )
+        }
         engine.startInput(EditorContext())
         engine.perform(KeyAction.Lang)
         type(engine, "gks")
-        view.setEditorLine("        return render(x, y) # 한")
+        assertEquals(8, view.clipSlots.size)
         assertTrue(save(view, "split_landscape_panel.png").length() > 0)
     }
 
@@ -184,13 +189,14 @@ class RenderTest {
     }
 
     @Test
-    fun renderTerminalEchoWithHangulPreedit() {
-        val (view, engine, _) = setup(split = true, widthPx = 2184, terminalEcho = true)
+    fun renderTerminalHangulPreedit() {
+        val (view, engine, _) = setup(split = true, widthPx = 2184)
         engine.startInput(EditorContext(raw = true, preferLatin = true))
         type(engine, "git commit -m ")
         engine.perform(KeyAction.Lang)
         type(engine, "gksrmf")
-        assertTrue(save(view, "split_landscape_terminal_echo.png").length() > 0)
+        assertEquals("글", engine.preedit)
+        assertTrue(save(view, "split_landscape_terminal_preedit.png").length() > 0)
     }
 
     @Test
@@ -228,7 +234,6 @@ class RenderTest {
         view.clipSource = { listOf(Clip("내일 3시에 만나요"), Clip("https://example.com/a/b")) }
         engine.perform(KeyAction.Lang)
         type(engine, "dkssud")
-        view.setEditorLine("오늘 회의는 몇 시예요? 안녕")
         assertTrue(save(view, "general_split_landscape_panel.png").length() > 0)
     }
 

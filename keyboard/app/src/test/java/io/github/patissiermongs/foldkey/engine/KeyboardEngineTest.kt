@@ -49,15 +49,19 @@ class KeyboardEngineTest {
     }
 
     @Test
-    fun doubleTapShiftLocksLettersButNotDigits() {
+    fun doubleTapShiftLocksLettersDigitsAndSymbolsButNotJamo() {
         tapMod(Modifier.SHIFT)
         tapMod(Modifier.SHIFT)
         assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.SHIFT))
-        type("ab1")
-        assertEquals("AB1", editor.text.toString())
+        type("ab1/")
+        assertEquals("AB!?", editor.text.toString())
+        engine.perform(KeyAction.Lang)
+        type("r1")
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.SHIFT))
+        engine.perform(KeyAction.Lang)
         tapMod(Modifier.SHIFT)
-        type("c")
-        assertEquals("AB1c", editor.text.toString())
+        type("c1")
+        assertEquals("AB!?ㄱ!c1", editor.text.toString())
     }
 
     @Test
@@ -143,10 +147,38 @@ class KeyboardEngineTest {
     }
 
     @Test
-    fun altSendsMetaAlt() {
+    fun altStaysOnUntilTappedAgain() {
         tapMod(Modifier.ALT)
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.ALT))
         tap('b')
-        assertEquals(listOf(KeyEvent.KEYCODE_B to Modifiers.ALT_META), editor.keys)
+        tap('f')
+        assertEquals(ModState.LOCKED, engine.modifiers.state(Modifier.ALT))
+        tapMod(Modifier.ALT)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.ALT))
+        tap('x')
+        assertEquals(listOf(KeyEvent.KEYCODE_B to Modifiers.ALT_META, KeyEvent.KEYCODE_F to Modifiers.ALT_META), editor.keys)
+        assertEquals("x", editor.text.toString())
+        engine.press(KeyAction.Mod(Modifier.ALT), now)
+        tap('d')
+        engine.release(KeyAction.Mod(Modifier.ALT), now + 300)
+        assertEquals(ModState.OFF, engine.modifiers.state(Modifier.ALT))
+        assertEquals(KeyEvent.KEYCODE_D to Modifiers.ALT_META, editor.keys.last())
+    }
+
+    @Test
+    fun heldLangKeySendsABareRightAltAndLeavesTheLocalState() {
+        engine.perform(KeyAction.Lang)
+        type("gks")
+        tapMod(Modifier.SHIFT)
+        tapMod(Modifier.CTRL)
+        engine.perform(KeyAction.RemoteLang)
+        assertEquals(listOf(KeyEvent.KEYCODE_ALT_RIGHT to 0), editor.keys)
+        assertEquals("한", editor.text.toString())
+        assertEquals("", editor.composing)
+        assertEquals(Lang.HANGUL, engine.lang)
+        assertEquals(ModState.ONESHOT, engine.modifiers.state(Modifier.SHIFT))
+        assertEquals(ModState.ONESHOT, engine.modifiers.state(Modifier.CTRL))
+        assertEquals(listOf(KeyNames.REMOTE_LANG), listener.echoes)
     }
 
     @Test
@@ -352,6 +384,7 @@ class KeyboardEngineTest {
         engine.perform(KeyAction.Code(KeyEvent.KEYCODE_ESCAPE))
         tapMod(Modifier.ALT)
         tap('b')
+        tapMod(Modifier.ALT)
         engine.perform(KeyAction.Code(KeyEvent.KEYCODE_TAB))
         engine.perform(KeyAction.Enter)
         assertEquals(listOf("^C", "Esc", "M-b", "Tab", "⏎"), listener.echoes)
@@ -441,42 +474,6 @@ class KeyboardEngineTest {
         assertTrue("Ins" in listener.echoes && "⇧Ins" in listener.echoes)
     }
 
-    private fun shownTyped() = engine.typedSegments.joinToString("|") { if (it.token) "<${it.display}>" else it.display }
-
-    @Test
-    fun terminalEchoRecordsWhatWasSentOnlyWhenEnabled() {
-        engine.startInput(EditorContext(raw = true, preferLatin = true))
-        type("ls")
-        assertEquals("", shownTyped())
-        engine.settings = EngineSettings(terminalEcho = true)
-        type("git co")
-        engine.perform(KeyAction.Code(KeyEvent.KEYCODE_TAB))
-        type("x")
-        engine.perform(KeyAction.Backspace)
-        engine.perform(KeyAction.Lang)
-        type("gks")
-        assertEquals("git co|<Tab>", shownTyped())
-        assertEquals("한", engine.preedit)
-        engine.perform(KeyAction.Space)
-        assertEquals("git co|<Tab>|한 ", shownTyped())
-        engine.perform(KeyAction.Enter)
-        assertEquals("", shownTyped())
-        engine.pasteText("echo a\nmake")
-        assertEquals("make", shownTyped())
-        assertTrue(editor.text.endsWith("echo a\nmake"))
-        engine.settings = EngineSettings(terminalEcho = false)
-        assertEquals("", shownTyped())
-    }
-
-    @Test
-    fun terminalEchoIsNotRecordedForNormalEditors() {
-        engine.settings = EngineSettings(terminalEcho = true)
-        type("abc")
-        engine.pasteText("x")
-        assertEquals("", shownTyped())
-        assertEquals("abcx", editor.text.toString())
-    }
-
     @Test
     fun ctrlBracketActsAsEscapeForHangulMode() {
         engine.startInput(EditorContext(raw = true, preferLatin = true))
@@ -528,20 +525,23 @@ class KeyboardEngineTest {
     }
 
     @Test
-    fun selectAllAndCopyCommitTheSyllableFirstAndSkipTerminals() {
+    fun editCommandsCommitTheSyllableFirstAndSkipTerminals() {
+        val edits = setOf("selectAll", "copy", "cut")
         engine.perform(KeyAction.Lang)
         type("gks")
         engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
         engine.perform(KeyAction.Cmd(Command.COPY))
+        engine.perform(KeyAction.Cmd(Command.CUT))
         assertEquals("한", editor.text.toString())
         assertEquals("", editor.composing)
-        assertEquals(listOf("selectAll", "copy"), editor.log.filter { it == "selectAll" || it == "copy" })
+        assertEquals(listOf("selectAll", "copy", "cut"), editor.log.filter { it in edits })
         assertTrue(listener.commands.isEmpty())
         engine.startInput(EditorContext(raw = true))
         editor.log.clear()
         engine.perform(KeyAction.Cmd(Command.SELECT_ALL))
         engine.perform(KeyAction.Cmd(Command.COPY))
-        assertEquals(emptyList<String>(), editor.log.filter { it == "selectAll" || it == "copy" })
+        engine.perform(KeyAction.Cmd(Command.CUT))
+        assertEquals(emptyList<String>(), editor.log.filter { it in edits })
         assertTrue(editor.keys.isEmpty())
     }
 
@@ -698,15 +698,13 @@ class KeyboardEngineTest {
     }
 
     @Test
-    fun terminalPasswordFieldIsNeitherRecordedNorShown() {
-        engine.settings = EngineSettings(terminalEcho = true)
+    fun terminalPasswordFieldShowsNoPreedit() {
         engine.startInput(EditorContext(raw = true, preferLatin = true, secret = true))
         type("hunter2")
         engine.perform(KeyAction.Lang)
         type("rk")
         assertEquals("", listener.preedit)
         assertEquals("", engine.preedit)
-        assertTrue(engine.typedSegments.isEmpty())
         assertEquals("hunter2", editor.text.toString())
     }
 

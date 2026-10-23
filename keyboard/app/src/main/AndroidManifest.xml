@@ -46,5 +46,10 @@
             android:name=".settings.OffsetMapActivity"
             android:exported="false"
             android:label="@string/offsets_title" />
+
+        <activity
+            android:name=".settings.HeatmapActivity"
+            android:exported="false"
+            android:label="@string/heat_title" />
     </application>
 </manifest>

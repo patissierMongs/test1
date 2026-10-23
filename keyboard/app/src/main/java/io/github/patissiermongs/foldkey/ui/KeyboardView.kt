@@ -23,6 +23,7 @@ import io.github.patissiermongs.foldkey.engine.ModState
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.input.OffsetModel
+import io.github.patissiermongs.foldkey.input.TapHeat
 import io.github.patissiermongs.foldkey.input.TouchParams
 import io.github.patissiermongs.foldkey.input.TouchSink
 import io.github.patissiermongs.foldkey.input.TouchTracker
@@ -55,7 +56,9 @@ class KeyboardView(
     private var offsetSlot = ""
     private var offsetsDirty = false
     private var offsetsEpoch = -1
-    private val samples = ArrayDeque<Triple<Key, Float, Float>>()
+    private var heat = TapHeat()
+    private var heatDirty = false
+    private val samples = ArrayDeque<Tap>()
     private var lastFireTime = Long.MIN_VALUE / 2
     private var lastWasBackspace = false
     private val active = LinkedHashMap<Int, Pair<Key, Gesture>>()
@@ -69,7 +72,6 @@ class KeyboardView(
     private var currentKind = LayoutKind.FULL
     private var lastDetent = 0L
     private val echoes = ArrayDeque<String>()
-    private var editorLine = ""
     private var clipPointer = -1
     private var clipIndex = -1
     private var clipDownText: String? = null
@@ -117,15 +119,6 @@ class KeyboardView(
 
     private val fnOn: Boolean get() = engine.modifiers.isActive(Modifier.FN)
 
-    var showSwitchKey: Boolean = true
-        set(value) {
-            if (field != value) {
-                field = value
-                layoutStrip()
-                invalidate()
-            }
-        }
-
     var showEditCommands: Boolean = true
         set(value) {
             if (field != value) {
@@ -148,8 +141,6 @@ class KeyboardView(
 
     val hasPanel: Boolean get() = width > 0 && geometry().panel.isNotEmpty()
 
-    internal val shownEditorLine: String get() = editorLine
-
     internal val clipSlots: List<Box> get() = clipBoxes(geometry().panel)
 
     internal val openClipMenu: String? get() = clipMenu
@@ -157,13 +148,6 @@ class KeyboardView(
     internal val clipOffset: Int get() = clipScroll
 
     internal fun stripBox(command: Command): Box? = stripButtons.firstOrNull { it.second == command }?.first
-
-    fun setEditorLine(text: String) {
-        if (editorLine != text) {
-            editorLine = text
-            invalidate()
-        }
-    }
 
     fun reload() {
         palette = Palette.of(resources.configuration)
@@ -178,6 +162,10 @@ class KeyboardView(
         if (offsetsDirty && offsetSlot.isNotEmpty()) {
             prefs.saveOffsets(offsetSlot, offsets.serialize())
             offsetsDirty = false
+        }
+        if (heatDirty && offsetSlot.isNotEmpty()) {
+            prefs.saveHeat(offsetSlot, heat.serialize())
+            heatDirty = false
         }
     }
 
@@ -248,7 +236,7 @@ class KeyboardView(
         val kind = layoutKind(width)
         val lift = liftPx(kind)
         rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
-        val panelWanted = kind == LayoutKind.SPLIT && (prefs.centerEcho || prefs.centerClipboard)
+        val panelWanted = kind == LayoutKind.SPLIT && prefs.centerClipboard
         val spec = LayoutBuilder.spec(
             prefs, kind, layer, width.toFloat(), pxPerMmX, pxPerMmY, stripHeightPx, rowMm,
             bottomPx = bottomInset.toFloat(),
@@ -265,7 +253,7 @@ class KeyboardView(
             cursorRowStepPx = CURSOR_ROW_STEP_MM * pxPerMmY,
             longPressMs = prefs.longPressMs,
             longPressRepeats = prefs.longPressAction == Prefs.LONG_PRESS_REPEAT,
-            selectHoldMs = prefs.longPressMs.takeIf { it > 0L } ?: SELECT_HOLD_MS,
+            holdMs = prefs.longPressMs.takeIf { it > 0L } ?: HOLD_MS,
         )
         val slot = offsetSlot(kind, layer, width.toFloat(), pxPerMmX)
         if (slot != offsetSlot || offsets.zones != g.zoneCount) {
@@ -273,6 +261,12 @@ class KeyboardView(
             offsets = OffsetModel(g.zoneCount)
             offsets.load(prefs.offsets(slot))
             offsetSlot = slot
+            heat = TapHeat.parse(prefs.heat(slot), prefs.layoutSignature)
+            heatDirty = false
+        } else if (heat.signature != prefs.layoutSignature) {
+            saveState()
+            heat = TapHeat(prefs.layoutSignature)
+            heatDirty = false
         }
         currentKind = kind
         layoutStrip()
@@ -284,11 +278,7 @@ class KeyboardView(
     private fun layoutStrip() {
         stripButtons.clear()
         val h = stripHeightPx
-        val commands = Layouts.stripCommands.filter {
-            !(it == Command.SWITCH_IME && !showSwitchKey) &&
-                !(it == Command.TOGGLE_SPLIT && currentKind == LayoutKind.COMPACT) &&
-                !(it in EDIT_COMMANDS && !showEditCommands)
-        }
+        val commands = Layouts.stripCommands.filter { it !in EDIT_COMMANDS || showEditCommands }
         val available = width - SIDE_MM * pxPerMmX - STRIP_STATUS_MM * pxPerMmX
         val w = min(STRIP_BUTTON_MM * pxPerMmX, available / commands.size)
         var right = width - SIDE_MM * pxPerMmX
@@ -375,11 +365,10 @@ class KeyboardView(
             val text = when (cmd) {
                 Command.SELECT_ALL -> context.getString(R.string.strip_select_all)
                 Command.COPY -> context.getString(R.string.strip_copy)
+                Command.CUT -> context.getString(R.string.strip_cut)
                 Command.PASTE -> context.getString(R.string.strip_paste)
-                Command.TOGGLE_SPLIT -> context.getString(if (currentKind == LayoutKind.SPLIT) R.string.strip_full else R.string.strip_split)
                 Command.SETTINGS -> context.getString(R.string.strip_settings)
                 Command.HIDE -> context.getString(R.string.strip_hide)
-                Command.SWITCH_IME -> context.getString(R.string.strip_switch)
                 Command.TOGGLE_LAYER -> layerLabel()
             }
             label.color = if (stripPointer >= 0 && stripCommand == cmd) palette.accent else palette.hint
@@ -391,18 +380,12 @@ class KeyboardView(
         }
     }
 
-    private class Run(val text: String, val color: Int, val underline: Boolean = false)
-
-    private class Cell(val glyph: String, val color: Int, val underline: Boolean, val width: Float)
-
     private fun clipBoxes(panel: List<Box>): List<Box> {
         if (!prefs.centerClipboard || panel.isEmpty()) return emptyList()
-        return panel.take(if (prefs.centerEcho) CLIP_ROWS else panel.size - 1)
-    }
-
-    private fun echoBoxes(panel: List<Box>): List<Box> {
-        if (!prefs.centerEcho) return emptyList()
-        return if (prefs.centerClipboard) panel.drop(CLIP_ROWS) else panel
+        return panel.dropLast(1).flatMap { b ->
+            val h = b.height / CLIP_SLOTS_PER_ROW
+            List(CLIP_SLOTS_PER_ROW) { i -> Box(b.left, b.top + i * h, b.right, b.top + (i + 1) * h) }
+        }
     }
 
     private fun clipAt(x: Float, y: Float): Int {
@@ -481,8 +464,6 @@ class KeyboardView(
             }
             if (clips.size > boxes.size) drawClipScrollbar(canvas, boxes, clips.size, inset)
         }
-        val echo = echoBoxes(panel)
-        if (echo.isNotEmpty()) drawEcho(canvas, echo)
     }
 
     private fun drawClipMenu(canvas: Canvas, clip: Clip, inset: Float, radius: Float) {
@@ -546,92 +527,6 @@ class KeyboardView(
         canvas.drawText(shown, x, centerY - (paint.descent() + paint.ascent()) / 2f, paint)
     }
 
-    private fun echoRuns(): List<Run> {
-        val ctx = engine.context
-        val runs = ArrayList<Run>()
-        if (ctx.raw) {
-            if (prefs.terminalEcho) {
-                for (seg in engine.typedSegments) {
-                    runs.add(if (seg.token) Run(" ${seg.display} ", palette.hint) else Run(seg.display, palette.text))
-                }
-            }
-            val pre = engine.preedit
-            if (pre.isNotEmpty()) runs.add(Run(pre, palette.accent, underline = true))
-        } else if (!ctx.secret) {
-            val line = editorLine.trimStart()
-            val composing = engine.composingText
-            if (composing.isNotEmpty() && line.endsWith(composing)) {
-                runs.add(Run(line.dropLast(composing.length), palette.text))
-                runs.add(Run(composing, palette.accent, underline = true))
-            } else {
-                runs.add(Run(line, palette.text))
-            }
-        }
-        return runs
-    }
-
-    private fun wrapTail(runs: List<Run>, paint: Paint, widths: List<Float>): List<List<Cell>> {
-        val cells = ArrayList<Cell>()
-        for (r in runs) {
-            var i = 0
-            while (i < r.text.length) {
-                val n = Character.charCount(r.text.codePointAt(i))
-                val g = r.text.substring(i, i + n)
-                cells.add(Cell(g, r.color, r.underline, paint.measureText(g)))
-                i += n
-            }
-        }
-        val lines = ArrayDeque<List<Cell>>()
-        var current = ArrayList<Cell>()
-        var w = 0f
-        for (k in cells.indices.reversed()) {
-            val c = cells[k]
-            if (w + c.width > widths[lines.size] && current.isNotEmpty()) {
-                lines.addFirst(current.asReversed().toList())
-                if (lines.size == widths.size) return lines.toList()
-                current = ArrayList()
-                w = 0f
-            }
-            current.add(c)
-            w += c.width
-        }
-        if (current.isNotEmpty()) lines.addFirst(current.asReversed().toList())
-        return lines.toList()
-    }
-
-    private fun drawEcho(canvas: Canvas, boxes: List<Box>) {
-        val inset = GAP_MM * pxPerMmX
-        label.textAlign = Paint.Align.LEFT
-        label.typeface = Typeface.MONOSPACE
-        label.textSize = ECHO_TEXT_MM * pxPerMmY
-        val lineH = label.textSize * 1.35f
-        val caretW = 0.3f * pxPerMmX
-        val slots = ArrayList<Pair<Box, Float>>()
-        for (b in boxes.asReversed()) {
-            val bottomLine = b.bottom - inset - label.descent()
-            repeat(max(1, ((b.height - inset) / lineH).toInt())) { k -> slots.add(b to bottomLine - k * lineH) }
-        }
-        val lines = wrapTail(echoRuns(), label, slots.map { it.first.width - 2f * inset - 2f * caretW })
-        val last = slots[0].second
-        var x = slots[0].first.left + inset
-        for ((k, line) in lines.withIndex()) {
-            val (box, baseline) = slots[lines.size - 1 - k]
-            x = box.left + inset
-            for (c in line) {
-                label.color = c.color
-                canvas.drawText(c.glyph, x, baseline, label)
-                if (c.underline) {
-                    fill.color = c.color
-                    canvas.drawRect(x, baseline + label.descent() * 0.4f, x + c.width, baseline + label.descent() * 0.4f + 0.25f * pxPerMmY, fill)
-                }
-                x += c.width
-            }
-        }
-        fill.color = palette.accent
-        canvas.drawRect(x + caretW, last + label.ascent() * 0.9f, x + 2f * caretW, last + label.descent() * 0.6f, fill)
-        label.typeface = Typeface.DEFAULT
-    }
-
     private fun drawKey(canvas: Canvas, key: Key, pressed: Boolean, selecting: Boolean) {
         val def = key.def
         val face = key.face
@@ -663,6 +558,7 @@ class KeyboardView(
         val state = labelState()
         val main = KeyLabels.main(def, state)
         val bottom = KeyLabels.bottom(def, state)
+        val latin = KeyLabels.latin(def, state)
         val single = main.codePointCount(0, main.length) <= 1
         label.color = fg
         label.textAlign = Paint.Align.CENTER
@@ -670,7 +566,7 @@ class KeyboardView(
         label.textSize = if (single) face.height * 0.44f else face.height * 0.28f
         val maxWidth = face.width * 0.86f
         if (label.measureText(main) > maxWidth) label.textSize *= maxWidth / label.measureText(main)
-        val cy = face.centerY + face.height * (if (bottom != null && def.downLabel != null) -0.03f else 0.06f)
+        val cy = face.centerY + face.height * (if (bottom != null) -0.03f else 0.06f)
         canvas.drawText(main, face.centerX, cy - (label.descent() + label.ascent()) / 2f, label)
 
         hint.color = if (fg == palette.text) palette.hint else fg
@@ -682,10 +578,12 @@ class KeyboardView(
             canvas.drawText(top, face.right - face.width * 0.1f, face.top + face.height * 0.26f, hint)
         }
         if (bottom != null) {
-            val latin = def.downLabel == null
-            hint.textAlign = if (latin) Paint.Align.RIGHT else Paint.Align.LEFT
-            val hx = if (latin) face.right - face.width * 0.1f else face.left + face.width * 0.1f
-            canvas.drawText(bottom, hx, face.bottom - face.height * 0.1f, hint)
+            hint.textAlign = Paint.Align.LEFT
+            canvas.drawText(bottom, face.left + face.width * 0.1f, face.bottom - face.height * 0.1f, hint)
+        }
+        if (latin != null) {
+            hint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(latin, face.right - face.width * 0.1f, face.bottom - face.height * 0.1f, hint)
         }
         if (def.style == KeyStyle.SPACE && main.isEmpty()) {
             fill.color = if (fg == palette.text) palette.hint else fg
@@ -696,12 +594,11 @@ class KeyboardView(
 
     private fun labelState(): LabelState = LabelState(
         lang = engine.lang,
-        shiftLetters = engine.modifiers.shiftForLetters(),
-        shiftSymbols = engine.modifiers.shiftForSymbols(),
+        shiftText = engine.modifiers.shiftForText(),
+        shiftJamo = engine.modifiers.shiftHeldOrOnce(),
         fn = engine.modifiers.isActive(Modifier.FN),
         latinHints = prefs.latinHints,
         swipeDownCtrl = prefs.swipeDownCtrl,
-        layerLabel = layerLabel(),
     )
 
     private fun layerLabel(): String =
@@ -804,7 +701,9 @@ class KeyboardView(
                     stripCommand = null
                     if (cmd != null && cmd == hitCmd) {
                         tracker.flushPending(t)
+                        val layer = engine.layer
                         engine.perform(KeyAction.Cmd(cmd))
+                        if (engine.layer != layer) reload()
                     }
                 } else {
                     tracker.up(id, event.getX(i), event.getY(i), t)
@@ -921,8 +820,8 @@ class KeyboardView(
     override fun cursorEnd() = engine.endCursorMove()
 
     override fun sample(key: Key, x: Float, y: Float) {
-        if (!prefs.adaptive || key.def.style != KeyStyle.NORMAL || key.ghost || key.pad) return
-        samples.addLast(Triple(key, x, y))
+        if (key.def.style != KeyStyle.NORMAL || key.ghost || key.pad) return
+        samples.addLast(Tap(key, x, y, engine.context.secret))
         while (samples.size > SAMPLE_DELAY) learn(samples.removeFirst())
     }
 
@@ -933,18 +832,20 @@ class KeyboardView(
         samples.clear()
         offsets = OffsetModel(offsets.zones).also { if (offsetSlot.isNotEmpty()) it.load(prefs.offsets(offsetSlot)) }
         offsetsDirty = false
+        heat = TapHeat.parse(if (offsetSlot.isEmpty()) null else prefs.heat(offsetSlot), prefs.layoutSignature)
+        heatDirty = false
     }
 
-    private fun learn(sample: Triple<Key, Float, Float>) {
-        val (key, x, y) = sample
-        val added = offsets.add(
-            key.zone,
-            (x - key.face.centerX) / pxPerMmX,
-            (y - key.face.centerY) / pxPerMmY,
-            key.touch.width / pxPerMmX,
-            rowMm,
-        )
-        if (added) offsetsDirty = true
+    private class Tap(val key: Key, val x: Float, val y: Float, val secret: Boolean)
+
+    private fun learn(tap: Tap) {
+        val key = tap.key
+        val dx = (tap.x - key.face.centerX) / pxPerMmX
+        val dy = (tap.y - key.face.centerY) / pxPerMmY
+        if (prefs.adaptive && offsets.add(key.zone, dx, dy, key.touch.width / pxPerMmX, rowMm)) offsetsDirty = true
+        val c = (key.def.action as? KeyAction.Char)?.base ?: return
+        val halfWidth = (key.face.width / pxPerMmX + GAP_MM) / 2f
+        if (!tap.secret && heat.add(c, dx, dy, halfWidth, rowMm / 2f)) heatDirty = true
     }
 
     private fun physicalDpi(horizontal: Boolean): Float = Dpi.physical(resources.displayMetrics, horizontal)
@@ -961,26 +862,28 @@ class KeyboardView(
         const val MAX_UNIT_MM = 11.5f
         const val GHOST_UNITS = 1f
         const val PANEL_MIN_MM = 12f
-        const val CLIP_ROWS = 2
+        const val CLIP_SLOTS_PER_ROW = 2
         const val CLIP_TEXT_MM = 2.3f
         const val CLIP_DRAG_MM = 2.0f
         const val CLIP_BAR_MM = 0.6f
         const val CLIP_LONG_PRESS_MS = 400L
-        const val SELECT_HOLD_MS = 400L
+        const val HOLD_MS = 400L
         const val SPLIT_SLOT_SUFFIX = "_ansi"
 
-        fun offsetSlot(kind: LayoutKind, layer: Layer, widthPx: Float, pxPerMmX: Float): String {
+        fun offsetSlot(kind: LayoutKind, layer: Layer, widthPx: Float, pxPerMmX: Float): String =
+            slotName(kind, layer, (widthPx / pxPerMmX).toInt())
+
+        fun slotName(kind: LayoutKind, layer: Layer, widthMm: Int): String {
             val suffix = when {
                 layer == Layer.GENERAL -> GENERAL_SLOT_SUFFIX
                 kind == LayoutKind.SPLIT -> SPLIT_SLOT_SUFFIX
                 else -> ""
             }
-            return "${kind.name.lowercase()}${suffix}_${(widthPx / pxPerMmX).toInt()}mm"
+            return "${kind.name.lowercase()}${suffix}_${widthMm}mm"
         }
         const val GENERAL_SLOT_SUFFIX = "_general"
         const val PIN_MARK = "📌 "
-        val EDIT_COMMANDS = setOf(Command.SELECT_ALL, Command.COPY)
-        const val ECHO_TEXT_MM = 2.6f
+        val EDIT_COMMANDS = setOf(Command.SELECT_ALL, Command.COPY, Command.CUT)
         const val PREVIEW_CHARS = 200
         const val SWIPE_MM = 4.0f
         const val CURSOR_START_MM = 3.0f

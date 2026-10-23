@@ -1,8 +1,8 @@
 package io.github.patissiermongs.foldkey.engine
 
-enum class Modifier(val latches: Boolean = false) { SHIFT, CTRL, ALT, FN(latches = true) }
+enum class Modifier(val latches: Boolean = false) { SHIFT, CTRL, ALT(latches = true), FN(latches = true) }
 
-enum class Command { SETTINGS, SWITCH_IME, HIDE, PASTE, TOGGLE_SPLIT, SELECT_ALL, COPY, TOGGLE_LAYER }
+enum class Command { SETTINGS, HIDE, PASTE, SELECT_ALL, COPY, CUT, TOGGLE_LAYER }
 
 enum class Layer { CODE, GENERAL }
 
@@ -24,6 +24,8 @@ sealed interface KeyAction {
     data object EscCtrl : KeyAction
 
     data object Lang : KeyAction
+
+    data object RemoteLang : KeyAction
 
     data object Enter : KeyAction
 

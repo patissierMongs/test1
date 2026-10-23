@@ -15,13 +15,13 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.EditText
+import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.UsKeyMap
 import io.github.patissiermongs.foldkey.layout.Box
-import io.github.patissiermongs.foldkey.layout.Layouts
 import io.github.patissiermongs.foldkey.settings.KeyEchoView
 import io.github.patissiermongs.foldkey.ui.KeyboardView
 import org.junit.Assert.assertEquals
@@ -165,9 +165,9 @@ class ServiceInputTest {
     }
 
     @Test
-    fun passwordFieldOfATerminalAppIsNotRecorded() {
+    fun passwordFieldOfATerminalAppIsRawAndSecret() {
         val service = Robolectric.setupService(FoldKeyService::class.java)
-        Prefs(service).sp.edit().clear().putBoolean(Prefs.TERMINAL_ECHO, true).commit()
+        Prefs(service).sp.edit().clear().commit()
         service.onCreateInputView()
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val edit = EditText(activity)
@@ -184,7 +184,7 @@ class ServiceInputTest {
         "hunter2".forEach { engine.perform(ch(it)) }
         idle()
         assertEquals("hunter2", edit.text.toString())
-        assertTrue(engine.typedSegments.isEmpty())
+        assertEquals("", engine.preedit)
         service.onDestroy()
     }
 
@@ -214,7 +214,7 @@ class ServiceInputTest {
             false,
         )
         idle()
-        assertEquals(2, view.clipSlots.size)
+        assertEquals(8, view.clipSlots.size)
         assertEquals(emptyList<String>(), view.clipSource().map { it.text })
         shadowOf(km).setKeyguardLocked(false)
         shadowOf(km).setIsDeviceLocked(false)
@@ -232,7 +232,7 @@ class ServiceInputTest {
         fun codeKeys() = view.layoutKeys.any { it.def.action == KeyAction.EscCtrl }
         service.onStartInputView(chat, false)
         assertTrue(codeKeys())
-        val layer = view.layoutKeys.single { it.def.action == Layouts.LAYER_TOGGLE }.face
+        val layer = view.stripBox(Command.TOGGLE_LAYER)!!
         val t = SystemClock.uptimeMillis()
         touch(view, MotionEvent.ACTION_DOWN, layer, t)
         touch(view, MotionEvent.ACTION_UP, layer, t + 40)

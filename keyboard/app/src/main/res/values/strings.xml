@@ -5,10 +5,8 @@
 
     <string name="strip_select_all">Select all</string>
     <string name="strip_copy">Copy</string>
+    <string name="strip_cut">Cut</string>
     <string name="strip_paste">Paste</string>
-    <string name="strip_split">Split</string>
-    <string name="strip_full">Full</string>
-    <string name="strip_switch">IME</string>
     <string name="strip_settings">Settings</string>
     <string name="strip_hide">Hide</string>
     <string name="key_layer_general">Text</string>
@@ -74,8 +72,6 @@
     <string name="pref_clip_count">Clipboard history items</string>
     <string name="pref_clip_hours">Keep copied text for</string>
     <string name="hours_value">%1$d h</string>
-    <string name="pref_center_echo">Show the text before the cursor (not in password fields)</string>
-    <string name="pref_terminal_echo">Also show what you type in terminals (passwords typed at prompts become visible)</string>
     <string name="pref_split_lift">Raise the split halves from the bottom edge</string>
     <string name="pref_side_left">Distance from the left edge</string>
     <string name="pref_side_right">Distance from the right edge</string>
@@ -119,6 +115,39 @@
         <item quantity="one">%1$d sample · mean offset from key centres: x %2$+.1f mm (+ is right), y %3$+.1f mm (+ is down)</item>
         <item quantity="other">%1$d samples · mean offset from key centres: x %2$+.1f mm (+ is right), y %3$+.1f mm (+ is down)</item>
     </plurals>
+    <string name="heat_view">Touch heatmap and placement suggestion</string>
+    <string name="heat_title">Touch heatmap</string>
+    <string name="heat_intro">Where your taps land, gathered per key and drawn darker where you tap more (lighter in the dark theme). When the colour gathers away from the + at a key centre, you tend to tap on that side. Password fields are not recorded, and the map starts over when the key size or position settings change. From the mean offset of each thumb the page suggests where to move the halves; applying it also corrects the learned touch offsets by the same amount.</string>
+    <string name="heat_empty">No taps gathered yet. Type a few sentences with the keyboard.</string>
+    <plurals name="heat_taps">
+        <item quantity="one">%1$d tap</item>
+        <item quantity="other">%1$d taps</item>
+    </plurals>
+    <plurals name="heat_thumb">
+        <item quantity="one">%1$s thumb: %2$d tap, x %3$+.1f mm, y %4$+.1f mm from the key centres (+ is right and down)</item>
+        <item quantity="other">%1$s thumb: %2$d taps, x %3$+.1f mm, y %4$+.1f mm from the key centres (+ is right and down)</item>
+    </plurals>
+    <string name="heat_split_only">Placement suggestions are made for the split layout only.</string>
+    <plurals name="heat_more_taps">
+        <item quantity="one">A suggestion needs at least %3$d tap per thumb (now left %1$d, right %2$d).</item>
+        <item quantity="other">A suggestion needs at least %3$d taps per thumb (now left %1$d, right %2$d).</item>
+    </plurals>
+    <string name="heat_advice">Suggested from where your taps gather:</string>
+    <string name="heat_step">• %1$s</string>
+    <string name="heat_left_right">Move the left half %1$.1f mm right (left side distance %2$.1f → %3$.1f mm)</string>
+    <string name="heat_left_left">Move the left half %1$.1f mm left (left side distance %2$.1f → %3$.1f mm)</string>
+    <string name="heat_right_right">Move the right half %1$.1f mm right (right side distance %2$.1f → %3$.1f mm)</string>
+    <string name="heat_right_left">Move the right half %1$.1f mm left (right side distance %2$.1f → %3$.1f mm)</string>
+    <string name="heat_raise">Raise both halves %1$.1f mm (raise %2$.1f → %3$.1f mm, shared by both layers)</string>
+    <string name="heat_lower">Lower both halves %1$.1f mm (raise %2$.1f → %3$.1f mm, shared by both layers)</string>
+    <string name="heat_keep">No need to move the halves: the mean offsets are under 0.3 mm or within the measurement error.</string>
+    <string name="heat_limit_left">The left half cannot move further that way (screen edge or setting limit).</string>
+    <string name="heat_limit_right">The right half cannot move further that way (screen edge or setting limit).</string>
+    <string name="heat_limit_lift">The halves cannot move further up or down that way (bottom edge or setting limit).</string>
+    <string name="heat_apply">Move as suggested</string>
+    <string name="heat_reset">Clear this heatmap</string>
+    <string name="heat_legend_low">fewer taps</string>
+    <string name="heat_legend_high">more taps (%1$.1f per mm²)</string>
     <string name="typing_title">Typing calibration</string>
     <string name="typing_intro">Hold the device as usual and type the text shown above on the keyboard below. If another key registers, the text does not advance; press the right key again. How far your taps land from the intended keys sets the touch corrections and the key size of each layer. A round is 60 characters; if the keys must grow, you type one more round at the new size (up to 3 rounds per layer).</string>
     <string name="typing_status">%1$s · round %2$d · %3$d/%4$d · hits %5$d%%</string>

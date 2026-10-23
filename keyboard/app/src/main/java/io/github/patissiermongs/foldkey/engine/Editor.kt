@@ -20,6 +20,8 @@ interface Editor {
 
     fun sendKey(keyCode: Int, meta: Int)
 
+    fun sendBareKey(keyCode: Int)
+
     fun performEditorAction(action: Int)
 
     fun paste(raw: Boolean)
@@ -27,6 +29,8 @@ interface Editor {
     fun selectAll()
 
     fun copy()
+
+    fun cut()
 
     fun beginBatch() {}
 

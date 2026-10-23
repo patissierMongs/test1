@@ -14,6 +14,10 @@ object Layouts {
 
     private fun ch(c: Char, width: Float = 1f) = KeyDef(KeyAction.Char(c, UsKeyMap.shiftedOf(c)), width = width)
 
+    const val PUNCT_UNITS = 0.75f
+
+    private fun punct(c: Char) = ch(c, PUNCT_UNITS)
+
     private fun fkey(c: Char, f: Int) = KeyDef(
         KeyAction.Char(c, UsKeyMap.shiftedOf(c)),
         down = code(KeyEvent.KEYCODE_F1 + f - 1),
@@ -40,11 +44,8 @@ object Layouts {
 
     private fun space(width: Float) = KeyDef(KeyAction.Space, width = width, label = "", style = KeyStyle.SPACE)
 
-    private fun lang(width: Float) = KeyDef(KeyAction.Lang, width = width, label = "한/A", style = KeyStyle.MOD)
-
-    val LAYER_TOGGLE = KeyAction.Cmd(Command.TOGGLE_LAYER)
-
-    private fun layerKey(width: Float) = KeyDef(LAYER_TOGGLE, width = width, style = KeyStyle.MOD)
+    private fun lang(width: Float) =
+        KeyDef(KeyAction.Lang, width = width, label = "한/A", long = KeyAction.RemoteLang, style = KeyStyle.MOD)
 
     private fun arrow(keyCode: Int, label: String, alt: Int, altLabel: String) =
         KeyDef(code(keyCode), label = label, up = code(alt), upLabel = altLabel, repeat = true, style = KeyStyle.NAV)
@@ -66,33 +67,32 @@ object Layouts {
                 mod(Modifier.CTRL, "Ctrl", 1.5f),
                 mod(Modifier.ALT, "Alt", 1.25f),
                 mod(Modifier.FN, "Fn", 1.25f),
-                layerKey(1.25f),
                 lang(1.25f),
-                space(4.5f),
+                space(5.75f),
             ) + arrows()
         ),
     )
 
     val split: List<SplitRow> = listOf(
         SplitRow(
-            RowDef(listOf(ch('`')) + digits(1..6)),
-            RowDef(digits(7..10) + listOf(fkey('-', 11), fkey('=', 12), ch('\\'))),
+            RowDef(listOf(punct('`')) + digits(1..6)),
+            RowDef(digits(7..10) + listOf(fkey('-', 11), fkey('=', 12), punct('\\'))),
         ),
         SplitRow(
-            RowDef(listOf(tab(1.5f)) + letters("qwert")),
-            RowDef(letters("yuiop[]") + backspace(1f)),
+            RowDef(listOf(tab(1f)) + letters("qwert")),
+            RowDef(letters("yuiop") + listOf(punct('['), punct(']'), backspace(1f))),
         ),
         SplitRow(
-            RowDef(listOf(escCtrl(1.75f)) + letters("asdfg")),
-            RowDef(letters("hjkl;'") + enter(1.75f)),
+            RowDef(listOf(escCtrl(1.25f)) + letters("asdfg")),
+            RowDef(letters("hjkl") + listOf(punct(';'), punct('\''), enter(1.25f))),
         ),
         SplitRow(
-            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcvb")),
-            RowDef(letters("nm,./") + mod(Modifier.SHIFT, "⇧", 2.25f)),
+            RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.75f)) + letters("zxcv")),
+            RowDef(letters("bnm") + listOf(punct(','), punct('.'), punct('/'), mod(Modifier.SHIFT, "⇧", 1.25f))),
         ),
         SplitRow(
-            RowDef(listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), layerKey(1f), space(2.5f))),
-            RowDef(listOf(space(3f), lang(1f)) + arrows()),
+            RowDef(listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), lang(1f), space(2.25f))),
+            RowDef(listOf(space(2.25f)) + arrows()),
         ),
     )
 
@@ -109,7 +109,7 @@ object Layouts {
         RowDef(letters("asdfghjkl") + enter(1f)),
         RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcvbnm") + backspace(1.5f)),
         RowDef(
-            listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), layerKey(1f), lang(1f), space(2f)) +
+            listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), lang(1f), space(3f)) +
                 letters(",./")
         ),
     )
@@ -131,22 +131,31 @@ object Layouts {
 
     private fun proseComma() = prose(',', '!')
 
+    val GENERAL_DOWN_SYMBOLS: Map<Char, Char> = mapOf(
+        'q' to '`', 'w' to '\\', 'e' to '|', 't' to '[', 'y' to ']', 'u' to '<', 'i' to '>', 'o' to '{', 'p' to '}',
+    )
+
+    private fun proseLetters(s: String) = s.map { c ->
+        val symbol = GENERAL_DOWN_SYMBOLS[c] ?: return@map ch(c)
+        KeyDef(KeyAction.Char(c, UsKeyMap.shiftedOf(c)), down = KeyAction.Char(symbol, symbol), downLabel = symbol.toString())
+    }
+
     private fun prosePeriod() = prose('.', '?')
 
     val general: List<RowDef> = listOf(
         RowDef(proseDigits(1..10)),
-        RowDef(letters("qwertyuiop")),
+        RowDef(proseLetters("qwertyuiop")),
         RowDef(letters("asdfghjkl")),
         RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcvbnm") + backspace(1.5f)),
-        RowDef(listOf(layerKey(1.5f), lang(1f), space(4f), proseComma(), prosePeriod(), enter(1.5f))),
+        RowDef(listOf(lang(1.5f), space(5f), proseComma(), prosePeriod(), enter(1.5f))),
     )
 
     val generalSplit: List<SplitRow> = listOf(
         SplitRow(RowDef(proseDigits(1..5)), RowDef(proseDigits(6..10))),
-        SplitRow(RowDef(letters("qwert")), RowDef(letters("yuiop"))),
-        SplitRow(RowDef(letters("asdfg"), indent = 0.5f), RowDef(letters("hjkl"))),
-        SplitRow(RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcv")), RowDef(letters("bnm") + backspace(1.5f))),
-        SplitRow(RowDef(listOf(layerKey(1f), lang(1f), space(3f))), RowDef(listOf(space(2f), proseComma(), prosePeriod(), enter(1f)))),
+        SplitRow(RowDef(proseLetters("qwert"), indent = 0.5f), RowDef(proseLetters("yuiop"))),
+        SplitRow(RowDef(letters("asdfg"), indent = 0.75f), RowDef(letters("hjkl"))),
+        SplitRow(RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.25f)) + letters("zxcv")), RowDef(letters("bnm") + backspace(1.5f))),
+        SplitRow(RowDef(listOf(lang(1f), space(4f))), RowDef(listOf(space(2f), proseComma(), prosePeriod(), enter(1f)))),
     )
 
     val generalSplitUnits: Float = generalSplit.maxOf { it.left.span + it.right.span }
@@ -192,9 +201,9 @@ object Layouts {
     val stripCommands = listOf(
         Command.SELECT_ALL,
         Command.COPY,
+        Command.CUT,
         Command.PASTE,
-        Command.TOGGLE_SPLIT,
-        Command.SWITCH_IME,
+        Command.TOGGLE_LAYER,
         Command.SETTINGS,
         Command.HIDE,
     )

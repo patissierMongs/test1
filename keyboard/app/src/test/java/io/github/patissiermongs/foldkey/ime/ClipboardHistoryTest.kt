@@ -103,10 +103,33 @@ class ClipboardHistoryTest {
     fun restoredPinsSkipBlankDuplicateAndExtraEntries() {
         val h = ClipboardHistory(maxChars = 5, pinLimit = 2)
         h.add("b", 0)
-        h.restorePins(listOf(" ", "b", "b", "123456", "c", "d"))
+        h.restore(listOf(" ", "b", "b", "123456", "c", "d").map { ClipboardHistory.Entry(it, 0L, pinned = true) }, 1)
         assertEquals(listOf("b", "c"), h.pinned)
         assertEquals(listOf("b", "c"), h.items(1).map { it.text })
         h.clearRecent()
         assertEquals(listOf("b", "c"), h.pinned)
+    }
+
+    @Test
+    fun restoredRecentClipsKeepTheirOrderAndAgeOut() {
+        val h = ClipboardHistory(capacity = 3, ttlMs = 100)
+        h.restore(
+            listOf(
+                ClipboardHistory.Entry("pin", 0L, pinned = true),
+                ClipboardHistory.Entry("future", 2000),
+                ClipboardHistory.Entry("new", 950),
+                ClipboardHistory.Entry("pin", 940),
+                ClipboardHistory.Entry("new", 930),
+                ClipboardHistory.Entry("mid", 920),
+                ClipboardHistory.Entry("old", 890),
+                ClipboardHistory.Entry("trimmed", 889),
+                ClipboardHistory.Entry("stale", 880),
+                ClipboardHistory.Entry(" ", 950),
+            ),
+            now = 985,
+        )
+        assertEquals(listOf("pin" to true, "new" to false, "mid" to false, "old" to false), h.items(985).map { it.text to it.pinned })
+        assertEquals(listOf("pin", "new"), h.items(1025).map { it.text })
+        assertEquals(h.items(1025), h.entries)
     }
 }

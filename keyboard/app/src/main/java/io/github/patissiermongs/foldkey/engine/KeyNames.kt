@@ -3,6 +3,8 @@ package io.github.patissiermongs.foldkey.engine
 import android.view.KeyEvent
 
 object KeyNames {
+    const val REMOTE_LANG = "한/영"
+
     fun code(keyCode: Int): String? = when (keyCode) {
         in KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12 -> "F${keyCode - KeyEvent.KEYCODE_F1 + 1}"
         KeyEvent.KEYCODE_MOVE_HOME -> "Home"

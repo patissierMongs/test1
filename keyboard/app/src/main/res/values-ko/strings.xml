@@ -4,10 +4,8 @@
 
     <string name="strip_select_all">모두 선택</string>
     <string name="strip_copy">복사</string>
+    <string name="strip_cut">잘라내기</string>
     <string name="strip_paste">붙여넣기</string>
-    <string name="strip_split">분할</string>
-    <string name="strip_full">전체</string>
-    <string name="strip_switch">전환</string>
     <string name="strip_settings">설정</string>
     <string name="strip_hide">숨김</string>
     <string name="key_layer_general">일반</string>
@@ -73,8 +71,6 @@
     <string name="pref_clip_count">복사 기록 개수</string>
     <string name="pref_clip_hours">복사 기록 보관 시간</string>
     <string name="hours_value">%1$d시간</string>
-    <string name="pref_center_echo">커서 앞 글자 표시 (비밀번호 입력창 제외)</string>
-    <string name="pref_terminal_echo">터미널에서 친 글자도 표시 (비밀번호 입력도 보임)</string>
     <string name="pref_split_lift">분할 반쪽을 화면 아래 끝에서 띄우는 높이</string>
     <string name="pref_side_left">화면 왼쪽 끝에서 띄우는 거리</string>
     <string name="pref_side_right">화면 오른쪽 끝에서 띄우는 거리</string>
@@ -117,6 +113,36 @@
     <plurals name="offsets_summary">
         <item quantity="other">표본 %1$d개 · 키 가운데에서 벗어난 평균: 가로 %2$+.1f mm(+는 오른쪽), 세로 %3$+.1f mm(+는 아래쪽)</item>
     </plurals>
+    <string name="heat_view">터치 히트맵과 배치 제안</string>
+    <string name="heat_title">터치 히트맵</string>
+    <string name="heat_intro">키를 누른 자리를 키마다 모아, 많이 누른 곳일수록 진하게 그린 지도입니다(어두운 테마에서는 밝게). 키 가운데의 + 표시에서 색이 한쪽으로 몰려 있으면 그쪽으로 누르는 버릇이 있다는 뜻입니다. 비밀번호 입력창은 기록하지 않고, 키 크기나 위치 설정이 바뀌면 새로 모읍니다. 엄지마다 평균적으로 어긋난 만큼 반쪽을 옮길 자리를 제안하고, 적용하면 학습한 터치 편차도 옮긴 만큼 고칩니다.</string>
+    <string name="heat_empty">아직 모은 탭이 없습니다. 키보드로 몇 문장을 치면 생깁니다.</string>
+    <plurals name="heat_taps">
+        <item quantity="other">탭 %1$d번</item>
+    </plurals>
+    <plurals name="heat_thumb">
+        <item quantity="other">%1$s 엄지: 탭 %2$d번, 키 가운데에서 가로 %3$+.1f mm, 세로 %4$+.1f mm (+는 오른쪽·아래쪽)</item>
+    </plurals>
+    <string name="heat_split_only">배치 제안은 분할 배열에서만 합니다.</string>
+    <plurals name="heat_more_taps">
+        <item quantity="other">제안하려면 엄지마다 탭이 %3$d번 이상 필요합니다 (지금 왼쪽 %1$d번, 오른쪽 %2$d번).</item>
+    </plurals>
+    <string name="heat_advice">탭이 몰린 자리에 맞춘 제안:</string>
+    <string name="heat_step">• %1$s</string>
+    <string name="heat_left_right">왼쪽 반쪽을 오른쪽으로 %1$.1f mm 옮기기 (왼쪽 끝에서 띄우는 거리 %2$.1f → %3$.1f mm)</string>
+    <string name="heat_left_left">왼쪽 반쪽을 왼쪽으로 %1$.1f mm 옮기기 (왼쪽 끝에서 띄우는 거리 %2$.1f → %3$.1f mm)</string>
+    <string name="heat_right_right">오른쪽 반쪽을 오른쪽으로 %1$.1f mm 옮기기 (오른쪽 끝에서 띄우는 거리 %2$.1f → %3$.1f mm)</string>
+    <string name="heat_right_left">오른쪽 반쪽을 왼쪽으로 %1$.1f mm 옮기기 (오른쪽 끝에서 띄우는 거리 %2$.1f → %3$.1f mm)</string>
+    <string name="heat_raise">두 반쪽을 %1$.1f mm 올리기 (아래 끝에서 띄우는 높이 %2$.1f → %3$.1f mm, 두 레이어 공통)</string>
+    <string name="heat_lower">두 반쪽을 %1$.1f mm 내리기 (아래 끝에서 띄우는 높이 %2$.1f → %3$.1f mm, 두 레이어 공통)</string>
+    <string name="heat_keep">반쪽을 옮길 필요가 없습니다. 평균 어긋남이 0.3 mm보다 작거나 측정 오차 안에 있습니다.</string>
+    <string name="heat_limit_left">왼쪽 반쪽은 그쪽으로 더 옮길 수 없습니다(화면 끝이나 설정 범위에 닿음).</string>
+    <string name="heat_limit_right">오른쪽 반쪽은 그쪽으로 더 옮길 수 없습니다(화면 끝이나 설정 범위에 닿음).</string>
+    <string name="heat_limit_lift">두 반쪽은 그쪽으로 더 올리거나 내릴 수 없습니다(아래 끝이나 설정 범위에 닿음).</string>
+    <string name="heat_apply">제안대로 옮기기</string>
+    <string name="heat_reset">이 히트맵 지우기</string>
+    <string name="heat_legend_low">적게 누른 곳</string>
+    <string name="heat_legend_high">많이 누른 곳 (1 mm²당 %1$.1f번)</string>
     <string name="typing_title">타이핑 보정</string>
     <string name="typing_intro">기기를 평소처럼 쥐고 위에 나온 글을 아래 키보드로 따라 쳐 주세요. 다른 키가 눌리면 글이 넘어가지 않으니 맞는 키를 다시 누르면 됩니다. 누른 자리가 노린 키에서 벗어난 거리를 재서 레이어마다 보정값과 키 크기를 정합니다. 한 회차는 글자 60개이고, 키를 키워야 하면 키운 크기로 한 회차를 더 칩니다(레이어마다 최대 3회차).</string>
     <string name="typing_status">%1$s · %2$d회차 · %3$d/%4$d · 적중 %5$d%%</string>

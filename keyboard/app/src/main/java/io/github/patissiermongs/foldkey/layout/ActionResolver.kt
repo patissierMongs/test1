@@ -10,8 +10,9 @@ object ActionResolver {
         val action = def.action
         return when (gesture) {
             Gesture.TAP, Gesture.REPEAT -> Resolved(action)
-            Gesture.UP, Gesture.LONG -> def.up?.let { Resolved(it) }
+            Gesture.UP -> def.up?.let { Resolved(it) }
                 ?: Resolved(action, forceShift = action is KeyAction.Char)
+            Gesture.LONG -> def.long?.let { Resolved(it) } ?: resolve(def, Gesture.UP, swipeDownCtrl)
             Gesture.DOWN -> def.down?.let { Resolved(it) }
                 ?: Resolved(action, forceCtrl = action is KeyAction.Char && swipeDownCtrl)
         }

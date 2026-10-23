@@ -14,7 +14,7 @@ data class TouchParams(
     val repeatDelayMs: Long = 400L,
     val repeatIntervalMs: Long = 50L,
     val verticalDominance: Float = 1.2f,
-    val selectHoldMs: Long = 400L,
+    val holdMs: Long = 400L,
     val rollMs: Long = 150L,
 )
 
@@ -91,8 +91,8 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                 sink.variant(id, key, Gesture.TAP)
             }
             else -> {
-                if (def.isSpace) {
-                    p.deadline = t + params.selectHoldMs
+                if (def.isSpace || def.long != null) {
+                    p.deadline = t + params.holdMs
                 } else if (params.longPressMs > 0 && def.hasVariants) {
                     p.deadline = t + params.longPressMs
                 }
@@ -175,7 +175,7 @@ class TouchTracker(private val sink: TouchSink, var params: TouchParams) {
                             p.sy = p.y
                             sink.variant(p.id, p.key, Gesture.LONG)
                         }
-                        p.repeatOnHold || params.longPressRepeats -> {
+                        p.key.def.long == null && (p.repeatOnHold || params.longPressRepeats) -> {
                             fire(p, Gesture.TAP, t)
                             p.mode = Mode.REPEAT
                             p.deadline = t + params.repeatIntervalMs

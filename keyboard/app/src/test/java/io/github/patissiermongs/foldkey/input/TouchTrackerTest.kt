@@ -29,7 +29,8 @@ class TouchTrackerTest {
         ),
         5,
     )
-    private val keys = listOf(a, b, shift, bs, space, arrow)
+    private val lang = key(KeyDef(KeyAction.Lang, long = KeyAction.RemoteLang), 6)
+    private val keys = listOf(a, b, shift, bs, space, arrow, lang)
 
     private class Sink(val keys: List<Key>) : TouchSink {
         val events = ArrayList<String>()
@@ -73,7 +74,7 @@ class TouchTrackerTest {
             cursorRowStepPx = 16f,
             longPressMs = longPress,
             longPressRepeats = repeats,
-            selectHoldMs = hold,
+            holdMs = hold,
         ),
     )
 
@@ -278,6 +279,34 @@ class TouchTrackerTest {
         t.up(0, 350f, 50f, 520)
         assertEquals(listOf(Gesture.TAP, Gesture.REPEAT, Gesture.REPEAT, Gesture.REPEAT), s.fired.map { it.second })
         assertNull(t.nextDeadline())
+    }
+
+    @Test
+    fun keyWithAHoldActionFiresItAfterTheHoldWhateverTheLongPressSetting() {
+        for ((longPress, repeats) in listOf(0L to false, 300L to true, 350L to false)) {
+            val s = Sink(keys)
+            val t = tracker(s, longPress = longPress, repeats = repeats, hold = 500L)
+            t.down(0, 650f, 50f, 0)
+            assertEquals(500L, t.nextDeadline())
+            t.tick(300)
+            t.tick(500)
+            t.tick(600)
+            t.up(0, 650f, 50f, 700)
+            assertEquals("$longPress $repeats", listOf("down:Lang", "fire:Lang:LONG@500", "hold:Lang"), s.events)
+        }
+    }
+
+    @Test
+    fun keyWithAHoldActionTapsWhenReleasedEarlyAndIgnoresSwipes() {
+        val s = Sink(keys)
+        val t = tracker(s, longPress = 350L, hold = 500L)
+        t.down(0, 650f, 50f, 0)
+        t.up(0, 650f, 50f, 200)
+        t.down(0, 650f, 90f, 300)
+        t.move(0, 650f, 10f, 350)
+        t.up(0, 650f, 10f, 400)
+        assertEquals(listOf(Gesture.TAP, Gesture.TAP), s.fired.map { it.second })
+        assertEquals(0, s.events.count { it.startsWith("hold") })
     }
 
     @Test

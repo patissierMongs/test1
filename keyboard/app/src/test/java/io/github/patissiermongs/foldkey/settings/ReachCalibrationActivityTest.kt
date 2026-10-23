@@ -70,8 +70,8 @@ class ReachCalibrationActivityTest {
         for (shift in listOf(0f, 0.6f, -0.5f)) scribble(zones, -1, 13.7f + shift, 47.5f + shift, 6.2f, 50.5f + shift)
         for (shift in listOf(0f, -0.4f, 0.7f)) scribble(zones, 1, 17.4f + shift, 52.2f + shift, 6.2f + shift, 50.5f)
         val status = views.filterIsInstance<TextView>().filter { it !is Button }.joinToString("\n") { it.text.toString() }
-        assertTrue(status, status.contains("code keys 4.3 mm"))
-        assertTrue(status, status.contains("text keys 6.1 mm"))
+        assertTrue(status, status.contains("code keys 4.4 mm"))
+        assertTrue(status, status.contains("text keys 5.8 mm"))
         assertTrue(next.isEnabled)
         val preview = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.reach_preview_code) }
         val dir = File("build/render").apply { mkdirs() }
@@ -88,7 +88,7 @@ class ReachCalibrationActivityTest {
         val z = started.getFloatArrayExtra(TypingCalibrationActivity.EXTRA_ZONES)!!
         assertArrayEquals(floatArrayOf(13.7f, 47.5f, 17.4f, 52.2f), floatArrayOf(z[0], z[1], z[4], z[5]), 0.3f)
         assertEquals(6.2f, z[2], 0.3f)
-        assertArrayEquals(floatArrayOf(4.3f, 6.1f, 8.8f), started.getFloatArrayExtra(TypingCalibrationActivity.EXTRA_START)!!, 0.11f)
+        assertArrayEquals(floatArrayOf(4.4f, 5.8f, 8.8f), started.getFloatArrayExtra(TypingCalibrationActivity.EXTRA_START)!!, 0.11f)
         assertFalse(prefs.sp.contains(Prefs.SPLIT_UNIT))
         assertTrue(activity.isFinishing)
     }

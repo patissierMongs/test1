@@ -271,7 +271,7 @@ private class ZoneView(
             paint.color = palette.text
             paint.alpha = 120
             canvas.drawRoundRect(rect, radius, radius, paint)
-            val label = LayoutBuilder.previewLabel(context, key.def, previewLayer)
+            val label = LayoutBuilder.previewLabel(key.def)
             if (label.isNotEmpty()) {
                 paint.style = Paint.Style.FILL
                 paint.color = palette.text

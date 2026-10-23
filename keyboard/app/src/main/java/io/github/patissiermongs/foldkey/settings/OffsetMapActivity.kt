@@ -194,7 +194,7 @@ private class OffsetMapView(context: Context, private val prefs: Prefs, private 
             paint.color = if (key.def.style == KeyStyle.NORMAL) palette.key else palette.modKey
             rect.set(key.face.left, key.face.top, key.face.right, key.face.bottom)
             canvas.drawRoundRect(rect, radius, radius, paint)
-            val label = LayoutBuilder.previewLabel(context, key.def, s.layer)
+            val label = LayoutBuilder.previewLabel(key.def)
             if (label.isNotEmpty()) {
                 paint.color = palette.hint
                 paint.textSize = key.face.height * if (label.length == 1) 0.34f else 0.22f

@@ -63,7 +63,7 @@ class SettingsActivity : Activity() {
         super.onPause()
     }
 
-    private fun layoutSignature(): String = LAYOUT_KEYS.joinToString(",") { prefs.sp.getInt(it, -1).toString() }
+    private fun layoutSignature(): String = prefs.layoutSignature
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -119,8 +119,6 @@ class SettingsActivity : Activity() {
         slider(getString(R.string.pref_clip_hours), Prefs.CLIP_HOURS, Prefs.DEFAULT_CLIP_HOURS, Prefs.CLIP_HOURS_MIN, Prefs.CLIP_HOURS_MAX) {
             getString(R.string.hours_value, it)
         }
-        toggle(getString(R.string.pref_center_echo), Prefs.CENTER_ECHO, true)
-        toggle(getString(R.string.pref_terminal_echo), Prefs.TERMINAL_ECHO, false)
 
         heading(getString(R.string.settings_feedback), 18f)
         toggle(getString(R.string.pref_haptic), Prefs.HAPTIC, true)
@@ -156,6 +154,7 @@ class SettingsActivity : Activity() {
         toggle(getString(R.string.pref_adaptive), Prefs.ADAPTIVE, true)
         button(getString(R.string.pref_adaptive_reset)) { prefs.clearOffsets() }
         button(getString(R.string.offsets_view)) { startActivity(Intent(this, OffsetMapActivity::class.java)) }
+        button(getString(R.string.heat_view)) { startActivity(Intent(this, HeatmapActivity::class.java)) }
         body(getString(R.string.pref_raw_packages))
         val packages = EditText(this).apply {
             setText(prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES))
@@ -261,11 +260,4 @@ class SettingsActivity : Activity() {
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
-
-    companion object {
-        private val LAYOUT_KEYS = listOf(
-            Prefs.SPLIT_UNIT, Prefs.GENERAL_UNIT, Prefs.CODE_SIDE_LEFT, Prefs.CODE_SIDE_RIGHT,
-            Prefs.GENERAL_SIDE_LEFT, Prefs.GENERAL_SIDE_RIGHT, Prefs.SPLIT_LIFT, Prefs.ROW_HEIGHT,
-        )
-    }
 }

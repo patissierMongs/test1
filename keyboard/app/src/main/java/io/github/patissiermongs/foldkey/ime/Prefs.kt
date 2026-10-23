@@ -12,10 +12,6 @@ class Prefs(context: Context) {
     fun isSplit(landscape: Boolean): Boolean =
         if (landscape) sp.getBoolean(SPLIT_LANDSCAPE, true) else sp.getBoolean(SPLIT_PORTRAIT, false)
 
-    fun toggleSplit(landscape: Boolean) {
-        sp.edit().putBoolean(if (landscape) SPLIT_LANDSCAPE else SPLIT_PORTRAIT, !isSplit(landscape)).apply()
-    }
-
     val layer: Layer get() = if (sp.getBoolean(GENERAL_LAYER, false)) Layer.GENERAL else Layer.CODE
 
     fun setLayer(layer: Layer) {
@@ -31,9 +27,7 @@ class Prefs(context: Context) {
     val generalSideLeftMm: Float get() = sp.getInt(GENERAL_SIDE_LEFT, legacyGeneralSide) / 10f
     val generalSideRightMm: Float get() = sp.getInt(GENERAL_SIDE_RIGHT, legacyGeneralSide) / 10f
     private val legacyGeneralSide: Int get() = sp.getInt(GENERAL_MARGIN, DEFAULT_GENERAL_SIDE)
-    val centerEcho: Boolean get() = sp.getBoolean(CENTER_ECHO, true)
     val centerClipboard: Boolean get() = sp.getBoolean(CENTER_CLIPBOARD, true)
-    val terminalEcho: Boolean get() = sp.getBoolean(TERMINAL_ECHO, false)
     val clipCount: Int get() = sp.getInt(CLIP_COUNT, ClipboardHistory.DEFAULT_CAPACITY).coerceIn(CLIP_COUNT_MIN, CLIP_COUNT_MAX)
     val clipHours: Int get() = sp.getInt(CLIP_HOURS, DEFAULT_CLIP_HOURS).coerceIn(CLIP_HOURS_MIN, CLIP_HOURS_MAX)
     val haptic: Boolean get() = sp.getBoolean(HAPTIC, true)
@@ -70,6 +64,34 @@ class Prefs(context: Context) {
         set(value) {
             sp.edit().putBoolean(SETUP_SHOWN, value).apply()
         }
+
+    fun applyPlacement(layer: Layer, leftMm: Float, rightMm: Float, liftMm: Float) {
+        fun t(mm: Float) = (mm * 10f).roundToInt()
+        val general = layer == Layer.GENERAL
+        sp.edit()
+            .putInt(if (general) GENERAL_SIDE_LEFT else CODE_SIDE_LEFT, t(leftMm))
+            .putInt(if (general) GENERAL_SIDE_RIGHT else CODE_SIDE_RIGHT, t(rightMm))
+            .putInt(SPLIT_LIFT, t(liftMm))
+            .apply()
+    }
+
+    val layoutSignature: String get() = LAYOUT_KEYS.joinToString(",") { sp.getInt(it, -1).toString() }
+
+    fun heat(slot: String): String? = sp.getString(HEAT_PREFIX + slot, null)
+
+    fun heatSlots(): List<String> = sp.all.keys.filter { it.startsWith(HEAT_PREFIX) }.map { it.removePrefix(HEAT_PREFIX) }.sorted()
+
+    fun saveHeat(slot: String, data: String) {
+        sp.edit().putString(HEAT_PREFIX + slot, data).apply()
+    }
+
+    fun replaceTouchData(offsets: Map<String, String>, clearHeat: Collection<String>) {
+        val editor = sp.edit()
+        for ((slot, data) in offsets) editor.putString(OFFSETS_PREFIX + slot, data)
+        for (slot in clearHeat) editor.remove(HEAT_PREFIX + slot)
+        editor.putInt(OFFSETS_EPOCH, offsetsEpoch + 1)
+        editor.apply()
+    }
 
     fun offsets(slot: String): String? = sp.getString(OFFSETS_PREFIX + slot, null)
 
@@ -111,9 +133,7 @@ class Prefs(context: Context) {
         const val ROW_MIN = 50
         const val ROW_MAX = 150
         const val LIFT_MAX = 300
-        const val CENTER_ECHO = "center_echo"
         const val CENTER_CLIPBOARD = "center_clipboard"
-        const val TERMINAL_ECHO = "terminal_echo"
         const val CLIP_COUNT = "clip_history_count"
         const val CLIP_COUNT_MIN = 5
         const val CLIP_COUNT_MAX = 50
@@ -138,8 +158,13 @@ class Prefs(context: Context) {
         const val LATIN_HINTS = "latin_hints"
         const val RAW_PACKAGES = "raw_packages"
         const val OFFSETS_PREFIX = "offsets_"
+        const val HEAT_PREFIX = "heat_"
         const val OFFSETS_EPOCH = "touch_offsets_epoch"
         const val SETUP_SHOWN = "setup_shown"
+        val LAYOUT_KEYS = listOf(
+            SPLIT_UNIT, GENERAL_UNIT, CODE_SIDE_LEFT, CODE_SIDE_RIGHT,
+            GENERAL_SIDE_LEFT, GENERAL_SIDE_RIGHT, SPLIT_LIFT, ROW_HEIGHT,
+        )
         const val DEFAULT_RAW_PACKAGES =
             "com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm"
     }

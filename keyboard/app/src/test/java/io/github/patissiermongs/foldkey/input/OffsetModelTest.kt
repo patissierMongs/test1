@@ -47,4 +47,18 @@ class OffsetModelTest {
         copy.load("garbage")
         assertEquals(0, copy.samples(2))
     }
+
+    @Test
+    fun movingAZoneShiftsItsMeanButLeavesEmptyZonesAlone() {
+        val m = OffsetModel(4)
+        m.seed(1, 0.5f, -0.25f, 12)
+        m.move(1, -0.75f, 0.5f)
+        m.move(2, 1f, 1f)
+        m.move(7, 1f, 1f)
+        assertEquals(-0.25f, m.meanMm(1).first, 1e-6f)
+        assertEquals(0.25f, m.meanMm(1).second, 1e-6f)
+        assertEquals(12, m.samples(1))
+        assertEquals(0f to 0f, m.meanMm(2))
+        assertEquals(0, m.samples(2))
+    }
 }

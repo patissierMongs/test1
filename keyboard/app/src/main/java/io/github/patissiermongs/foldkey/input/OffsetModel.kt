@@ -37,6 +37,12 @@ class OffsetModel(val zones: Int) {
         return true
     }
 
+    fun move(zone: Int, byXMm: Float, byYMm: Float) {
+        if (zone !in 0 until zones || count[zone] == 0) return
+        dx[zone] += byXMm
+        dy[zone] += byYMm
+    }
+
     fun seed(zone: Int, offsetXMm: Float, offsetYMm: Float, n: Int) {
         if (zone !in 0 until zones) return
         dx[zone] = offsetXMm

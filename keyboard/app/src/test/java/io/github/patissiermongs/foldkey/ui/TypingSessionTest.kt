@@ -79,20 +79,30 @@ class TypingSessionTest {
 
     @Test
     fun smallKeysGrowUntilTheTypingSpreadFits() {
-        val s = session()
-        val t = Typist(1.4f, 1.6f, 0.6f, 1.0f, 11)
-        typeLayer(s, t)
-        val r = s.results.single()
-        assertEquals(Layer.CODE, r.layer)
-        assertTrue("${r.rounds.size} rounds", r.rounds.size in 2..3)
-        assertEquals(4.3f, r.rounds.first().unitMm, 0.01f)
-        assertTrue("first round ${r.rounds.first().hitRate}", r.rounds.first().hitRate < 0.9f)
-        assertTrue("unit ${r.unitMm}", r.unitMm!! in 5.2f..6.6f)
-        assertEquals(8.8f, r.rowMm!!, 0.01f)
-        val last = r.rounds.last()
-        assertTrue("last ${last.hitRate} first ${r.rounds.first().hitRate}", last.hitRate > r.rounds.first().hitRate + 0.05f)
-        val estimate = TypingCalibration.hitRate(last.samples, r.analysis!!, r.unitMm!!, r.rowMm!!)
-        assertTrue("estimate $estimate", estimate >= 0.9f)
+        val units = ArrayList<Float>()
+        var rowKept = 0
+        var firstMissed = 0
+        for (seed in 1L..60L) {
+            val s = session()
+            typeLayer(s, Typist(1.4f, 1.6f, 0.6f, 1.0f, seed))
+            val r = s.results.single()
+            assertEquals(Layer.CODE, r.layer)
+            assertTrue("seed $seed: ${r.rounds.size} rounds", r.rounds.size in 2..3)
+            val first = r.rounds.first()
+            val last = r.rounds.last()
+            assertEquals(4.3f, first.unitMm, 0.01f)
+            assertTrue("seed $seed: last ${last.hitRate} first ${first.hitRate}", last.hitRate > first.hitRate + 0.05f)
+            val estimate = TypingCalibration.hitRate(last.samples, r.analysis!!, r.unitMm!!, r.rowMm!!)
+            assertTrue("seed $seed: estimate $estimate", estimate >= 0.9f)
+            units.add(r.unitMm!!)
+            if (abs(r.rowMm!! - 8.8f) < 0.01f) rowKept++
+            if (first.hitRate < 0.9f) firstMissed++
+        }
+        units.sort()
+        assertTrue("median ${units[units.size / 2]}", units[units.size / 2] in 5.6f..6.6f)
+        assertTrue("$units", units.count { it in 5.2f..6.6f } >= 45)
+        assertTrue("row kept $rowKept", rowKept >= 54)
+        assertTrue("first round below 90% $firstMissed", firstMissed >= 54)
     }
 
     @Test

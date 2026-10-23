@@ -44,6 +44,13 @@ class InputConnectionEditor(
         }
     }
 
+    override fun sendBareKey(keyCode: Int) {
+        val ic = connection() ?: return
+        val t = SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, keyCode, 0, 0))
+        ic.sendKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_UP, keyCode, 0, 0))
+    }
+
     override fun beginBatch() {
         connection()?.beginBatchEdit()
     }
@@ -75,6 +82,10 @@ class InputConnectionEditor(
 
     override fun copy() {
         connection()?.performContextMenuAction(android.R.id.copy)
+    }
+
+    override fun cut() {
+        connection()?.performContextMenuAction(android.R.id.cut)
     }
 
     companion object {

@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.FakeEditor
 import io.github.patissiermongs.foldkey.engine.KeyAction
@@ -15,7 +16,6 @@ import io.github.patissiermongs.foldkey.engine.RecordingListener
 import io.github.patissiermongs.foldkey.ime.Prefs
 import io.github.patissiermongs.foldkey.layout.Box
 import io.github.patissiermongs.foldkey.layout.Key
-import io.github.patissiermongs.foldkey.layout.Layouts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -84,22 +84,24 @@ class LayerTest {
 
     private fun char(c: Char) = key { (it.def.action as? KeyAction.Char)?.base == c }
 
-    private fun layerKey() = key { it.def.action == Layouts.LAYER_TOGGLE }
+    private fun layerButton() = view.stripBox(Command.TOGGLE_LAYER)!!
 
     private fun hasCodeKeys() = view.layoutKeys.any { it.def.action == KeyAction.EscCtrl }
 
     @Test
-    fun layerKeySwitchesTheVisibleLayoutAndBack() {
+    fun layerButtonSwitchesTheVisibleLayoutAndBack() {
         setup()
         assertTrue(hasCodeKeys())
+        assertTrue(view.layoutKeys.none { it.def.action is KeyAction.Cmd })
         val codeQ = char('q')
-        tap(layerKey())
+        tap(layerButton())
         assertEquals(Layer.GENERAL, engine.layer)
         assertTrue(!hasCodeKeys())
         val q = char('q')
-        assertEquals(8.75f - 0.9f, q.width / pxPerMm, 0.05f)
-        assertTrue(q.width > codeQ.width)
-        tap(layerKey())
+        assertEquals(8.5f - 0.9f, q.width / pxPerMm, 0.05f)
+        assertEquals(14f + 0.5f * 8.5f, q.left / pxPerMm - 0.45f, 0.05f)
+        assertTrue(q.left > codeQ.left)
+        tap(layerButton())
         assertEquals(Layer.CODE, engine.layer)
         assertTrue(hasCodeKeys())
         assertEquals(codeQ, char('q'))
@@ -109,18 +111,19 @@ class LayerTest {
     fun sideMarginMovesOnlyTheGeneralSplitHalves() {
         setup()
         val codeFaces = view.layoutKeys.map { it.face }
-        tap(layerKey())
+        tap(layerButton())
         val q = char('q')
-        assertEquals(14f, q.left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(14f, char('1').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(14f + 0.5f * 8.5f, q.left / pxPerMm - 0.45f, 0.05f)
         touch(MotionEvent.ACTION_DOWN, 2f * pxPerMm, q.centerY)
         touch(MotionEvent.ACTION_UP, 2f * pxPerMm, q.centerY)
         idle()
         assertEquals("q", editor.text.toString())
         prefs.sp.edit().putInt(Prefs.GENERAL_SIDE_LEFT, 0).putInt(Prefs.GENERAL_SIDE_RIGHT, 0).commit()
         view.reload()
-        assertEquals(0.5f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(0.5f + 0.5f * 9.6f, char('q').left / pxPerMm - 0.45f, 0.05f)
         assertEquals(9.6f - 0.9f, char('q').width / pxPerMm, 0.05f)
-        tap(layerKey())
+        tap(layerButton())
         assertEquals(codeFaces, view.layoutKeys.map { it.face })
     }
 
@@ -129,12 +132,12 @@ class LayerTest {
         setup()
         prefs.sp.edit().putInt(Prefs.GENERAL_MARGIN, 100).commit()
         view.reload()
-        tap(layerKey())
-        assertEquals(10f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        tap(layerButton())
+        assertEquals(10f, char('1').left / pxPerMm - 0.45f, 0.05f)
         assertEquals(10f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
         prefs.sp.edit().putInt(Prefs.GENERAL_SIDE_LEFT, 50).commit()
         view.reload()
-        assertEquals(5f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(5f, char('1').left / pxPerMm - 0.45f, 0.05f)
         assertEquals(10f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
     }
 
@@ -152,16 +155,17 @@ class LayerTest {
         assertEquals(13.7f, leftmost.left / pxPerMm - 0.45f, 0.05f)
         val rightmost = view.layoutKeys.filter { !it.ghost }.maxBy { it.face.right }.face
         assertEquals(17.4f, (view.width - rightmost.right) / pxPerMm - 0.45f, 0.05f)
-        tap(layerKey())
+        tap(layerButton())
         assertEquals(6.1f - 0.9f, char('q').width / pxPerMm, 0.05f)
-        assertEquals(13.7f, char('q').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(13.7f, char('1').left / pxPerMm - 0.45f, 0.05f)
+        assertEquals(13.7f + 0.5f * 6.1f, char('q').left / pxPerMm - 0.45f, 0.05f)
         assertEquals(17.4f, (view.width - char('p').right) / pxPerMm - 0.45f, 0.05f)
     }
 
     @Test
     fun generalLayerTypesHangulAndProsePunctuation() {
         setup()
-        tap(layerKey())
+        tap(layerButton())
         tap(key { it.def.action == KeyAction.Lang })
         "dkssud".forEach { tap(char(it)) }
         tap(key { it.def.isSpace })
@@ -175,10 +179,20 @@ class LayerTest {
     }
 
     @Test
+    fun generalLayerTopRowSwipesDownForCodeSymbols() {
+        setup()
+        tap(layerButton())
+        for (c in "qwetyuiop") swipe(char(c), 6f)
+        tap(char('r'))
+        swipe(char('w'), -6f)
+        assertEquals("`\\|[]<>{}rW", editor.text.toString())
+    }
+
+    @Test
     fun learnedOffsetsAreKeptApartPerLayer() {
         setup()
         repeat(12) { tap(char('f')) }
-        tap(layerKey())
+        tap(layerButton())
         repeat(20) { tap(char('f')) }
         view.saveState()
         fun stored() = prefs.sp.all.filterKeys { it.startsWith(Prefs.OFFSETS_PREFIX) }
@@ -196,7 +210,7 @@ class LayerTest {
         assertTrue(view.layoutKeys.any { it.def.action == KeyAction.EscCtrl })
         val before = view.height
         val row = view.layoutKeys.first { (it.def.action as? KeyAction.Char)?.base == 'q' }.let { it.touch.height }
-        tap(layerKey())
+        tap(layerButton())
         assertEquals(before - row, view.height.toFloat(), 2f)
         assertEquals(5, view.layoutKeys.maxOf { it.row } + 1)
     }

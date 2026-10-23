@@ -11,7 +11,6 @@ data class EngineSettings(
     val escToLatin: Boolean = true,
     val dualRoleTapMs: Long = 500L,
     val doubleTapMs: Long = 350L,
-    val terminalEcho: Boolean = false,
     val layer: Layer = Layer.CODE,
 )
 
@@ -32,7 +31,6 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         set(value) {
             field = value
             modifiers.doubleTapMs = value.doubleTapMs
-            if (!value.terminalEcho) typed.clear()
             preferredLayer = value.layer
         }
 
@@ -53,16 +51,11 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
     private var preferredLang = Lang.LATIN
     private val composer = HangulComposer()
     private var dualDownAt = 0L
-    private val typed = EchoBuffer()
     private var repeatOneShots: Set<Modifier> = emptySet()
 
     val preedit: String get() = if (context.raw && !context.secret) composer.composing else ""
 
     val composingText: String get() = composer.composing
-
-    val typedSegments: List<EchoBuffer.Segment> get() = typed.items
-
-    private val recording: Boolean get() = context.raw && settings.terminalEcho && !context.secret
 
     fun startInput(ctx: EditorContext, restarting: Boolean = false) {
         if (composer.isComposing) {
@@ -74,7 +67,6 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         }
         composer.reset()
         context = ctx
-        typed.clear()
         if (!restarting) {
             modifiers.clear()
             layer = if (ctx.raw) Layer.CODE else preferredLayer
@@ -89,7 +81,6 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
 
     fun finishInput() {
         batch { flushComposition() }
-        typed.clear()
         modifiers.clear()
         listener.onStateChanged()
     }
@@ -167,6 +158,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             KeyAction.Enter -> enter()
             KeyAction.Backspace -> backspace(forceCtrl)
             KeyAction.Lang -> setLang(if (lang == Lang.LATIN) Lang.HANGUL else Lang.LATIN)
+            KeyAction.RemoteLang -> remoteLang()
             is KeyAction.Cmd -> command(action.command)
             is KeyAction.Mod, KeyAction.EscCtrl -> Unit
         }
@@ -183,15 +175,14 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         batch {
             flushComposition()
             val code = if (steps < 0) backward else forward
-            val meta = modifiers.metaState(modifiers.shiftForSymbols() || (select && !context.raw))
+            val meta = modifiers.metaState(modifiers.shiftHeldOrOnce() || (select && !context.raw))
             repeat(abs(steps)) { editor.sendKey(code, meta) }
-            if (recording) KeyNames.code(code)?.let { name -> repeat(abs(steps)) { typed.token(KeyNames.chord(meta, name)) } }
         }
     }
 
     fun pasteText(text: String) = batch {
         flushComposition()
-        commit(text)
+        editor.commitText(text)
         finishKey()
     }
 
@@ -203,7 +194,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         if (!composer.isComposing) return
         val text = composer.flush()
         if (context.raw) {
-            commit(text)
+            editor.commitText(text)
             listener.onPreedit("")
         } else {
             editor.finishComposingText()
@@ -213,7 +204,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
     private fun typeChar(a: KeyAction.Char, forceShift: Boolean, forceCtrl: Boolean) {
         if (forceCtrl || modifiers.hasCommandModifier()) {
             flushComposition()
-            val ch = if (forceShift || modifiers.shiftForSymbols()) a.shifted else a.base
+            val ch = if (forceShift || modifiers.shiftHeldOrOnce()) a.shifted else a.base
             val ctrl = forceCtrl || modifiers.isActive(Modifier.CTRL)
             val control = controlCode(ch)
             val stroke = UsKeyMap.strokeFor(ch)
@@ -231,37 +222,29 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             if (ctrl && ch == '[') leaveHangulOnEscape()
             return
         }
-        val shift = forceShift || if (a.isLetter) modifiers.shiftForLetters() else modifiers.shiftForSymbols()
         if (lang == Lang.HANGUL && a.isLetter) {
-            val jamo = Dubeolsik.jamo(a.base, forceShift || modifiers.shiftForSymbols())
+            val jamo = Dubeolsik.jamo(a.base, forceShift || modifiers.shiftHeldOrOnce())
             if (jamo != null) {
                 val done = composer.input(jamo)
-                if (done.isNotEmpty()) commit(done)
+                if (done.isNotEmpty()) editor.commitText(done)
                 showComposition()
                 finishKey()
                 return
             }
         }
         flushComposition()
-        commit((if (shift) a.shifted else a.base).toString())
+        val shift = forceShift || modifiers.shiftForText()
+        editor.commitText((if (shift) a.shifted else a.base).toString())
         finishKey()
     }
 
     private fun typeText(text: String) {
         flushComposition()
-        commit(text)
+        editor.commitText(text)
         finishKey()
     }
 
-    private fun commit(text: String) {
-        editor.commitText(text)
-        if (recording) typed.text(text)
-    }
-
-    private fun echo(token: String) {
-        listener.onEcho(token)
-        if (recording) typed.token(token)
-    }
+    private fun echo(token: String) = listener.onEcho(token)
 
     private fun showComposition() {
         if (context.raw) {
@@ -282,21 +265,19 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             return
         }
         flushComposition()
-        var meta = modifiers.metaState(modifiers.shiftForSymbols())
+        var meta = modifiers.metaState(modifiers.shiftHeldOrOnce())
         if (forceCtrl) meta = meta or Modifiers.CTRL_META
         editor.sendKey(KeyEvent.KEYCODE_DEL, meta)
         if (meta != 0) {
             echo(KeyNames.chord(meta, "⌫"))
             finishKey()
-        } else if (recording) {
-            typed.backspace()
         }
     }
 
     private fun space() {
         flushComposition()
         if (modifiers.hasCommandModifier()) {
-            val meta = modifiers.metaState(modifiers.shiftForSymbols())
+            val meta = modifiers.metaState(modifiers.shiftHeldOrOnce())
             if (context.raw && modifiers.isActive(Modifier.CTRL) && modifiers.isActive(Modifier.ALT)) {
                 metaControl(0.toChar())
             } else {
@@ -304,28 +285,27 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             }
             echo(KeyNames.chord(meta, "␣"))
         } else {
-            commit(" ")
+            editor.commitText(" ")
         }
         finishKey()
     }
 
     private fun enter() {
         flushComposition()
-        val meta = modifiers.metaState(modifiers.shiftForSymbols())
+        val meta = modifiers.metaState(modifiers.shiftHeldOrOnce())
         val action = context.enterAction
         if (meta == 0 && !context.raw && action != null) {
             editor.performEditorAction(action)
         } else {
             if (meta == 0 && (context.raw || context.multiLine)) editor.commitText("\n") else editor.sendKey(KeyEvent.KEYCODE_ENTER, meta)
-            listener.onEcho(KeyNames.chord(meta, "⏎"))
-            if (recording) typed.clear()
+            echo(KeyNames.chord(meta, "⏎"))
         }
         finishKey()
     }
 
     private fun escape() {
         flushComposition()
-        val meta = modifiers.metaState(modifiers.shiftForSymbols())
+        val meta = modifiers.metaState(modifiers.shiftHeldOrOnce())
         editor.sendKey(KeyEvent.KEYCODE_ESCAPE, meta)
         echo(KeyNames.chord(meta, "Esc"))
         finishKey()
@@ -341,7 +321,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
 
     private fun sendCode(code: Int, forceShift: Boolean, forceCtrl: Boolean) {
         flushComposition()
-        var meta = modifiers.metaState(forceShift || modifiers.shiftForSymbols())
+        var meta = modifiers.metaState(forceShift || modifiers.shiftHeldOrOnce())
         if (forceCtrl) meta = meta or Modifiers.CTRL_META
         if (context.raw && meta == 0 && code == KeyEvent.KEYCODE_TAB) editor.commitText("\t") else editor.sendKey(code, meta)
         KeyNames.code(code)?.let { echo(KeyNames.chord(meta, it)) }
@@ -351,15 +331,19 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
     private fun command(command: Command) {
         flushComposition()
         when (command) {
-            Command.PASTE -> {
-                editor.paste(context.raw)
-                if (recording) typed.token(PASTE_TOKEN)
-            }
+            Command.PASTE -> editor.paste(context.raw)
             Command.SELECT_ALL -> if (!context.raw) editor.selectAll()
             Command.COPY -> if (!context.raw) editor.copy()
+            Command.CUT -> if (!context.raw) editor.cut()
             Command.TOGGLE_LAYER -> toggleLayer()
             else -> listener.onCommand(command)
         }
+    }
+
+    private fun remoteLang() {
+        flushComposition()
+        editor.sendBareKey(KeyEvent.KEYCODE_ALT_RIGHT)
+        echo(KeyNames.REMOTE_LANG)
     }
 
     private fun toggleLayer() {
@@ -409,9 +393,5 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
     private fun finishKey() {
         modifiers.consume()
         listener.onStateChanged()
-    }
-
-    companion object {
-        const val PASTE_TOKEN = "⎘"
     }
 }

@@ -6,13 +6,11 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
-import android.os.SystemClock
 import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
 import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.EngineListener
@@ -33,7 +31,8 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     private lateinit var feedback: HapticFeedback
     private var keyboardView: KeyboardView? = null
     private val clipboardHistory = ClipboardHistory()
-    private lateinit var pinStore: PinStore
+    private lateinit var clipStore: ClipStore
+    private var savedClips: List<ClipboardHistory.Entry> = emptyList()
     private var lastClip: Pair<Long, String>? = null
     private var locked = false
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { captureClip(fromListener = true) }
@@ -43,9 +42,10 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         prefs = Prefs(this)
         feedback = HapticFeedback(this, prefs)
         engine = KeyboardEngine(InputConnectionEditor(this) { currentInputConnection }, this)
-        pinStore = PinStore(File(noBackupFilesDir, PIN_FILE))
-        clipboardHistory.restorePins(pinStore.load())
+        clipStore = ClipStore(File(noBackupFilesDir, CLIP_FILE))
         applySettings()
+        clipboardHistory.restore(clipStore.load(), System.currentTimeMillis())
+        savedClips = clipboardHistory.entries
         prefs.sp.registerOnSharedPreferenceChangeListener(this)
         getSystemService(ClipboardManager::class.java)?.addPrimaryClipChangedListener(clipListener)
     }
@@ -62,7 +62,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         keyboardView?.saveState()
         val view = KeyboardView(this, engine, prefs, feedback)
         view.clipSource = {
-            if (locked) emptyList() else clipboardHistory.items(SystemClock.elapsedRealtime()).map { Clip(it.text, it.pinned) }
+            if (locked) emptyList() else clipboardHistory.items(System.currentTimeMillis()).map { Clip(it.text, it.pinned) }
         }
         view.onClipEdit = { edit, text -> editClip(edit, text) }
         view.pinsFull = { clipboardHistory.pinsFull }
@@ -82,8 +82,6 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         locked = getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
         captureClip()
         keyboardView?.showEditCommands = !engine.context.raw
-        keyboardView?.showSwitchKey = shouldOfferSwitchingToNextInputMethod()
-        keyboardView?.setEditorLine(lineOf(info.getInitialTextBeforeCursor(ECHO_CHARS, 0)))
         keyboardView?.invalidate()
     }
 
@@ -109,22 +107,6 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         engine.selectionChanged(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        refreshEditorLine()
-    }
-
-    private fun refreshEditorLine() {
-        val view = keyboardView ?: return
-        val ctx = engine.context
-        if (!prefs.centerEcho || ctx.raw || ctx.secret || !view.hasPanel) {
-            view.setEditorLine("")
-            return
-        }
-        view.setEditorLine(lineOf(currentInputConnection?.getTextBeforeCursor(ECHO_CHARS, 0)))
-    }
-
-    private fun lineOf(text: CharSequence?): String {
-        if (text == null || engine.context.secret) return ""
-        return text.toString().substringAfterLast('\n')
     }
 
     private fun captureClip(fromListener: Boolean = false) {
@@ -136,14 +118,15 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         val key = (clip.description?.timestamp ?: 0L) to text
         if (!fromListener && key == lastClip) return
         lastClip = key
-        if (clipboardHistory.add(text, SystemClock.elapsedRealtime())) keyboardView?.invalidate()
+        val changed = clipboardHistory.add(text, System.currentTimeMillis())
+        saveClips()
+        if (changed) keyboardView?.invalidate()
     }
 
     private fun editClip(edit: ClipEdit, text: String) {
-        val pinsBefore = clipboardHistory.pinned
         when (edit) {
             ClipEdit.PIN -> clipboardHistory.pin(text)
-            ClipEdit.UNPIN -> clipboardHistory.unpin(text, SystemClock.elapsedRealtime())
+            ClipEdit.UNPIN -> clipboardHistory.unpin(text, System.currentTimeMillis())
             ClipEdit.DELETE -> {
                 clipboardHistory.remove(text)
                 val cm = getSystemService(ClipboardManager::class.java)
@@ -151,14 +134,19 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
                 if (current == text) cm?.clearPrimaryClip()
             }
         }
-        if (clipboardHistory.pinned != pinsBefore) {
-            try {
-                pinStore.save(clipboardHistory.pinned)
-            } catch (e: IOException) {
-                Log.w(TAG, "saving pinned clips failed", e)
-            }
-        }
+        saveClips()
         keyboardView?.invalidate()
+    }
+
+    private fun saveClips() {
+        val entries = clipboardHistory.entries
+        if (entries == savedClips) return
+        try {
+            clipStore.save(entries)
+            savedClips = entries
+        } catch (e: IOException) {
+            Log.w(TAG, "saving clips failed", e)
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -179,6 +167,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         if (!prefs.centerClipboard) clipboardHistory.clearRecent()
         applySettings()
+        saveClips()
         feedback.reload()
         keyboardView?.reload()
     }
@@ -200,21 +189,17 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
             Command.SETTINGS -> startActivity(
                 Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-            Command.SWITCH_IME -> if (!switchToNextInputMethod(false)) {
-                getSystemService(InputMethodManager::class.java)?.showInputMethodPicker()
-            }
             Command.HIDE -> requestHideSelf(0)
-            Command.TOGGLE_SPLIT -> prefs.toggleSplit(resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
             Command.TOGGLE_LAYER -> {
                 if (prefs.layer != engine.preferredLayer) prefs.setLayer(engine.preferredLayer)
                 keyboardView?.reload()
             }
-            Command.PASTE, Command.SELECT_ALL, Command.COPY -> Unit
+            Command.PASTE, Command.SELECT_ALL, Command.COPY, Command.CUT -> Unit
         }
     }
 
     private fun applySettings() {
-        engine.settings = EngineSettings(escToLatin = prefs.escToLatin, terminalEcho = prefs.terminalEcho, layer = prefs.layer)
+        engine.settings = EngineSettings(escToLatin = prefs.escToLatin, layer = prefs.layer)
         clipboardHistory.capacity = prefs.clipCount
         clipboardHistory.ttlMs = prefs.clipHours * HOUR_MS
     }
@@ -245,8 +230,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     companion object {
-        private const val ECHO_CHARS = 120
-        private const val PIN_FILE = "clip_pins.bin"
+        private const val CLIP_FILE = "clip_pins.bin"
         private const val HOUR_MS = 60 * 60 * 1000L
         private const val TAG = "FoldKey"
         private const val EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"

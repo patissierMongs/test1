@@ -41,6 +41,12 @@ class ClipPanelTest {
         Clip("go build ./..."),
         Clip("python3 -m venv .venv"),
         Clip("tmux attach"),
+        Clip("docker compose up -d"),
+        Clip("kubectl get pods -A"),
+        Clip("내일 3시에 만나요"),
+        Clip("https://example.com/a/b"),
+        Clip("rg -n TODO src"),
+        Clip("cargo test --release"),
     )
     private val edits = ArrayList<Pair<ClipEdit, String>>()
     private lateinit var editor: FakeEditor
@@ -87,24 +93,33 @@ class ClipPanelTest {
     @Test
     fun editButtonsSitLeftOfPasteAndDisappearInTerminals() {
         setup()
-        val selectAll = view.stripBox(Command.SELECT_ALL)!!
-        val copy = view.stripBox(Command.COPY)!!
-        val paste = view.stripBox(Command.PASTE)!!
-        assertTrue(selectAll.right <= copy.left + 1f && copy.right <= paste.left + 1f)
-        tap(selectAll)
-        tap(copy)
-        assertEquals(listOf("selectAll", "copy"), editor.log.filter { it == "selectAll" || it == "copy" })
+        val boxes = listOf(Command.SELECT_ALL, Command.COPY, Command.CUT, Command.PASTE, Command.TOGGLE_LAYER, Command.SETTINGS, Command.HIDE)
+            .map { view.stripBox(it)!! }
+        assertTrue(boxes.zipWithNext().all { (a, b) -> a.right <= b.left + 1f })
+        tap(boxes[0])
+        tap(boxes[1])
+        tap(boxes[2])
+        assertEquals(listOf("selectAll", "copy", "cut"), editor.log.filter { it == "selectAll" || it == "copy" || it == "cut" })
         view.showEditCommands = false
         assertNull(view.stripBox(Command.SELECT_ALL))
         assertNull(view.stripBox(Command.COPY))
+        assertNull(view.stripBox(Command.CUT))
         assertNotNull(view.stripBox(Command.PASTE))
+        assertNotNull(view.stripBox(Command.TOGGLE_LAYER))
     }
 
     @Test
     fun tapPastesAndDragScrollsWithoutPasting() {
         setup()
         val slots = view.clipSlots
-        assertEquals(2, slots.size)
+        assertEquals(8, slots.size)
+        val panel = slots.chunked(2)
+        for ((top, bottom) in panel) {
+            assertEquals(top.bottom, bottom.top, 0.01f)
+            assertEquals(top.height, bottom.height, 0.01f)
+            assertEquals(top.left, bottom.left, 0.01f)
+        }
+        assertTrue(panel.zipWithNext().all { (a, b) -> a[1].bottom <= b[0].top + 0.01f })
         tap(slots[1])
         assertEquals("git status --short", editor.text.toString())
         touch(MotionEvent.ACTION_DOWN, slots[1].centerX, slots[1].centerY)

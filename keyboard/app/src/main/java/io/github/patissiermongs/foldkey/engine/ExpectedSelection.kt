@@ -90,6 +90,11 @@ class TrackingEditor(private val inner: Editor) : Editor {
         if (keyCode == KeyEvent.KEYCODE_DEL && meta == 0) expected.deleteBefore() else expected.forget()
     }
 
+    override fun sendBareKey(keyCode: Int) {
+        inner.sendBareKey(keyCode)
+        expected.forget()
+    }
+
     override fun performEditorAction(action: Int) {
         inner.performEditorAction(action)
         expected.forget()
@@ -107,6 +112,11 @@ class TrackingEditor(private val inner: Editor) : Editor {
 
     override fun copy() {
         inner.copy()
+        expected.forget()
+    }
+
+    override fun cut() {
+        inner.cut()
         expected.forget()
     }
 
