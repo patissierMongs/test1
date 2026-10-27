@@ -43,6 +43,8 @@
 | 일반 레이어(0.10.0) | 분할 배열도 ANSI처럼 줄마다 어긋난다(왼쪽 5.75칸, 오른쪽 5.5칸). 윗줄 글자를 아래로 밀면 `` ` \ \| [ ] < > { } ``. 레이어 전환은 배열 안의 키에서 상단 줄 버튼으로 옮겼다 | 사용자 요청, 기호 누락 검토(3.14절) |
 | 원격 한/영(0.10.0) | `한/A`를 길게 누르면 오른쪽 Alt를 수정키 없이 누르고 뗀다. 한국어 키보드 종류 1(`kbd101a`)인 Windows는 이를 한/영 키로 받는다. FoldKey의 한글·영문 상태는 바꾸지 않는다 | 사용자 보고(이전 키보드 앱과 Parsec), Kaplan(2010, 2012)(7.11절) |
 | 터치 히트맵과 배치 제안(0.10.0) | 키마다 탭 수와 편차 합만 모아 밀도로 그리고, 엄지별 평균 어긋남이 0.3 mm 이상이면서 표준오차의 2배보다 클 때 반쪽 옆 거리와 올림 높이를 옮기자고 제안한다. 적용하면 학습값도 키가 움직인 만큼 옮긴다 | 사용자 요청, Henze 외(2012), Holz·Baudisch(2011), Findlater·Wobbrock(2012)(4.4절) |
+| 띄운 키보드(0.11.0) | 상단 줄 `띄우기`로 같은 자리·크기의 키보드를 앱 화면 위에 띄운다. 앱은 줄거나 밀려 올라가지 않고, 키보드 영역만 터치를 받는다. 떠 있는 동안 상단 줄 슬라이더로 불투명도(20–100%)를 바꾸고, `접기`로 손잡이만 남겨 뒤 화면을 조작한다 | 사용자 요청, AOSP 16 `InputMethodService.onComputeInsets`, `ViewRootImpl`, `DisplayContent`(3.15절) |
+| 물리 키보드(0.11.0) | 물리 키보드가 연결되어 있으면 배열 대신 칩만 띄우고, 칩을 눌러야 배열이 나온다. 한글 모드에서 A–Z를 두벌식으로 조합하고, 한/영 키(`KEYCODE_KANA`)나 오른쪽 Alt 단독 누름으로 전환한다. 터미널에서는 조합 중인 음절을 키보다 먼저 보낸다. 원격 데스크톱 앱(기본 Parsec)에는 키를 그대로 넘긴다 | 사용자 요청, HID 사용표, Linux `hid-input.c`, AOSP `Generic.kl`·`PhoneWindowManager`·`InputMethodService`(7.12절) |
 | 일반 레이어를 옆 끝에서 띄우기(0.7.1) | 일반 레이어 분할 반쪽을 화면 옆 끝에서 14 mm 띄운다(설정 0–25 mm). 띄운 거리만큼 키를 줄여 반쪽의 먼 끝은 코드 레이어를 넘지 않게 하고, 설정값보다 작게는 줄이지 않는다. 반쪽과 옆 끝 사이도 바깥 키의 판정 영역이다. 코드 레이어는 옆 끝에 붙은 그대로 | 사용자 제보와 엄지로 그린 범위, Trudeau 외(2012), 글자 빈도 측정(3.11절) |
 
 ## 2. 대상 기기: 갤럭시 Z 폴드7
@@ -453,6 +455,29 @@ D의 평균 거리는 빠진 키를 뺀 값이다. 빠지는 키는 CPython 입�
 
 **한계.** 거리는 가로만 쟀다. 말뭉치는 코드 파일이라 터미널 명령 입력과 편집 키(⌫, 방향키)는 들어 있지 않다. 사람을 대상으로 검증하지 않았다. 0.9.0에서 타이핑 보정으로 맞춘 옆 거리는 반쪽 칸 수가 바뀌어 엄지 범위 가운데에서 조금 비켜 난다(코드 레이어 왼쪽 0.25칸·오른쪽 0.125칸 바깥, 일반 레이어 왼쪽 0.125칸·오른쪽 0.25칸 안쪽).
 
+### 3.15 띄운 키보드(0.11.0)
+
+사용자는 키보드를 같은 자리에 두되 공간을 차지하지 않는 레이어로 하나 더 띄우고, 원격 데스크톱에서 쓰려고 하니 투명도를 설정 화면이 아니라 그 기능을 켰을 때 키보드 안에서 조절하게 하고, 뒤 레이어로 빠르고 쉽게 전환할 수 있게 해 달라고 요청했다. 무엇을 띄울지 묻자 지금의 키보드를 그대로 띄우는 안을 골랐다. 뒤 화면으로 가는 방식은 키보드를 작은 손잡이로 접는 안(안 3)과 반투명 키보드를 그대로 두고 터치만 뒤로 통과시키는 안(안 1) 가운데 "3이 잘 작동하면 3, 1이 더 나으면 1"이라고 답했다.
+
+**Android의 경로.** IME 창이 앱에 주는 영향은 `InputMethodService.onComputeInsets`가 채우는 `Insets`로 정해진다(AOSP 16).
+
+- `contentTopInsets`: 앱 창이 줄어드는 기준이다(adjustResize와 `WindowInsets.Type.ime()`). 기본값은 입력 뷰의 위 끝이다.
+- `visibleTopInsets`: 앱이 입력창을 보이게 하려고 화면을 밀어 올리는(adjustPan) 기준이다.
+- `touchableInsets`, `touchableRegion`: 기본값 `TOUCHABLE_INSETS_VISIBLE`이면 visible 기준 아래가 모두 IME의 터치다. `TOUCHABLE_INSETS_REGION`이면 `touchableRegion` 안만 IME가 받고, 나머지 터치는 뒤의 창으로 간다.
+
+`InputMethodService`는 이 값을 `ViewTreeObserver.OnComputeInternalInsetsListener`로 넘긴다. `ViewRootImpl.performTraversals`는 그리기가 예약될 때마다 이 리스너를 부르고, 값이 바뀌었을 때만 `IWindowSession.setInsets`로 창 관리자에 알린다. 그래서 터치 영역만 바꿀 때는 뷰를 다시 그리게 하는 것으로 충분하고 창 크기를 바꾸지 않아도 된다. IME 창의 테마(`Theme.InputMethod`)는 반투명 창이고 창 배경이 투명이라, 키보드 뷰의 알파 값이 그대로 앱 화면과 섞인다.
+
+**구현.**
+
+- 띄운 상태에서는 `contentTopInsets`와 `visibleTopInsets`를 IME 창 높이로 두어 앱이 키보드 자리를 비우거나 화면을 밀어 올리지 않게 하고, `touchableRegion`을 키보드 뷰의 사각형으로 둔다(테스트 `hoveringKeyboardLeavesTheAppUncoveredAndTouchesOnlyItsOwnArea`). 키보드의 크기와 자리는 붙은 키보드와 같다(`floatButtonMakesTheKeyboardHoverAtItsOwnOpacity`).
+- 불투명도는 뷰의 `alpha`로 바꾼다. 상단 줄 슬라이더를 끄는 동안 바로 반영하고, 손을 떼면 저장한다(20–100%, 5% 단위, 기본 70%). 시스템이 취소한 터치(`FLAG_CANCELED`)는 저장하지 않는다(`sliderInTheStripSetsOpacityAndSavesItOnRelease`). 아래 한계 20%와 기본값 70%는 사람으로 재서 정한 값이 아니다.
+- `접기`는 뷰가 손잡이만 그리게 하고 터치 영역을 손잡이 사각형 하나로 줄인다. 창 크기와 insets의 content·visible 값은 그대로라 앱의 배치는 다시 계산되지 않는다(`collapseLeavesOnlyAHandleThatBringsTheKeyboardBack`). 손잡이는 `접기` 버튼과 같은 자리에 두어, 접은 손가락 자리를 다시 누르면 키보드가 돌아온다.
+- `InputMethodService`는 visible 기준 아래의 화면 옆 끝을 뒤로 가기 제스처에서 뺀다(`setImeExclusionRect`). 띄운 상태에서는 visible 영역이 없으므로 키보드 뷰가 자신의 터치 영역을 `setSystemGestureExclusionRects`로 직접 뺀다. 창 관리자는 앱 창이 뺄 수 있는 길이를 제한하지만(`needsGestureExclusionRestrictions`), IME 창(`TYPE_INPUT_METHOD`)은 이 제한을 받지 않는다(AOSP 16 `DisplayContent`).
+
+**안 1과 안 3.** 두 안 모두 위 경로로 만들 수 있다. 안 1은 키보드 그림이 남은 채 터치는 뒤의 앱이 받으므로, 그림 위를 누를 때 어디로 가는지는 키보드가 어느 상태인지 보고 알아야 한다. 안 3은 손잡이만 남아 그 구분이 화면에 그대로 보인다. 에뮬레이터에서 안 3의 접기·펴기, 손잡이 밖 터치의 전달, 앱 배치 유지를 확인해(10.1절) 안 3을 넣었다.
+
+**한계.** 떠 있는 키보드는 앱의 입력창을 가릴 수 있다. 띄운 상태는 앱마다 따로 기억하지 않는다. 불투명도 범위와 손잡이 크기(가로 11 mm 이상, 높이 6.5 mm)는 사람으로 검증하지 않았다.
+
 ## 4. 키 크기와 터치 정확도
 
 ### 4.1 키 크기
@@ -732,6 +757,39 @@ Windows 쪽에서 오른쪽 Alt가 한/영이 되는지는 그 PC의 한국어 �
 
 원격 PC가 종류 2이면 같은 이벤트가 한자 키가 되고, 종류 3이나 103/106키이면 한/영이 바뀌지 않는다. 이때는 원격 PC의 한국어 키보드 종류를 1로 바꾼다. Android에는 한/영 키 코드가 없다. Android의 기본 키 배치 파일 `Generic.kl`은 Linux의 `KEY_HANGEUL`(122)을 `KANA`로, `KEY_HANJA`(123)를 `EISU`로 옮긴다. 원격 앱이 `KANA`를 원격 PC의 한/영 키로 넘기는지는 앱마다 다르고, 이전 앱은 오른쪽 Alt를 골랐다.
 
+### 7.12 물리 키보드(0.11.0)
+
+사용자는 블루투스 키보드를 연결하면 물리 키보드로 영어만 쳐지고 한/영 키로 한글을 쓸 수 없다고 알렸다. FoldKey 화면 배열을 한글로 바꾸는 문제가 아니라 물리 키 입력의 문제라고 짚었고, 물리 키보드로 칠 수 있을 때는 FoldKey 배열을 띄우지 말고 입력만 받다가 사용자가 직접 띄울 때만 나오게 해 달라고 했다. 원격 앱에서는 물리 키를 그대로 넘기는 안을 골랐다.
+
+**영문만 들어간 이유.**
+
+- 하드웨어 키 이벤트는 앱의 뷰보다 IME가 먼저 받는다. `ViewRootImpl`의 `ImeInputStage`가 `InputMethodManager.dispatchInputEvent`로 IME 세션에 넘기고, IME의 `onKeyDown`이 `false`를 돌려주면 앱의 뷰가 받는다(AOSP 16). 0.10.0까지 FoldKey는 `onKeyDown`을 구현하지 않아 모든 키가 앱으로 갔다.
+- 앱(`TextView`의 `KeyListener`)은 keycode를 장치의 KCM(KeyCharacterMap)으로 문자 하나로 바꾼다. KCM은 키와 수정키 조합마다 문자 하나를 정하는 표라 자모를 음절로 모으지 못한다. 두벌식 조합은 IME가 해야 한다.
+
+**한/영 키가 오는 길.**
+
+- HID(Human Interface Device) 사용표의 Keyboard 페이지에서 한/영은 LANG1(0x90), 한자는 LANG2(0x91)다. Linux `hid-input.c`의 `hid_keyboard` 표는 0x90을 `KEY_HANGEUL`(122)로, 0x91을 `KEY_HANJA`(123)로 바꾸고, AOSP `Generic.kl`은 122를 `KANA`, 123을 `EISU`로 바꾼다. 따라서 전용 한/영 키는 앱과 IME에 `KEYCODE_KANA`로 도착한다. 블루투스 HID 키보드도 Android에서는 `/dev/uhid`로 같은 커널 경로를 탄다.
+- 한/영을 오른쪽 Alt로 보내는 키보드도 있다. 7.11절 Windows 종류 1과 같은 약속이다.
+- `KEYCODE_LANGUAGE_SWITCH`(Linux `KEY_LANGUAGE` 368, HID Consumer 페이지 0x29D)는 창 정책이 먼저 가져간다. Android 11의 `PhoneWindowManager.interceptKeyBeforeDispatching`은 이 키와 Ctrl·Meta+Space를 `switchKeyboardLayout`(물리 키보드 배치 전환)에 쓰고 -1을 돌려 이벤트를 버린다. Android 16도 이 키를 `KEY_GESTURE_TYPE_LANGUAGE_SWITCH`로 처리하고 앱에 넘기지 않으며, `InputMethodManagerInternal.onSwitchKeyboardLayoutShortcut`으로 입력 방법을 바꾼다.
+
+**구현.**
+
+- `HardwareKeys`가 `onKeyDown`·`onKeyUp`을 받는다. 입력이 시작된 입력창이 있을 때(`onStartInput`부터 `onFinishInput`까지)만 동작한다. 입력 시작 처리는 `onStartInputView`에서 `onStartInput`으로 옮겼다. 키보드 창이 닫혀 있어도 입력창이 바뀐 것(터미널인지, 어느 앱인지)을 알아야 하기 때문이다. 창이 뒤늦게 열려 같은 `EditorInfo`로 오는 `onStartInputView`는 엔진을 다시 시작하지 않아, 창이 열리기 전에 친 터미널의 조합 중 음절이 남는다(테스트 `terminalSyllableTypedBeforeTheWindowShowsIsKept`).
+- 한글 모드에서 Ctrl·Alt·Meta·Fn 없는 A–Z는 `Dubeolsik.jamo`로 자모가 되어 화면 키보드와 같은 `HangulComposer`로 간다. keycode는 키의 물리 위치를 나타내므로 물리 키보드 배치 설정을 바꿔도 두벌식 자리는 그대로다. Shift는 쌍자음·ㅒ·ㅖ를 만들고 Caps Lock은 자모에 영향을 주지 않는다(`hanEngKeyTurnsLetterKeysIntoTwoSetJamo`, `shiftGivesTenseConsonantsAndCapsLockIsIgnored`, `physicalKeysTypeHangulAfterTheHanEngKey`). 조합 중 Backspace는 자모 단위로 지운다(`backspaceUndoesJamoThenReachesTheApp`).
+- 그 밖의 키는 조합을 끝낸 뒤 넘긴다(`commandChordsFinishTheSyllableAndPassThrough`). 일반 입력창에서는 조합 중인 음절이 이미 입력창의 글에 들어가 있고 `finishComposingText`는 조합 표시만 지우므로, 이 호출과 앱이 받는 키의 순서가 바뀌어도 글은 같다. 터미널은 다르다. 조합 중인 음절은 FoldKey 안에만 있고, `commitText`는 binder 호출로, IME가 넘긴 키 이벤트는 앱과 IME 사이의 입력 채널(`InputChannel`, `ImeInputEventSender`)로 앱에 가서 두 경로의 도착 순서가 정해져 있지 않다. 그래서 터미널에서는 키를 넘기지 않고, 음절을 보낸 뒤 같은 `InputConnection`으로 그 키를 다시 보낸다(`terminalGetsTheSyllableBeforeTheKeyThatEndedIt`). 같은 연결의 호출은 보낸 순서대로 처리된다(5.2절). 뒤로 가기·볼륨처럼 글 입력과 상관없는 키는 다시 보내지 않고 음절만 보낸 뒤 시스템에 넘긴다(`terminalLeavesSystemKeysToTheSystem`).
+- 누르고 있어 반복되는 키는 처음 누름의 처리를 따른다. 처음에 FoldKey가 받은 키의 반복은 자모로 조합하거나, 조합할 수 없으면 FoldKey가 다시 보낸다. 처음에 앱으로 넘긴 키의 반복은 앱으로 간다. 앱이 누름 없이 반복이나 뗌만 받는 일을 막는다(`heldKeysRepeatTheWayTheyStarted`).
+- 전환은 `KEYCODE_KANA`와 `KEYCODE_LANGUAGE_SWITCH`의 첫 누름, 그리고 다른 키 없이 눌렀다 뗀 오른쪽 Alt다. 오른쪽 Alt의 누름·뗌 이벤트는 앱에도 그대로 간다(`languageSwitchKeyAlsoTogglesAndRepeatsAreSwallowed`, `rightAltTappedAloneTogglesButChordsDoNot`). Esc와 Ctrl+[는 8.4절 규칙대로 영문으로 바꾼다(`escapeLeavesHangulInTextFieldsAndTerminals`).
+- 원격 데스크톱 앱 목록(기본 `tv.parsec.client`. Play 스토어의 Parsec 주소로 확인했다)에 있는 앱과 입력창이 없는 화면에서는 키를 하나도 처리하지 않는다(`remoteAppsAndFieldlessFocusGetEveryKeyUntouched`, `remoteDesktopAppsGetThePhysicalKeysUnchanged`). 원격 PC의 한국어 입력기가 한/영 키나 오른쪽 Alt를 직접 받는다.
+
+**배열을 띄우지 않기.** AOSP 16 `InputMethodService`의 기본 동작은 다음과 같다.
+
+- `onEvaluateInputViewShown`은 시스템 설정의 화면 키보드 표시(`Settings.Secure.SHOW_IME_WITH_HARD_KEYBOARD`)가 켜져 있거나, `keyboard == KEYBOARD_NOKEYS`이거나, `hardKeyboardHidden == HARDKEYBOARDHIDDEN_YES`일 때만 참이다. 거짓이면 입력 뷰가 보이지 않고 `onStartInputView`도 오지 않는다.
+- `onShowInputRequested`는 `SHOW_EXPLICIT`이 없는 표시 요청(큰 화면에서 입력창에 초점이 갈 때의 자동 표시 등)을 하드웨어 키보드가 있으면 거절한다.
+
+사용자는 물리 키보드를 연결한 상태에서도 FoldKey 배열이 뜬다고 알렸다. AOSP 기본 동작에서 이렇게 되는 경우는 위 설정이 켜져 있을 때다. One UI의 기본값은 확인하지 못했다. 0.11.0은 두 판단을 허용해 IME 창을 띄우되, 하드웨어 키보드가 있고(`keyboard == KEYBOARD_QWERTY`, 숨김 아님) 사용자가 부르지 않았으면 배열 대신 칩만 그린다. 칩일 때도 3.15절과 같이 앱 화면을 줄이지 않고 칩 사각형만 터치를 받는다. 칩을 누르면 배열이 나오고, `숨김`은 창을 닫지 않고 칩으로 돌아간다. 창이 닫히면 다음에는 칩부터 다시 시작한다(`attachedKeyboardShowsAChipAndHideReturnsToIt`, `physicalKeyboardShowsOnlyAChipUntilItIsTapped`).
+
+**한계.** 폴드7과 실제 블루투스 키보드로는 시험하지 않았다. 삼성 기기의 키 배치 파일이 `KEY_HANGEUL`을 `KANA`가 아닌 keycode로 바꾸면 한/영 키로는 전환되지 않는다. 이때는 오른쪽 Alt 단독 누름이나 화면 키보드의 `한/A`를 쓴다. Shift+Space 전환은 8.4절의 이유로 넣지 않았고, 한자 키는 처리하지 않는다.
+
 ## 8. 한글 입력
 
 ### 8.1 표준과 자판
@@ -788,6 +846,8 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **구성 변경.** Android 문서에 따르면 UPSIDE_DOWN_CAKE부터 CINNAMON_BUN 사이 버전에서는 IME가 선언한 `configChanges`가 XML(Extensible Markup Language) 파싱 오류로 무시된다. 화면 전환(내부 ↔ 커버) 때 입력 뷰가 다시 만들어지므로 `onCreateInputView`에서 매번 새 뷰를 만든다. `InputMethodService.resetStateForNewConfiguration`은 뷰를 다시 만든 뒤 `startViews`에서 `onStartInputView(info, false)`를 부르고, 그 사이에 `onFinishInputView`는 부르지 않는다. 0.5.x는 이 호출을 새 입력창으로 보고 터미널의 조합 중 음절을 버렸다. 0.6.0은 `onConfigurationChanged`에서 먼저 확정한다(테스트 `terminalSyllableSurvivesAConfigurationChange`).
 - **입력 다시 시작.** 앱이 같은 입력창에서 입력을 다시 시작하면(`setText` 뒤의 `restartInput` 등) `onStartInputView(info, true)`가 온다. 0.5.x는 이때도 누르고 있던 터치를 취소해서, 키를 누른 사이에 앱이 입력을 다시 시작하면 그 키가 사라졌다. 0.6.0은 다른 입력창으로 옮길 때(`restarting = false`)만 터치를 취소하고 수정키 상태를 지운다. 같은 입력창이면 누르고 있던 키와 수정키를 그대로 둔다(테스트 `keyHeldWhileTheAppRestartsInputIsStillTyped`, `restartOnTheSameFieldKeepsHeldModifiers`). 새 입력창으로 옮기면서 끊긴 수정키 터치는 Esc를 보내거나 one-shot을 켜지 않는다(`escCtrlHeldWhenANewFieldStartsSendsNothing`, `releaseAfterANewFieldStartsIsIgnored`).
 - **잠금 화면과 클립보드.** AOSP 16 `ClipboardService.getPrimaryClip`은 `KeyguardManager.isDeviceLocked`가 참이면 기본 IME를 포함한 모든 호출자에게 null을 돌려준다. FoldKey는 복사 기록을 자체 메모리에 들고 있어서 0.5.x는 잠금 화면의 비밀번호 입력창에서도 기록을 보여 주고 붙여 넣었다. 0.6.0은 입력이 시작될 때 기기가 잠겨 있으면 기록을 숨기고 새로 기록하지도 않는다(테스트 `clipboardHistoryIsHiddenWhileTheDeviceIsLocked`).
+- **하드웨어 키보드와 IME 창(0.11.0).** `onEvaluateInputViewShown`과 `onShowInputRequested`의 기본값은 하드웨어 키보드가 있으면 입력 뷰를 숨기고 암시적 표시 요청을 거절한다. FoldKey는 두 판단을 허용하고 칩으로 그린다. 입력 시작 처리는 창과 상관없이 오는 `onStartInput`에서 한다(7.12절).
+- **띄운 IME 창(0.11.0).** `onComputeInsets`에서 content·visible insets를 창 높이로, 터치 영역을 키보드·손잡이·칩 사각형으로 둔다. 제스처 제외 영역도 같은 사각형으로 둔다(3.15절).
 - **IME subtype(하위 유형).** 0.5.x는 ko_KR과 en_US 두 subtype을 선언했다. AOSP 16 `InputMethodSubtypeSwitchingController`의 다음 입력기 계산은 같은 IME의 다른 subtype도 다음 후보로 돌려주므로, 두 subtype이 모두 켜져 있으면 키보드 전환 버튼이 FoldKey 안에서 subtype만 바꿀 수 있었다. FoldKey의 언어 전환은 한/A 키가 맡고 subtype을 읽지 않으므로 0.6.0은 ko_KR 하나만 선언한다.
 - **뒤로 가기.** Android 16에서 targetSdk 36 앱은 predictive back(예측형 뒤로 가기)이 기본이다. `InputMethodService`가 자체 콜백으로 키보드를 닫으므로 추가 코드가 없다.
 - **Enter.** `EditorInfo.IME_FLAG_NO_ENTER_ACTION`이 없고 동작이 `IME_ACTION_NONE`이 아니면 `performEditorAction`을 부른다. `TextView`는 여러 줄 입력창에 이 플래그를 자동으로 붙이므로 줄바꿈이 된다. 0.6.0부터 여러 줄 입력창의 줄바꿈은 `KEYCODE_ENTER`가 아니라 `\n` 글자로 보낸다(5.2절, 테스트 `enterInsertsANewlineOnlyInMultiLineFields`).
@@ -880,6 +940,13 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 새 테스트가 결함을 잡는지 보려고 코드를 23가지로 바꿔 돌렸다. Alt를 one-shot으로 되돌리기, 고정한 Shift를 글자에만 적용하기, 고정한 Shift의 숫자 키 표시를 원래 글자로 두기, 원격 한/영 이벤트에 `FLAG_SOFT_KEYBOARD` 붙이기, 왼쪽 Alt 보내기, 원격 한/영이 FoldKey의 한글·영문도 바꾸기, 길게 누르기 동작을 내지 않기, 미래 시각의 클립 남기기, 형식 1을 고정하지 않은 글로 읽기, 고정한 글만 저장하기, 고정한 글을 최근 기록에도 되살리기, 제안이 표준오차를 보지 않기, 탭 수를 보지 않기, 올림 방향 뒤집기, 학습값 이동에서 올림 빼기, 칸 밖의 탭도 기록하기, 비밀번호 입력창도 기록하기, 배치가 다른 히트맵도 읽기, 적용 뒤 히트맵 남기기, 학습을 켰을 때만 기록하기, 일반 레이어 `o`의 기호 바꾸기, `b`를 왼쪽으로 되돌리기, 기호 키를 1칸으로 되돌리기다. 22가지는 1–11개 테스트가 실패했다. 미래 시각의 클립을 남기는 변이는 살아남았다. 테스트에 미래 시각 항목이 있었지만 목록 끝에 있어 개수 제한에 먼저 잘렸기 때문이다. 그 항목을 앞으로 옮겨 이 변이도 잡게 했다.
   - 변이를 되돌린 뒤에도 변이된 클래스가 빌드 결과에 남은 일이 있었다. 바꾼 글자 수가 같은 두 변이(`shiftText` → `shiftJamo`, `{` → `(`)는 파일 길이가 그대로였고, 백업 복사와 변이 쓰기가 같은 밀리초에 일어나 되돌린 파일의 수정 시각도 변이 파일과 같았다. Gradle 9.8.0의 `CachingFileHasher`는 길이와 수정 시각이 캐시와 같으면 저장해 둔 해시를 다시 쓴다(바이트코드로 확인). 그래서 되돌린 파일을 바뀌지 않은 것으로 보고 다시 컴파일하지 않았고, 뒤의 변이 시험 하나에서 그 변이와 관계없는 테스트가 함께 실패해 드러났다. 스크립트가 되돌린 파일에 새 수정 시각을 찍게 고쳤고, 위 테스트 수와 전달한 APK는 빌드 결과를 모두 지운 뒤 처음부터 만든 것이다. 0.9.0의 변이 시험에서는 파일마다 마지막 변이가 길이가 다른 변이여서 되돌린 뒤 다시 컴파일되었고, 전달한 0.9.0 APK와 같은 클래스로 돌린 전체 테스트 272개가 통과했다.
   - lint 경고는 3개다. SDK 37 출시 안내 2개는 0.9.0과 같고, Gradle 9.8.2 출시 안내가 새로 나왔다. 첫 빌드에서 새 코드가 낸 경고 4개(복수형으로 써야 할 문자열 2개, `setText`에 문자열을 이어 붙였다고 본 2곳)는 고쳤다. 뒤의 2곳은 목록의 `+`를 문자열 연결로 읽은 경고였지만, 경고를 끄지 않고 목록을 만드는 코드를 바꿨다.
+- **0.11.0 자동 테스트.** 빌드 결과를 모두 지우고 돌린 테스트는 321개이고 모두 통과했다. 새로 넣거나 바꾼 것은 다음과 같다.
+  - 물리 키(`HardwareKeysTest` 12개, JVM): 한/영 키 뒤 A–Z가 두벌식으로 조합되고 스페이스는 음절을 끝낸 뒤 앱으로 가는지, Shift는 쌍자음을 만들고 Caps Lock은 무시하는지, Backspace가 자모 단위로 지우다 조합이 비면 앱으로 가는지, Ctrl·Alt 조합과 방향키는 음절을 끝낸 뒤 넘기는지, 수정키만 누르면 음절이 그대로인지, `KEYCODE_LANGUAGE_SWITCH`도 전환하고 반복과 뗌은 삼키는지, 오른쪽 Alt는 혼자 눌렀다 뗄 때만 전환하고 이벤트는 앱에 가는지, 원격 앱과 입력창이 없을 때 아무것도 처리하지 않는지, 터미널에서 음절이 Enter·Ctrl+C·마침표·Shift+Tab보다 먼저 가는지, 뒤로 가기와 볼륨 키는 음절만 보내고 넘기는지, Esc·Ctrl+[의 영문 전환과 그 설정, 반복이 처음 누름을 따르는지
+  - 서비스(`PhysicalKeyboardTest` 7개): 실제 `EditText`에 `KeyEvent`로 `한글`이 들어가는지, `onFinishInput` 뒤에는 처리하지 않는지, 원격 앱(`tv.parsec.client`)이 키를 그대로 받는지, 창이 열리기 전에 친 터미널 음절이 창이 열린 뒤 Enter와 함께 순서대로 가는지, 하드웨어 키보드가 있으면 두 표시 판단을 허용하고 칩 → 배열 → `숨김` → 칩 → 창 닫힘 뒤 칩으로 가는지, 키보드를 뗐다 다시 붙이면 칩부터 시작하는지, 띄운 키보드의 content·visible insets와 터치 영역, 접은 키보드의 손잡이 영역
+  - 키보드 뷰(`HoverTest` 4개, `OverlayTest` 2개): `띄우기`로 높이는 그대로이고 알파가 0.7이 되며 터치·제스처 제외 영역이 키보드 전체인지, 상단 줄에 `접기`와 슬라이더가 생기고 키 입력이 되는지, 슬라이더를 끄는 동안 저장하지 않다가 뗄 때 5% 단위 값을 저장하고 취소된 터치는 저장하지 않는지, `접기`가 조합 중 음절을 확정하고 손잡이(11 mm 이상, `접기` 자리)만 터치를 받으며 손잡이로 돌아오는지, 칩의 크기·자리·내용(한글 조합 중이면 넓어지고 원격 앱이면 ⌨만), 칩 밖 터치를 무시하고 칩을 누르면 배열이 나오는지, `QWERTY`이면서 숨김이 아닌 키보드만 연결로 보는지와 표시 상태 규칙
+  - 상단 줄 명령 목록(`LayoutsTest`)에 `FLOAT`, `BEHIND`를 더했다.
+  - 새 테스트가 결함을 잡는지 보려고 코드를 32가지로 바꿔 돌렸다(되돌린 파일은 0.10.0처럼 수정 시각을 새로 찍었다). 30가지는 1–13개 테스트가 실패했다. 살아남은 둘은 띄운 키보드에서 content insets를 창 높이로 두는 줄을 빼는 변이와, 칩·손잡이를 누른 뒤 밖에서 떼도 동작하게 하는 변이였다. 앞의 것은 Robolectric에서 IME의 입력 영역이 `GONE`으로 남아 기본 계산도 창 높이를 돌려주었기 때문이다. 시험에서 입력 영역을 보이게 하고 IME 창을 키보드 높이로 배치해, 기기처럼 기본 계산이 입력 영역의 위 끝(0)을 돌려주게 했다. 뒤의 것은 누른 뒤 밖에서 떼는 경우를 시험하지 않았기 때문이라 칩과 손잡이에 그 경우를 더했다. 고친 시험으로 두 변이 모두 실패했다.
+  - lint 경고는 0.10.0과 같은 3개(SDK 37 출시 안내 2개, Gradle 9.8.2 출시 안내)다.
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.
@@ -966,6 +1033,22 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 같은 화면 자리에 탭 60개를 다시 넣자 히트맵 화면의 평균은 두 엄지 모두 가로·세로 −0.0 mm였다.
   - `adb reboot`와 에뮬레이터 콜드 부팅을 한 번씩 거친 뒤에도 `clip_pins.bin`은 바이트 단위로 같았고(161바이트, 형식 2, 고정하지 않은 기록 8개), 시험 앱을 열자 가운데 여덟 칸이 같은 순서로 보였다. `theta` 칸을 누르자 입력창에 `theta`가 들어갔다.
   - 위 시험은 같은 소스의 증분 빌드로 했다. 빌드 결과를 모두 지우고 다시 만든 전달용 APK를 데이터를 지우지 않고 덮어 설치한 뒤, 세 번째 부팅에서도 가운데 여덟 칸이 남아 있는 것, `q`, Shift 두 번, `1`, Shift, `1`, `한/A` 2.5초, `w` → `q!1w`, 키 이벤트 확인창에서 `한/A` 2.5초 → `down ALT_RIGHT`를 다시 확인했다.
+- **0.11.0 에뮬레이터 실행.** 같은 Android 11 에뮬레이터를 데이터를 지우지 않고 다시 부팅해 0.11.0 디버그 빌드를 덮어 설치하고 가로 화면(2184×1968)에서 확인했다. 터치는 `adb root`로 터치 장치에 원시 이벤트를 써 넣었다.
+  - 이 에뮬레이터는 qemu 가상 기계의 PS/2 키보드("AT Translated Set 2 keyboard", 내장)를 알파벳 키보드로 잡아 시스템 구성이 `qwerty`이고, `show_ime_with_hard_keyboard`가 1이었다. 0.10.0까지의 에뮬레이터 시험에서 붙은 키보드가 뜬 것은 이 설정 때문이고, 사용자가 알린 상황(물리 키보드가 있는데 배열이 뜸)과 같은 조건이다.
+  - 물리 키는 AOSP의 `hid` 명령(`/dev/uhid`)으로 블루투스 버스의 가상 HID 키보드를 등록해 보냈다. 보고서 기술자는 수정키 8비트와 사용 코드 0x00–0xFF 배열 6칸이다. 실제 블루투스 HID 키보드와 같은 커널 경로(`hid-input` → evdev → `InputReader`)를 탄다. 장치는 등록 뒤 4–8초가 지나야 `dumpsys input`에 나타났고, 그 전에 보낸 첫 오른쪽 Alt 누름 한 번은 전달되지 않았다. 이후 시험은 장치가 나타난 뒤 보냈다.
+  - 설정 화면의 여러 줄 입력창을 누르자 IME 창은 높이 138 px(칩 6.5 mm와 위아래 1.5 mm)였고, 창 관리자에 알린 content·visible insets는 창 높이와 같은 138, 터치 영역은 칩 사각형 `(1970,1852)–(2163,1947)`이었다. 칩은 `EN ⌨`이었다.
+  - 가상 키보드로 LANG1(한/영)을 누르고 `gksrmf`, 스페이스, `dkssud`를 치자 입력창에 `한글 안녕`이 들어가고 칩이 `한 ⌨`로 바뀌었다. IME 창 영역 안이지만 칩 밖인 자리(y 1900)에서 시작한 끌기로 설정 화면이 스크롤되었다.
+  - 칩을 누르자 붙은 키보드가 나와 창이 793 px로 커지고 앱이 그 위로 줄었다(insets 0, 터치 영역 `TOUCHABLE_INSETS_VISIBLE`). 상단 줄에는 `Float`가 있고 `Collapse`와 슬라이더는 없었다. `Hide`를 누르자 창이 닫히지 않고 다시 138 px의 칩이 되었다.
+  - 오른쪽 Alt만 눌렀다 떼기를 세 번 하자 칩이 `EN` → `한` → `EN` → `한`으로 바뀌었다. 오른쪽 Alt를 누른 채 `f`를 치고 떼면 바뀌지 않았다.
+  - 키 이벤트 확인창(`TYPE_NULL`)에서 LANG1, `gk`, Enter를 치자 칩에 조합 중인 `하`가 보였고 확인창에는 `text "하"`, `text "\n"` 순서로 들어갔다. LANG1, `rk`, Ctrl+C, 3초 쉬기, `ek`, `.`을 두 번 되풀이하자 두 번 모두 `down Ctrl+CTRL_LEFT`(물리 Ctrl), `text "가"`, FoldKey가 다시 보낸 `down Ctrl+CTRL_LEFT`·`down Ctrl+C`, `text "다"`, `text "."` 순서였다. 쉬지 않고 0.12초 간격으로 쳤을 때는 다시 보낸 Ctrl+C가 `text "다"`, `text "."` 뒤에 도착했다. 앱의 메인 스레드가 밀려 있을 때 `ViewRootImpl.dispatchKeyFromIme`가 IME의 키 이벤트를 메시지 큐 끝에 다시 넣기 때문이다(5.2절과 같은 원인). 조합 중인 음절이 그 키보다 늦게 도착한 경우는 없었다.
+  - 원격 데스크톱 앱 목록에 FoldKey 자신(`io.github.patissiermongs.foldkey`)을 가상 키보드로 더해 저장하고 확인창에서 LANG1, `g`, `k`, 오른쪽 Alt를 보내자, 확인창이 `down KANA`, `down G`, `down K`, `down Alt+ALT_RIGHT`를 모두 받았고 칩에는 ⌨만 보였다. LANG1이 Android 앱에 `KEYCODE_KANA`로 도착하는 것도 이 기록으로 확인했다. 목록은 `tv.parsec.client`로 되돌렸다.
+  - PS/2 키보드를 `atkbd` 드라이버에서 떼자(`/sys/bus/serio/drivers/atkbd/unbind`) 구성이 `nokeys`가 되었고, 입력창을 누르면 붙은 키보드가 나왔다. 설정 화면 액티비티는 키보드 구성 변경을 직접 처리하지 않아 다시 만들어졌다.
+  - `Float`를 누르자 IME 창은 같은 자리·크기(793 px)이고 content·visible insets가 793, 터치 영역이 키보드 사각형 `(0,1175)–(2184,1968)`이 되었다. 앱 창이 받은 IME insets 영역은 `[0,1968][2184,1968]`(높이 0)이었고, 앱 화면이 70% 불투명도의 키보드 뒤로 비쳐 보였다. 상단 줄은 `EN`, 슬라이더 `70%`, `Select all`…`Hide`, `Dock`, `Collapse` 순서였다.
+  - 슬라이더를 왼쪽 끝으로 끌고 떼자 설정 파일에 `hover_alpha_percent` 20이, 다시 가운데쯤으로 끌고 떼자 50이 저장되었고 화면의 불투명도도 따라 바뀌었다.
+  - `Collapse`를 누르자 창 크기와 insets는 그대로이고 터치 영역만 손잡이 `(1999,1175)–(2177,1270)`이 되었다. 키보드가 있던 자리의 설정 스위치("Split layout in portrait")를 누르자 스위치가 켜졌다(설정 파일의 `split_portrait` true). 손잡이를 누르자 터치 영역이 키보드 전체로 돌아왔고, 같은 자리를 다시 누르자 이번에는 키보드의 오른쪽 Shift가 눌리고 스위치는 그대로였다. 스위치는 다시 접은 상태에서 눌러 되돌렸다. `Dock`을 누르자 insets와 터치 영역이 붙은 키보드의 값으로 돌아갔다.
+  - 키보드 구성 변경을 직접 처리하는 런처(Launcher3)의 앱 검색창에서, 떠 있는 키보드를 띄운 채 가상 키보드를 연결하자 창이 칩(138 px, 터치 영역 칩)으로 바뀌었다. LANG1과 `tpxld`로 `세팅`이 들어갔고, 가상 키보드를 떼자 떠 있는 키보드(insets 793, 한글 모드)가 다시 나왔다. 설정 화면에서 같은 시험을 했을 때는 액티비티가 다시 만들어지며 입력창 초점이 사라져 IME 창이 닫혔다.
+  - 이 에뮬레이터는 3버튼 내비게이션이라 화면 옆 끝 뒤로 가기 제스처가 없어, 제스처 제외 영역의 효과는 볼 수 없었다. 시험 뒤 PS/2 키보드를 다시 붙였다.
+  - 위 시험은 증분 빌드로 했다. 빌드 결과를 모두 지우고 다시 만든 전달용 APK(테스트 321개 통과, 변이 시험 뒤의 빌드)를 덮어 설치하고, 칩(insets 138, 터치 영역 칩), 가상 키보드의 LANG1과 `dkssud` → `안녕`, 칩 → 떠 있는 키보드(insets 793, 터치 영역 키보드), `Collapse` → 손잡이 영역, 손잡이 → 키보드 영역을 다시 확인했다.
 
 ### 10.2 이 환경에서 확인하지 못한 것
 
@@ -978,6 +1061,7 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **0.10.0 원격 한/영.** Parsec 같은 원격 데스크톱 앱과 Windows PC로는 시험하지 않았다. 에뮬레이터와 Robolectric에서는 Android 앱이 오른쪽 Alt 누름·뗌을 수정키 없이 받는 데까지만 확인했다. 원격 앱이 이 이벤트를 Windows의 오른쪽 Alt로 넘기는지, Windows가 이를 한/영으로 받는지는 원격 앱의 키 전달 방식과 Windows의 한국어 키보드 종류에 달려 있다(7.11절).
 - **0.10.0 배치 제안의 문턱.** 엄지마다 탭 150개, 평균 0.3 mm, 표준오차의 2배라는 문턱은 사람의 타이핑으로 정한 값이 아니다. 에뮬레이터 시험의 탭은 일정한 편차에 평균이 0인 흩어짐을 돌아가며 더한 것이라, 키마다 편차가 다르고 시간에 따라 바뀌는 실제 손의 탭과 다르다.
 - **0.10.0 클립 저장.** 에뮬레이터에 잠금 화면 비밀번호를 걸지 않아, 다시 켠 뒤 처음 잠금을 풀기 전의 동작은 시험하지 않았다.
+- **0.11.0 물리 키보드와 띄운 키보드.** 폴드7과 실제 블루투스 키보드, Parsec로는 시험하지 않았다. 삼성 기기의 키 배치 파일이 `KEY_HANGEUL`을 `KANA`로 옮기는지, One UI가 한/영 키를 앱과 IME보다 먼저 가져가지 않는지, One UI의 화면 키보드 표시 설정 기본값은 확인하지 못했다. 제스처 내비게이션에서의 뒤로 가기 제스처 제외와 Android 16의 IME 내비게이션 버튼은 에뮬레이터(Android 11, 3버튼)에서 볼 수 없었다. 터미널에서 음절 뒤에 다시 보낸 키 이벤트를 이어 친 음절이 앞지르는 일은 에뮬레이터에서 0.12초 간격일 때 일어났고, 실기기에서 얼마나 자주 일어나는지는 재지 않았다.
 - **사용자 실험.** 입력 속도와 오류율을 사람으로 측정한 적이 없다. 이 문서의 수치는 모두 인용한 연구의 값이다. 평가할 때는 Soukoreff·MacKenzie(2003)의 전체·수정·미수정 오류율과 KSPC(keystrokes per character, 문자당 키 입력 수)를 쓰고, 명령어와 식별자 같은 사전 밖 문자열을 과제에 넣어야 한다. Palin 외(2019)의 두 엄지 평균(38 WPM, 미수정 오류 2.3%)이 휴대폰 입력의 참고값이다.
 
 ### 10.3 기기에서 확인할 항목
@@ -1009,6 +1093,10 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 25. Shift를 두 번 눌러 고정한 채 숫자 행과 기호 키를 쳐 바뀐 글자(`!`, `{` 등)가 나오는지, 한글 모드에서는 쌍자음이 되지 않는지 본다.
 26. 글을 몇 개 복사한 뒤 기기를 다시 켜고, 잠금을 푼 다음 가운데 칸에 기록이 남아 있는지 본다. 비밀번호 관리 앱에서 복사한 글은 다시 켠 뒤에도 나타나지 않아야 한다.
 27. 0.10.0 코드 레이어로 Termux와 편집기에서 몇 분 쳐 보고, 0.75칸이 된 기호 키와 줄어든 Tab·⏎·Shift를 놓치지 않는지, 오른쪽 엄지가 0.9.0보다 덜 뻗는지 본다. 그 뒤 히트맵 화면의 제안이 손으로 느낀 방향과 같은 쪽을 가리키는지, 적용한 뒤 오타가 줄어드는지 본다.
+28. 블루투스 키보드를 연결하고 메신저 입력창을 누르면 배열 대신 오른쪽 아래 칩만 나오는지, 한/영 키를 누르면 칩이 `한`이 되고 `안녕하세요`가 들어가는지, Ctrl+A·C·V가 동작하는지 본다. 한/영 키로 바뀌지 않으면 오른쪽 Alt만 눌렀다 떼서 바뀌는지 보고, 어느 쪽이었는지 알린다.
+29. 블루투스 키보드로 Termux에서 `echo 한글`과 Enter를 쳐 음절과 Enter가 순서대로 들어가는지, vim insert mode에서 한글을 친 뒤 Esc를 누르면 영문으로 돌아오는지 본다.
+30. 블루투스 키보드를 연결한 채 Parsec로 Windows PC에 접속해 한/영 키나 오른쪽 Alt로 Windows의 한글·영문이 바뀌는지, FoldKey 칩에 ⌨만 보이는지 본다.
+31. Parsec에서 상단 줄 `띄우기`로 키보드를 띄우고 불투명도를 바꿔 보며 원격 화면이 보이는 정도를 확인하고, `접기` → 원격 화면 조작 → 손잡이로 돌아오기가 편한지 본다. 제스처 내비게이션이면 떠 있는 키보드 옆 끝에서 엄지를 밀 때 뒤로 가기가 일어나지 않는지, 내비게이션 버튼이 키보드와 겹치지 않는지 본다.
 
 ## 11. 얽힌 이야기들
 
@@ -1027,6 +1115,7 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **Microsoft 문서의 오타.** Microsoft의 한국어 IME 문서는 "여름"을 입력하는 키를 "O, U, F, M, and A"로 적는다. ㅇ은 D 키이므로 D, U, F, M, A가 맞다.
 - **오른쪽 Alt가 한/영이 된 사정.** 101키 PC 키보드에는 한/영·한자 키가 없어서, Windows의 한국어 키보드 드라이버는 오른쪽 Alt·오른쪽 Ctrl 같은 기존 키에 이 역할을 맡겼다. 종류마다 맡기는 키가 다르고(7.11절), Kaplan은 이 대응이 "documented nowhere"라서 소스에서 찾았다고 적었다(2012). 그 흔적은 API에도 남아, `MapVirtualKeyEx`는 `VK_HANGUL`의 스캔 코드로 오른쪽 Alt(`VK_RMENU`)와 같은 0xE038을 돌려준다. 전용 한/영 키가 있는 키보드에서 드라이버가 실제로 받는 스캔 코드는 0x72였다(Kaplan 2010). FoldKey 0.10.0이 원격 PC에 오른쪽 Alt를 보내는 것도 이 101키 시절의 약속에 기댄다.
 - **한/영 키가 Android에서는 가나 키.** Android 키 코드에는 한/영 키가 따로 없고, 기본 키 배치 파일 `Generic.kl`은 한/영(`KEY_HANGEUL`, 122)을 일본어 키보드의 `KANA`로, 한자(`KEY_HANJA`, 123)를 `EISU`로 옮긴다. 같은 키 번호를 한국어와 일본어 키보드가 나눠 쓰는 셈이다.
+- **철자가 둘인 한/영 키.** Linux 2.6.12의 `include/linux/input.h`에는 122번 키가 `KEY_HANGUEL`로 적혀 있다. 2.6.26의 헤더에서는 122번이 `KEY_HANGEUL`이고 옛 이름 `KEY_HANGUEL`은 그 별칭으로 남았으며, 지금의 `input-event-codes.h`에도 두 줄이 그대로 있다. 사용자 프로그램이 쓰는 헤더라 잘못 적은 이름도 지우지 않는다. FoldKey 0.11.0이 받는 `KEYCODE_KANA`는 이 122번 키에서 온다.
 - **Enter 하나를 두고 맞물린 두 주석.** AOSP LatinIME의 `sendKeyCodePoint`는 Jelly Bean 이전 앱에서만 Enter를 키 이벤트로 보내고, 주석에 키 이벤트가 commit과 경쟁 상태를 만든다고 적었다. Termux의 `commitText` 처리에는 "AOSP 키보드와 그 후손은 Enter를 누르면 \n을 글자로 보내는 것 같다"는 주석과 함께 `\n`을 CR로 바꾸는 코드가 있다. 한 키보드가 순서 문제를 피하려고 고른 방식이 터미널 쪽 호환 코드로 남았고, FoldKey 0.6.0의 터미널 Enter는 이 호환 코드 위에서 동작한다.
 
 ## 12. 참고 자료
@@ -1106,6 +1195,9 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - keyd: https://github.com/rvaiya/keyd
 - M. S. Kaplan, Hunting for VK_HANGUL, aka If you press a key that your code can't process, did you really press it?(2010-06-08), Sorting It All Out: https://archives.miloush.net/michkap/archive/2010/06/08/10017386.html
 - M. S. Kaplan, The [underdocumented] world of the Korean keyboard layout(2012-04-30), Sorting It All Out: https://archives.miloush.net/michkap/archive/2012/04/30/10298801.html
-- AOSP frameworks/base `data/keyboards/Generic.kl`(`key 122 KANA`, `key 123 EISU`, `key 100 ALT_RIGHT`)
+- AOSP frameworks/base `data/keyboards/Generic.kl`(`key 122 KANA`, `key 123 EISU`, `key 100 ALT_RIGHT`, `key 368 LANGUAGE_SWITCH`)
+- AOSP frameworks/base(android11-release, android16-release): `PhoneWindowManager.java`(`KEYCODE_LANGUAGE_SWITCH`, Ctrl·Meta+Space), `KeyGestureController.java`, `DisplayContent.java`(`needsGestureExclusionRestrictions`), `InputMethodManager.java`(`ImeInputEventSender`), `InputMethodService.java`(`onEvaluateInputViewShown`, `onShowInputRequested`, `onComputeInsets`), `ViewRootImpl.java`(`ImeInputStage`, `performTraversals`의 internal insets), `cmds/hid`(android11-release, 에뮬레이터 시험에 쓴 `hid` 명령)
+- Linux `drivers/hid/hid-input.c`(`hid_keyboard` 표), `include/uapi/linux/input-event-codes.h`(`KEY_HANGEUL`, `KEY_HANJA`, `KEY_LANGUAGE`), 2.6.12·2.6.26 `include/linux/input.h`: https://github.com/torvalds/linux
+- Google Play, Parsec: https://play.google.com/store/apps/details?id=tv.parsec.client
 - Android Developers, Support Direct Boot mode: https://developer.android.com/privacy-and-security/direct-boot
 - 사용자의 이전 키보드 앱 `androidKeyboard`, `app/src/main/java/com/example/hangulkeyboard/ImeService.kt`(`sendKeyWithMeta`)

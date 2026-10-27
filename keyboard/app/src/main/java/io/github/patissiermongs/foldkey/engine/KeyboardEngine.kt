@@ -57,6 +57,8 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
 
     val composingText: String get() = composer.composing
 
+    val isComposing: Boolean get() = composer.isComposing
+
     fun startInput(ctx: EditorContext, restarting: Boolean = false) {
         if (composer.isComposing) {
             if (!context.raw) {
@@ -84,6 +86,8 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         modifiers.clear()
         listener.onStateChanged()
     }
+
+    fun toggleLang() = setLang(if (lang == Lang.LATIN) Lang.HANGUL else Lang.LATIN)
 
     fun setLang(value: Lang) {
         if (lang == value) return
@@ -157,7 +161,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             KeyAction.Space -> space()
             KeyAction.Enter -> enter()
             KeyAction.Backspace -> backspace(forceCtrl)
-            KeyAction.Lang -> setLang(if (lang == Lang.LATIN) Lang.HANGUL else Lang.LATIN)
+            KeyAction.Lang -> toggleLang()
             KeyAction.RemoteLang -> remoteLang()
             is KeyAction.Cmd -> command(action.command)
             is KeyAction.Mod, KeyAction.EscCtrl -> Unit
@@ -185,6 +189,35 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         editor.commitText(text)
         finishKey()
     }
+
+    fun hardwareLetter(latin: Char, shift: Boolean): Boolean {
+        if (lang != Lang.HANGUL) return false
+        val jamo = Dubeolsik.jamo(latin, shift) ?: return false
+        batch {
+            val done = composer.input(jamo)
+            if (done.isNotEmpty()) editor.commitText(done)
+            showComposition()
+        }
+        listener.onStateChanged()
+        return true
+    }
+
+    fun hardwareBackspace(): Boolean {
+        if (!composer.isComposing) return false
+        batch {
+            composer.backspace()
+            showComposition()
+        }
+        listener.onStateChanged()
+        return true
+    }
+
+    fun hardwareResend(keyCode: Int, meta: Int, text: String?) = batch {
+        flushComposition()
+        if (text != null) editor.commitText(text) else editor.sendKey(keyCode, meta)
+    }
+
+    fun hardwareEscape() = leaveHangulOnEscape()
 
     fun endCursorMove() {
         finishKey()

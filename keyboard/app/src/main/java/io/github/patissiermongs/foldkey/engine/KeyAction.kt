@@ -2,7 +2,7 @@ package io.github.patissiermongs.foldkey.engine
 
 enum class Modifier(val latches: Boolean = false) { SHIFT, CTRL, ALT(latches = true), FN(latches = true) }
 
-enum class Command { SETTINGS, HIDE, PASTE, SELECT_ALL, COPY, CUT, TOGGLE_LAYER }
+enum class Command { SETTINGS, HIDE, PASTE, SELECT_ALL, COPY, CUT, TOGGLE_LAYER, FLOAT, BEHIND }
 
 enum class Layer { CODE, GENERAL }
 

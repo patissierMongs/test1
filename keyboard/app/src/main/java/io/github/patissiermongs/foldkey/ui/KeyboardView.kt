@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
@@ -37,8 +38,11 @@ import io.github.patissiermongs.foldkey.layout.LayoutKind
 import io.github.patissiermongs.foldkey.layout.KeyboardGeometry
 import io.github.patissiermongs.foldkey.layout.Layouts
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 @SuppressLint("ViewConstructor")
 class KeyboardView(
@@ -46,6 +50,7 @@ class KeyboardView(
     private val engine: KeyboardEngine,
     private val prefs: Prefs,
     private val feedback: Feedback,
+    private val overlay: Overlay = Overlay(),
 ) : View(context), TouchSink {
 
     private var palette = Palette.of(resources.configuration)
@@ -82,6 +87,11 @@ class KeyboardView(
     private var clipScroll = 0
     private var clipMenu: String? = null
     private val clipLongPress = Runnable { onClipLongPress() }
+    private var sliderBox: Box? = null
+    private var sliderPointer = -1
+    private var dragAlpha: Int? = null
+    private var floatPointer = -1
+    private var measuredLayer: Layer? = null
 
     var clipSource: () -> List<Clip> = { emptyList() }
     var onClipEdit: (ClipEdit, String) -> Unit = { _, _ -> }
@@ -119,6 +129,18 @@ class KeyboardView(
 
     private val fnOn: Boolean get() = engine.modifiers.isActive(Modifier.FN)
 
+    val presentation: Presentation get() = overlay.presentation(resources.configuration, prefs.hover)
+
+    val floating: Boolean get() = presentation != Presentation.DOCKED
+
+    internal val opacity: Int get() = dragAlpha ?: prefs.hoverAlpha
+
+    internal val sliderArea: Box?
+        get() {
+            if (width > 0) geometry()
+            return sliderBox
+        }
+
     var showEditCommands: Boolean = true
         set(value) {
             if (field != value) {
@@ -147,14 +169,63 @@ class KeyboardView(
 
     internal val clipOffset: Int get() = clipScroll
 
-    internal fun stripBox(command: Command): Box? = stripButtons.firstOrNull { it.second == command }?.first
+    internal fun stripBox(command: Command): Box? {
+        if (width > 0) geometry()
+        return stripButtons.firstOrNull { it.second == command }?.first
+    }
 
     fun reload() {
         palette = Palette.of(resources.configuration)
         geometry = null
         requestLayout()
+        refreshPresentation()
+    }
+
+    fun syncLayer() {
+        if (measuredLayer != engine.layer) reload()
+    }
+
+    private fun refreshPresentation() {
+        val mode = presentation
+        alpha = if (mode == Presentation.HOVER) opacity / 100f else 1f
+        systemGestureExclusionRects = if (mode == Presentation.DOCKED || width == 0) emptyList() else touchRects()
         invalidate()
     }
+
+    internal fun touchRects(): List<Rect> = when (presentation) {
+        Presentation.CHIP -> listOf(rectOf(chipBox()))
+        Presentation.COLLAPSED -> listOfNotNull(handleBox()?.let { rectOf(it) })
+        else -> listOf(Rect(0, 0, width, height))
+    }
+
+    private fun rectOf(b: Box) = Rect(floor(b.left).toInt(), floor(b.top).toInt(), ceil(b.right).toInt(), ceil(b.bottom).toInt())
+
+    internal fun chipBox(): Box {
+        val h = STRIP_MM * pxPerMmY
+        label.textSize = h * 0.42f
+        label.typeface = Typeface.DEFAULT_BOLD
+        var w = label.measureText(KEYBOARD_MARK) + 2f * CHIP_PAD_MM * pxPerMmX
+        if (!overlay.passThrough) {
+            w += label.measureText(langText()) + CHIP_GAP_MM * pxPerMmX
+            if (preedit.isNotEmpty()) {
+                label.textSize = h * 0.42f * 1.15f
+                label.typeface = Typeface.DEFAULT
+                w += label.measureText(preedit) + CHIP_GAP_MM * pxPerMmX
+            }
+        }
+        val right = width - sideInset - CHIP_MARGIN_MM * pxPerMmX
+        val bottom = height - bottomInset - CHIP_MARGIN_MM * pxPerMmY
+        return Box(right - w, bottom - h, right, bottom)
+    }
+
+    internal fun handleBox(): Box? {
+        if (width == 0) return null
+        val b = stripBox(Command.BEHIND) ?: return null
+        val w = max(b.width, HANDLE_MIN_MM * pxPerMmX)
+        return Box(b.right - w, b.top, b.right, b.bottom)
+    }
+
+    private fun langText(): String = if (engine.lang == Lang.HANGUL) "한" else "EN"
 
     fun saveState() {
         dropStaleOffsets()
@@ -173,6 +244,12 @@ class KeyboardView(
         tracker.cancelAll(SystemClock.uptimeMillis())
         active.clear()
         stripPointer = -1
+        sliderPointer = -1
+        floatPointer = -1
+        if (dragAlpha != null) {
+            dragAlpha = null
+            refreshPresentation()
+        }
         resetClipTouch()
         clipMenu = null
         clipScroll = 0
@@ -202,6 +279,11 @@ class KeyboardView(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
+        measuredLayer = engine.layer
+        if (presentation == Presentation.CHIP) {
+            setMeasuredDimension(width, ceil(STRIP_MM * pxPerMmY + 2f * CHIP_MARGIN_MM * pxPerMmY + bottomInset).toInt())
+            return
+        }
         val kind = layoutKind(width)
         val rows = Layouts.rows(kind, engine.layer)
         val lift = liftPx(kind)
@@ -212,6 +294,7 @@ class KeyboardView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         geometry = null
+        refreshPresentation()
     }
 
     internal fun layoutKind(widthPx: Int): LayoutKind = when {
@@ -278,17 +361,44 @@ class KeyboardView(
     private fun layoutStrip() {
         stripButtons.clear()
         val h = stripHeightPx
-        val commands = Layouts.stripCommands.filter { it !in EDIT_COMMANDS || showEditCommands }
-        val available = width - SIDE_MM * pxPerMmX - STRIP_STATUS_MM * pxPerMmX
+        val hover = prefs.hover
+        val commands = Layouts.stripCommands.filter { (it !in EDIT_COMMANDS || showEditCommands) && (it != Command.BEHIND || hover) }
+        val slider = if (hover) SLIDER_MM * pxPerMmX else 0f
+        val available = width - SIDE_MM * pxPerMmX - STRIP_STATUS_MM * pxPerMmX - slider
         val w = min(STRIP_BUTTON_MM * pxPerMmX, available / commands.size)
         var right = width - SIDE_MM * pxPerMmX
         for (cmd in commands.reversed()) {
             stripButtons.add(Box(right - w, 0f, right, h) to cmd)
             right -= w
         }
+        sliderBox = if (hover) Box(right - slider, 0f, right, h) else null
+    }
+
+    private fun alphaAt(x: Float): Int {
+        val box = sliderBox ?: return opacity
+        val (from, to) = sliderTrack(box)
+        val share = ((x - from) / (to - from)).coerceIn(0f, 1f)
+        val value = Prefs.HOVER_ALPHA_MIN + share * (Prefs.HOVER_ALPHA_MAX - Prefs.HOVER_ALPHA_MIN)
+        return ((value / ALPHA_STEP).roundToInt() * ALPHA_STEP).coerceIn(Prefs.HOVER_ALPHA_MIN, Prefs.HOVER_ALPHA_MAX)
+    }
+
+    private fun sliderTrack(box: Box): Pair<Float, Float> {
+        val pad = 1.5f * pxPerMmX
+        return box.left + SLIDER_LABEL_MM * pxPerMmX + pad to box.right - pad
     }
 
     override fun onDraw(canvas: Canvas) {
+        when (presentation) {
+            Presentation.CHIP -> {
+                drawChip(canvas)
+                return
+            }
+            Presentation.COLLAPSED -> {
+                handleBox()?.let { drawHandle(canvas, it) }
+                return
+            }
+            else -> Unit
+        }
         val g = geometry()
         canvas.drawColor(palette.background)
         drawStrip(canvas)
@@ -320,7 +430,7 @@ class KeyboardView(
         label.textSize = textSize
         label.color = palette.accent
         val baseline = h / 2f - (label.descent() + label.ascent()) / 2f
-        val langText = if (engine.lang == Lang.HANGUL) "한" else "EN"
+        val langText = langText()
         canvas.drawText(langText, x, baseline, label)
         x += label.measureText(langText) + 3f * pxPerMmX
         label.typeface = Typeface.DEFAULT
@@ -348,7 +458,7 @@ class KeyboardView(
             x += tw
             label.textSize = textSize
         }
-        val limit = (stripButtons.minOfOrNull { it.first.left } ?: width.toFloat()) - 2f * pxPerMmX
+        val limit = (sliderBox?.left ?: stripButtons.minOfOrNull { it.first.left } ?: width.toFloat()) - 2f * pxPerMmX
         if (echoes.isNotEmpty()) {
             label.color = palette.hint
             label.typeface = Typeface.MONOSPACE
@@ -360,6 +470,7 @@ class KeyboardView(
             label.typeface = Typeface.DEFAULT
             label.textSize = textSize
         }
+        sliderBox?.let { drawSlider(canvas, it, textSize, baseline) }
         label.textAlign = Paint.Align.CENTER
         for ((box, cmd) in stripButtons) {
             val text = when (cmd) {
@@ -370,6 +481,8 @@ class KeyboardView(
                 Command.SETTINGS -> context.getString(R.string.strip_settings)
                 Command.HIDE -> context.getString(R.string.strip_hide)
                 Command.TOGGLE_LAYER -> layerLabel()
+                Command.FLOAT -> context.getString(if (prefs.hover) R.string.strip_dock else R.string.strip_float)
+                Command.BEHIND -> context.getString(R.string.strip_behind)
             }
             label.color = if (stripPointer >= 0 && stripCommand == cmd) palette.accent else palette.hint
             label.textSize = textSize * 0.9f
@@ -378,6 +491,83 @@ class KeyboardView(
             if (measured > limit) label.textSize *= limit / measured
             canvas.drawText(text, box.centerX, baseline, label)
         }
+    }
+
+    private fun drawSlider(canvas: Canvas, box: Box, textSize: Float, baseline: Float) {
+        val value = opacity
+        label.textAlign = Paint.Align.LEFT
+        label.typeface = Typeface.DEFAULT
+        label.textSize = textSize * 0.85f
+        label.color = if (sliderPointer >= 0) palette.accent else palette.hint
+        canvas.drawText(context.getString(R.string.strip_opacity, value), box.left + 1f * pxPerMmX, baseline, label)
+        val (from, to) = sliderTrack(box)
+        val y = box.centerY
+        val track = 0.25f * pxPerMmY
+        fill.color = palette.hint
+        canvas.drawRect(from, y - track, to, y + track, fill)
+        val x = from + (to - from) * (value - Prefs.HOVER_ALPHA_MIN) / (Prefs.HOVER_ALPHA_MAX - Prefs.HOVER_ALPHA_MIN)
+        fill.color = palette.accent
+        canvas.drawRect(from, y - track, x, y + track, fill)
+        canvas.drawCircle(x, y, 1.3f * pxPerMmY, fill)
+        label.textSize = textSize
+    }
+
+    private fun drawChip(canvas: Canvas) {
+        val box = chipBox()
+        val h = box.height
+        val radius = h / 2f
+        rect.set(box.left, box.top, box.right, box.bottom)
+        fill.color = if (floatPointer >= 0) palette.pressed else palette.strip
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        fill.color = palette.hint
+        fill.style = Paint.Style.STROKE
+        fill.strokeWidth = 0.2f * pxPerMmX
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        fill.style = Paint.Style.FILL
+        label.textAlign = Paint.Align.LEFT
+        label.textSize = h * 0.42f
+        val baseline = box.centerY - (label.descent() + label.ascent()) / 2f
+        var x = box.left + CHIP_PAD_MM * pxPerMmX
+        if (!overlay.passThrough) {
+            label.typeface = Typeface.DEFAULT_BOLD
+            label.color = palette.accent
+            canvas.drawText(langText(), x, baseline, label)
+            x += label.measureText(langText()) + CHIP_GAP_MM * pxPerMmX
+            if (preedit.isNotEmpty()) {
+                label.typeface = Typeface.DEFAULT
+                label.textSize = h * 0.42f * 1.15f
+                label.color = palette.text
+                canvas.drawText(preedit, x, baseline, label)
+                val tw = label.measureText(preedit)
+                fill.color = palette.accent
+                canvas.drawRect(x, box.top + h * 0.82f, x + tw, box.top + h * 0.82f + 0.35f * pxPerMmY, fill)
+                x += tw + CHIP_GAP_MM * pxPerMmX
+                label.textSize = h * 0.42f
+            }
+        }
+        label.typeface = Typeface.DEFAULT_BOLD
+        label.color = palette.text
+        canvas.drawText(KEYBOARD_MARK, x, baseline, label)
+        label.typeface = Typeface.DEFAULT
+        label.textAlign = Paint.Align.CENTER
+    }
+
+    private fun drawHandle(canvas: Canvas, box: Box) {
+        val radius = RADIUS_MM * pxPerMmX * 1.5f
+        rect.set(box.left, box.top, box.right, box.bottom)
+        fill.color = if (floatPointer >= 0) palette.pressed else palette.strip
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        fill.color = palette.accent
+        fill.style = Paint.Style.STROKE
+        fill.strokeWidth = 0.25f * pxPerMmX
+        canvas.drawRoundRect(rect, radius, radius, fill)
+        fill.style = Paint.Style.FILL
+        label.textAlign = Paint.Align.CENTER
+        label.typeface = Typeface.DEFAULT_BOLD
+        label.textSize = box.height * 0.5f
+        label.color = palette.accent
+        canvas.drawText(KEYBOARD_MARK, box.centerX, box.centerY - (label.descent() + label.ascent()) / 2f, label)
+        label.typeface = Typeface.DEFAULT
     }
 
     private fun clipBoxes(panel: List<Box>): List<Box> {
@@ -629,6 +819,12 @@ class KeyboardView(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        val mode = presentation
+        if (mode == Presentation.CHIP || mode == Presentation.COLLAPSED) {
+            floatTouch(event, mode)
+            return true
+        }
+        geometry()
         val t = event.eventTime
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
@@ -638,11 +834,21 @@ class KeyboardView(
                 val y = event.getY(i)
                 if (y < stripHeightPx) {
                     clipMenu = null
-                    val cmd = stripButtons.firstOrNull { it.first.contains(x, y) }?.second
-                    if (cmd != null && stripPointer < 0) {
-                        stripPointer = id
-                        stripCommand = cmd
-                        feedback.button(this)
+                    val slider = sliderBox
+                    if (slider != null && slider.contains(x, y)) {
+                        if (sliderPointer < 0) {
+                            sliderPointer = id
+                            dragAlpha = alphaAt(x)
+                            feedback.button(this)
+                            refreshPresentation()
+                        }
+                    } else {
+                        val cmd = stripButtons.firstOrNull { it.first.contains(x, y) }?.second
+                        if (cmd != null && stripPointer < 0) {
+                            stripPointer = id
+                            stripCommand = cmd
+                            feedback.button(this)
+                        }
                     }
                 } else {
                     val clip = clipAt(x, y)
@@ -664,7 +870,13 @@ class KeyboardView(
             }
             MotionEvent.ACTION_MOVE -> for (i in 0 until event.pointerCount) {
                 val id = event.getPointerId(i)
-                if (id == clipPointer) {
+                if (id == sliderPointer) {
+                    val value = alphaAt(event.getX(i))
+                    if (value != dragAlpha) {
+                        dragAlpha = value
+                        refreshPresentation()
+                    }
+                } else if (id == clipPointer) {
                     dragClips(event.getY(i))
                 } else if (id != stripPointer) {
                     tracker.move(id, event.getX(i), event.getY(i), t)
@@ -676,7 +888,11 @@ class KeyboardView(
                 val canceled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     (event.flags and MotionEvent.FLAG_CANCELED) != 0
                 if (canceled) {
-                    if (id == stripPointer) {
+                    if (id == sliderPointer) {
+                        sliderPointer = -1
+                        dragAlpha = null
+                        refreshPresentation()
+                    } else if (id == stripPointer) {
                         stripPointer = -1
                         stripCommand = null
                     } else if (id == clipPointer) {
@@ -684,6 +900,11 @@ class KeyboardView(
                     } else {
                         tracker.cancel(id, t)
                     }
+                } else if (id == sliderPointer) {
+                    sliderPointer = -1
+                    dragAlpha?.let { prefs.setHoverAlpha(it) }
+                    dragAlpha = null
+                    refreshPresentation()
                 } else if (id == clipPointer) {
                     val index = clipIndex
                     val x = event.getX(i)
@@ -701,9 +922,15 @@ class KeyboardView(
                     stripCommand = null
                     if (cmd != null && cmd == hitCmd) {
                         tracker.flushPending(t)
-                        val layer = engine.layer
-                        engine.perform(KeyAction.Cmd(cmd))
-                        if (engine.layer != layer) reload()
+                        when (cmd) {
+                            Command.FLOAT -> toggleFloat()
+                            Command.BEHIND -> collapse()
+                            else -> {
+                                val layer = engine.layer
+                                engine.perform(KeyAction.Cmd(cmd))
+                                if (engine.layer != layer) reload()
+                            }
+                        }
                     }
                 } else {
                     tracker.up(id, event.getX(i), event.getY(i), t)
@@ -713,11 +940,57 @@ class KeyboardView(
                 tracker.cancelAll(t)
                 stripPointer = -1
                 resetClipTouch()
+                if (sliderPointer >= 0) {
+                    sliderPointer = -1
+                    dragAlpha = null
+                    refreshPresentation()
+                }
             }
         }
         scheduleTick()
         invalidate()
         return true
+    }
+
+    private fun floatTouch(event: MotionEvent, mode: Presentation) {
+        val i = event.actionIndex
+        val box = if (mode == Presentation.CHIP) chipBox() else handleBox()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN ->
+                if (floatPointer < 0 && box != null && box.contains(event.getX(i), event.getY(i))) {
+                    floatPointer = event.getPointerId(i)
+                    feedback.button(this)
+                }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> if (event.getPointerId(i) == floatPointer) {
+                floatPointer = -1
+                val canceled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    (event.flags and MotionEvent.FLAG_CANCELED) != 0
+                if (!canceled && box != null && box.contains(event.getX(i), event.getY(i))) {
+                    if (mode == Presentation.CHIP) {
+                        overlay.summoned = true
+                        reload()
+                    } else {
+                        overlay.collapsed = false
+                        refreshPresentation()
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> floatPointer = -1
+        }
+        invalidate()
+    }
+
+    private fun toggleFloat() {
+        overlay.collapsed = false
+        prefs.setHover(!prefs.hover)
+        reload()
+    }
+
+    private fun collapse() {
+        engine.commitComposition()
+        cancelTouches()
+        overlay.collapsed = true
+        refreshPresentation()
     }
 
     private fun dragClips(y: Float) {
@@ -869,6 +1142,14 @@ class KeyboardView(
         const val CLIP_LONG_PRESS_MS = 400L
         const val HOLD_MS = 400L
         const val SPLIT_SLOT_SUFFIX = "_ansi"
+        const val SLIDER_MM = 24f
+        const val SLIDER_LABEL_MM = 8f
+        const val ALPHA_STEP = 5
+        const val CHIP_MARGIN_MM = 1.5f
+        const val CHIP_PAD_MM = 2.5f
+        const val CHIP_GAP_MM = 2f
+        const val HANDLE_MIN_MM = 11f
+        const val KEYBOARD_MARK = "⌨"
 
         fun offsetSlot(kind: LayoutKind, layer: Layer, widthPx: Float, pxPerMmX: Float): String =
             slotName(kind, layer, (widthPx / pxPerMmX).toInt())

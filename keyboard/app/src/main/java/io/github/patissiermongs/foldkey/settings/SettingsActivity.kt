@@ -27,7 +27,7 @@ class SettingsActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var column: LinearLayout
     private var builtLayout = ""
-    private var rawPackages: EditText? = null
+    private val packageFields = ArrayList<Triple<EditText, String, String>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +58,7 @@ class SettingsActivity : Activity() {
     }
 
     override fun onPause() {
-        saveRawPackages()
+        savePackages()
         builtLayout = layoutSignature()
         super.onPause()
     }
@@ -156,24 +156,39 @@ class SettingsActivity : Activity() {
         button(getString(R.string.offsets_view)) { startActivity(Intent(this, OffsetMapActivity::class.java)) }
         button(getString(R.string.heat_view)) { startActivity(Intent(this, HeatmapActivity::class.java)) }
         body(getString(R.string.pref_raw_packages))
-        val packages = EditText(this).apply {
-            setText(prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES))
-            typeface = Typeface.MONOSPACE
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setOnFocusChangeListener { _, focused -> if (!focused) saveRawPackages() }
-        }
-        rawPackages = packages
-        column.addView(packages)
+        packagesField(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES)
+
+        heading(getString(R.string.settings_hardware), 18f)
+        body(getString(R.string.settings_hardware_body))
+        body(getString(R.string.pref_remote_packages))
+        packagesField(Prefs.REMOTE_PACKAGES, Prefs.DEFAULT_REMOTE_PACKAGES)
 
         heading(getString(R.string.settings_gestures), 18f)
         body(getString(R.string.settings_gestures_body))
     }
 
-    private fun saveRawPackages() {
-        val text = rawPackages?.text?.toString() ?: return
-        if (text != prefs.sp.getString(Prefs.RAW_PACKAGES, Prefs.DEFAULT_RAW_PACKAGES)) {
-            prefs.sp.edit().putString(Prefs.RAW_PACKAGES, text).apply()
+    private fun packagesField(key: String, default: String) {
+        val field = EditText(this).apply {
+            setText(prefs.sp.getString(key, default))
+            typeface = Typeface.MONOSPACE
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setOnFocusChangeListener { _, focused -> if (!focused) savePackages() }
         }
+        packageFields.add(Triple(field, key, default))
+        column.addView(field)
+    }
+
+    private fun savePackages() {
+        val editor = prefs.sp.edit()
+        var changed = false
+        for ((field, key, default) in packageFields) {
+            val text = field.text.toString()
+            if (text != prefs.sp.getString(key, default)) {
+                editor.putString(key, text)
+                changed = true
+            }
+        }
+        if (changed) editor.apply()
     }
 
     private fun refreshStatus() {

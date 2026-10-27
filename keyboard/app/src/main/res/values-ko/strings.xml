@@ -8,6 +8,10 @@
     <string name="strip_paste">붙여넣기</string>
     <string name="strip_settings">설정</string>
     <string name="strip_hide">숨김</string>
+    <string name="strip_float">띄우기</string>
+    <string name="strip_dock">고정</string>
+    <string name="strip_behind">접기</string>
+    <string name="strip_opacity">%1$d%%</string>
     <string name="key_layer_general">일반</string>
     <string name="key_layer_code">코드</string>
 
@@ -50,6 +54,9 @@
     <string name="pref_adaptive">내 터치 편차 학습</string>
     <string name="pref_adaptive_reset">학습한 터치 편차 초기화</string>
     <string name="pref_raw_packages">터미널로 취급할 앱(조합 중 글자를 앱에 보내지 않고, Enter를 키 이벤트로 보냄). 패키지 이름을 쉼표로 구분:</string>
+    <string name="settings_hardware">물리 키보드</string>
+    <string name="settings_hardware_body">블루투스나 USB 키보드가 연결되어 있으면 FoldKey는 오른쪽 아래에 작은 ⌨ 칩만 띄우고 물리 키 입력을 받습니다. 칩을 누르면 화면 키보드가 나오고, 숨김을 누르면 다시 칩으로 돌아갑니다. 한/영 키(또는 오른쪽 Alt를 단독으로 눌렀다 떼기)로 두벌식 한글과 영문을 전환합니다.</string>
+    <string name="pref_remote_packages">원격 데스크톱 앱(물리 키를 바꾸지 않고 그대로 넘겨서 원격 PC가 한/영을 전환). 패키지 이름을 쉼표로 구분:</string>
 
     <string name="settings_gestures">제스처</string>
     <string name="settings_gestures_body">• 위로 밀기: Shift 글자 (9 → (, \' → \")
@@ -62,7 +69,8 @@
 • Fn: 누르면 오른쪽 끝 숫자판으로 바뀌고 다시 누르면 돌아옴 (7 8 9 / ⌫ … 0 . = + ⏎). 누른 채 입력하면 그동안만 숫자판. 숫자판 ⌫를 위로 밀면 Del
 • 방향키: 위로 밀면 Home/End/PgUp/PgDn, 누르고 있으면 반복
 • 일반/코드 키: 코드 레이어(지금의 PC 배열)와 일반 레이어(휴대폰식 QWERTY)를 바꿈. 일반 레이어에서 , . 을 위로 밀면 ! ?, 숫자 행을 아래로 밀면 ~ - _ = + ; : \' \" /. 터미널은 늘 코드 레이어로 열리고, 다른 입력창은 마지막에 쓴 레이어로 열림
-• 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨</string>
+• 상단 줄에 보낸 특수키(Esc, ^C, Tab 등)가 표시됨
+• 띄우기(상단 줄): 앱 화면을 밀어 올리지 않고 같은 자리에 키보드를 띄움. 떠 있는 동안 상단 줄 슬라이더로 투명도를 조절하고, 접기를 누르면 ⌨ 손잡이만 남아 뒤 화면을 바로 조작할 수 있으며, 손잡이를 누르면 키보드가 다시 나옴. 고정을 누르면 원래 키보드로 돌아감</string>
     <string name="pref_long_press_action">길게 누르기 동작</string>
     <string name="long_press_shift">윗글자 (위로 밀기와 같음)</string>
     <string name="long_press_repeat">반복 입력 (vim hjkl, x 등)</string>

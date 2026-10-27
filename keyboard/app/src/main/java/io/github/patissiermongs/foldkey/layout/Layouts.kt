@@ -206,5 +206,7 @@ object Layouts {
         Command.TOGGLE_LAYER,
         Command.SETTINGS,
         Command.HIDE,
+        Command.FLOAT,
+        Command.BEHIND,
     )
 }

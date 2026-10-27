@@ -385,7 +385,10 @@ class LayoutsTest {
             assertTrue(rows.none { row -> row.right.keys.any { it.action == KeyAction.Lang } })
         }
         assertEquals(
-            listOf(Command.SELECT_ALL, Command.COPY, Command.CUT, Command.PASTE, Command.TOGGLE_LAYER, Command.SETTINGS, Command.HIDE),
+            listOf(
+                Command.SELECT_ALL, Command.COPY, Command.CUT, Command.PASTE, Command.TOGGLE_LAYER, Command.SETTINGS, Command.HIDE,
+                Command.FLOAT, Command.BEHIND,
+            ),
             Layouts.stripCommands,
         )
     }

@@ -40,9 +40,21 @@ class Prefs(context: Context) {
     val escToLatin: Boolean get() = sp.getBoolean(ESC_TO_LATIN, true)
     val adaptive: Boolean get() = sp.getBoolean(ADAPTIVE, true)
     val latinHints: Boolean get() = sp.getBoolean(LATIN_HINTS, true)
-    val rawPackages: Set<String>
-        get() = (sp.getString(RAW_PACKAGES, DEFAULT_RAW_PACKAGES) ?: "")
-            .split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    val rawPackages: Set<String> get() = packages(RAW_PACKAGES, DEFAULT_RAW_PACKAGES)
+    val remotePackages: Set<String> get() = packages(REMOTE_PACKAGES, DEFAULT_REMOTE_PACKAGES)
+    val hover: Boolean get() = sp.getBoolean(HOVER, false)
+    val hoverAlpha: Int get() = sp.getInt(HOVER_ALPHA, DEFAULT_HOVER_ALPHA).coerceIn(HOVER_ALPHA_MIN, HOVER_ALPHA_MAX)
+
+    private fun packages(key: String, default: String): Set<String> =
+        (sp.getString(key, default) ?: "").split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
+    fun setHover(on: Boolean) {
+        sp.edit().putBoolean(HOVER, on).apply()
+    }
+
+    fun setHoverAlpha(percent: Int) {
+        sp.edit().putInt(HOVER_ALPHA, percent.coerceIn(HOVER_ALPHA_MIN, HOVER_ALPHA_MAX)).apply()
+    }
 
     fun applyCalibration(placements: Map<Layer, TypingCalibration.Placement>, offsets: Map<String, String>) {
         fun t(mm: Float) = (mm * 10f).roundToInt()
@@ -157,6 +169,13 @@ class Prefs(context: Context) {
         const val ADAPTIVE = "adaptive"
         const val LATIN_HINTS = "latin_hints"
         const val RAW_PACKAGES = "raw_packages"
+        const val REMOTE_PACKAGES = "remote_packages"
+        const val DEFAULT_REMOTE_PACKAGES = "tv.parsec.client"
+        const val HOVER = "hover"
+        const val HOVER_ALPHA = "hover_alpha_percent"
+        const val DEFAULT_HOVER_ALPHA = 70
+        const val HOVER_ALPHA_MIN = 20
+        const val HOVER_ALPHA_MAX = 100
         const val OFFSETS_PREFIX = "offsets_"
         const val HEAT_PREFIX = "heat_"
         const val OFFSETS_EPOCH = "touch_offsets_epoch"

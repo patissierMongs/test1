@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsetsController
 import android.view.inputmethod.EditorInfo
@@ -15,12 +16,14 @@ import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.EngineListener
 import io.github.patissiermongs.foldkey.engine.EngineSettings
+import io.github.patissiermongs.foldkey.engine.HardwareKeys
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.settings.SettingsActivity
 import io.github.patissiermongs.foldkey.ui.Clip
 import io.github.patissiermongs.foldkey.ui.ClipEdit
 import io.github.patissiermongs.foldkey.ui.HapticFeedback
 import io.github.patissiermongs.foldkey.ui.KeyboardView
+import io.github.patissiermongs.foldkey.ui.Overlay
 import io.github.patissiermongs.foldkey.ui.Palette
 import java.io.File
 import java.io.IOException
@@ -35,6 +38,11 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     private var savedClips: List<ClipboardHistory.Entry> = emptyList()
     private var lastClip: Pair<Long, String>? = null
     private var locked = false
+    private lateinit var hardware: HardwareKeys
+    private val overlay = Overlay()
+    private var startedInfo: EditorInfo? = null
+    private var hardwareAttached = false
+    private val location = IntArray(2)
     private val clipListener = ClipboardManager.OnPrimaryClipChangedListener { captureClip(fromListener = true) }
 
     override fun onCreate() {
@@ -42,6 +50,8 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         prefs = Prefs(this)
         feedback = HapticFeedback(this, prefs)
         engine = KeyboardEngine(InputConnectionEditor(this) { currentInputConnection }, this)
+        hardware = HardwareKeys(engine)
+        hardwareAttached = Overlay.hardwareKeyboard(resources.configuration)
         clipStore = ClipStore(File(noBackupFilesDir, CLIP_FILE))
         applySettings()
         clipboardHistory.restore(clipStore.load(), System.currentTimeMillis())
@@ -60,7 +70,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
 
     override fun onCreateInputView(): View {
         keyboardView?.saveState()
-        val view = KeyboardView(this, engine, prefs, feedback)
+        val view = KeyboardView(this, engine, prefs, feedback, overlay)
         view.clipSource = {
             if (locked) emptyList() else clipboardHistory.items(System.currentTimeMillis()).map { Clip(it.text, it.pinned) }
         }
@@ -73,12 +83,61 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    override fun onEvaluateInputViewShown(): Boolean {
+        super.onEvaluateInputViewShown()
+        return true
+    }
+
+    override fun onShowInputRequested(flags: Int, configChange: Boolean): Boolean =
+        Overlay.hardwareKeyboard(resources.configuration) || super.onShowInputRequested(flags, configChange)
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        overlay.reset()
+        keyboardView?.reload()
+    }
+
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        val view = keyboardView ?: return
+        if (!view.floating || !view.isShown) return
+        val decor = window?.window?.decorView ?: return
+        outInsets.contentTopInsets = decor.height
+        outInsets.visibleTopInsets = decor.height
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+        outInsets.touchableRegion.setEmpty()
+        view.getLocationInWindow(location)
+        for (r in view.touchRects()) {
+            r.offset(location[0], location[1])
+            outInsets.touchableRegion.union(r)
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        hardware.down(keyCode, event.metaState, event.repeatCount, event.unicodeChar) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        hardware.up(keyCode) || super.onKeyUp(keyCode, event)
+
+    override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        startEngine(attribute, restarting)
+    }
+
+    private fun startEngine(info: EditorInfo, restarting: Boolean) {
+        startedInfo = info
+        engine.startInput(contextOf(info), restarting)
+        val remote = info.packageName in prefs.remotePackages
+        hardware.active = true
+        hardware.passThrough = remote
+        overlay.passThrough = remote
+    }
+
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         if (!restarting) keyboardView?.cancelTouches()
-        val layer = engine.layer
-        engine.startInput(contextOf(info), restarting)
-        if (engine.layer != layer) keyboardView?.reload()
+        if (info !== startedInfo) startEngine(info, restarting)
+        keyboardView?.syncLayer()
         locked = getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
         captureClip()
         keyboardView?.showEditCommands = !engine.context.raw
@@ -86,6 +145,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     override fun onFinishInput() {
+        hardware.active = false
         engine.finishInput()
         super.onFinishInput()
     }
@@ -151,6 +211,11 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         engine.commitComposition()
+        val attached = Overlay.hardwareKeyboard(newConfig)
+        if (attached != hardwareAttached) {
+            hardwareAttached = attached
+            overlay.reset()
+        }
         super.onConfigurationChanged(newConfig)
         keyboardView?.reload()
         updateNavigationBarAppearance()
@@ -189,12 +254,17 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
             Command.SETTINGS -> startActivity(
                 Intent(this, SettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
-            Command.HIDE -> requestHideSelf(0)
+            Command.HIDE -> if (Overlay.hardwareKeyboard(resources.configuration) && overlay.summoned) {
+                overlay.reset()
+                keyboardView?.reload()
+            } else {
+                requestHideSelf(0)
+            }
             Command.TOGGLE_LAYER -> {
                 if (prefs.layer != engine.preferredLayer) prefs.setLayer(engine.preferredLayer)
                 keyboardView?.reload()
             }
-            Command.PASTE, Command.SELECT_ALL, Command.COPY, Command.CUT -> Unit
+            Command.PASTE, Command.SELECT_ALL, Command.COPY, Command.CUT, Command.FLOAT, Command.BEHIND -> Unit
         }
     }
 

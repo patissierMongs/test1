@@ -9,6 +9,10 @@
     <string name="strip_paste">Paste</string>
     <string name="strip_settings">Settings</string>
     <string name="strip_hide">Hide</string>
+    <string name="strip_float">Float</string>
+    <string name="strip_dock">Dock</string>
+    <string name="strip_behind">Collapse</string>
+    <string name="strip_opacity">%1$d%%</string>
     <string name="key_layer_general">Text</string>
     <string name="key_layer_code">Code</string>
 
@@ -51,6 +55,9 @@
     <string name="pref_adaptive">Learn my touch offsets</string>
     <string name="pref_adaptive_reset">Reset learned touch offsets</string>
     <string name="pref_raw_packages">Apps treated as terminals (no composing text, Enter sends a key event). Comma separated package names:</string>
+    <string name="settings_hardware">Physical keyboard</string>
+    <string name="settings_hardware_body">While a Bluetooth or USB keyboard is attached, FoldKey shows only a small ⌨ chip at the bottom right and types from the physical keys. Tap the chip to bring up the on-screen keyboard; Hide returns to the chip. The Han/Eng key (or a right Alt tapped on its own) switches between Korean 2-set and Latin.</string>
+    <string name="pref_remote_packages">Remote desktop apps (physical keys pass through unchanged, so the remote PC switches Han/Eng itself). Comma separated package names:</string>
 
     <string name="settings_gestures">Gestures</string>
     <string name="settings_gestures_body">• Swipe up: shifted character (9 → (, \' → \")
@@ -63,7 +70,8 @@
 • Fn: tap to switch to the numpad at the right edge and tap again to switch back (7 8 9 / ⌫ … 0 . = + ⏎), or hold it while typing; swipe up on the numpad ⌫ for Del
 • Arrow keys: swipe up for Home/End/PgUp/PgDn, hold to repeat
 • Text / Code key: switches between the code layer (this PC layout) and the text layer (phone-style QWERTY). In the text layer, swipe up on , and . for ! and ?, and swipe down on the number row for ~ - _ = + ; : \' \" /. Terminals always open in the code layer; other fields open in the layer you used last
-• The strip shows special keys you sent (Esc, ^C, Tab…)</string>
+• The strip shows special keys you sent (Esc, ^C, Tab…)
+• Float (strip): the keyboard hovers over the app at the same place without pushing the app up. While it hovers, the slider in the strip sets its opacity, Collapse leaves only a ⌨ handle so you can touch the screen behind, and tapping the handle brings the keyboard back. Dock returns to the normal keyboard</string>
     <string name="pref_long_press_action">Long press action</string>
     <string name="long_press_shift">upper symbol (same as swipe up)</string>
     <string name="long_press_repeat">repeat the key (vim hjkl, x)</string>
