@@ -211,6 +211,85 @@ class HardwareKeysTest {
         assertEquals(Lang.HANGUL, engine.lang)
     }
 
+    private fun typeOnSlowApp(keyText: String, lag: Int): String {
+        val app = LaggingApp()
+        val slow = KeyboardEngine(app, RecordingListener())
+        slow.startInput(EditorContext(selStart = 0, selEnd = 0))
+        val hw = HardwareKeys(slow).apply { active = true }
+        fun key(keyCode: Int, meta: Int = 0, unicode: Int = 0) {
+            app.deliver(slow, lag)
+            if (!hw.down(keyCode, meta, 0, unicode)) {
+                if (keyCode == KeyEvent.KEYCODE_DEL) {
+                    app.appDelete()
+                } else if (unicode >= ' '.code || unicode == '\n'.code) {
+                    app.appType(unicode.toChar())
+                }
+            }
+            hw.up(keyCode)
+            app.nextKey()
+        }
+        var i = 0
+        while (i < keyText.length) {
+            val c = keyText[i]
+            when {
+                c == '<' -> {
+                    val end = keyText.indexOf('>', i)
+                    when (val token = keyText.substring(i + 1, end)) {
+                        "DEL" -> key(KeyEvent.KEYCODE_DEL)
+                        "LANG" -> key(KeyEvent.KEYCODE_KANA)
+                        "ENT" -> key(KeyEvent.KEYCODE_ENTER, unicode = '\n'.code)
+                        else -> {
+                            app.deliver(slow, lag)
+                            app.appMoveCursor(token.removePrefix("TAP").toInt())
+                        }
+                    }
+                    i = end
+                }
+                c in 'a'..'z' -> key(code(c), unicode = c.code)
+                c in 'A'..'Z' -> key(code(c.lowercaseChar()), shift, c.code)
+                c == ' ' -> key(KeyEvent.KEYCODE_SPACE, unicode = c.code)
+                c == '.' -> key(KeyEvent.KEYCODE_PERIOD, unicode = c.code)
+                c in '0'..'9' -> key(KeyEvent.KEYCODE_0 + (c - '0'), unicode = c.code)
+            }
+            i++
+        }
+        app.deliver(slow)
+        return app.text.toString()
+    }
+
+    @Test
+    fun spacesTypedOnTheKeyboardKeepTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "지금 저는 문제 진짜 좀", typeOnSlowApp("<LANG>wlrma wjsms answp wlsWk wha", lag))
+        }
+    }
+
+    @Test
+    fun enterTypedOnTheKeyboardKeepsTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "문제\n저는\n진짜", typeOnSlowApp("<LANG>answp<ENT>wjsms<ENT>wlsWk", lag))
+        }
+    }
+
+    @Test
+    fun englishTypedBeforeTheHanEngKeyKeepsTheFirstSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "abc 문제 저는", typeOnSlowApp("abc <LANG>answp wjsms", lag))
+        }
+    }
+
+    @Test
+    fun backspaceOnCommittedTextKeepsTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "문제저는", typeOnSlowApp("<LANG>answp <DEL>wjsms", lag))
+        }
+    }
+
+    @Test
+    fun movingTheCursorStillEndsTheSyllable() {
+        assertEquals("나가", typeOnSlowApp("<LANG>rk<TAP0>sk", lag = 0))
+    }
+
     @Test
     fun heldKeysRepeatTheWayTheyStarted() {
         hangul()
