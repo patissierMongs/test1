@@ -248,6 +248,7 @@ class HardwareKeysTest {
                         "INSERT" -> app.appInsert(0, 'x')
                         "HOLD" -> app.beginBatch()
                         "RELEASE" -> app.endBatch()
+                        "CONFIG" -> slow.startInput(EditorContext(selStart = 0, selEnd = 0), restarting = true, sameEditor = true)
                         else -> {
                             app.deliver(slow, lag)
                             app.appMoveCursor(token.removePrefix("TAP").toInt())
@@ -314,6 +315,14 @@ class HardwareKeysTest {
         for (lag in 0..4) {
             assertEquals("lag $lag", "문저는", typeOnSlowApp("<LANG>answp <DEL><DEL>wjsms", lag))
             assertEquals("lag $lag", "각", typeOnSlowApp("<LANG>r<DEL>rkr", lag))
+        }
+    }
+
+    @Test
+    fun syllablesTypedAfterAConfigurationChangeKeepTogetherWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "안녕 가 문제 저는", typeOnSlowApp("<LANG>dkssud <SETTLE><CONFIG>rk answp wjsms", lag))
+            assertEquals("lag $lag", "안녕하세요 저는", typeOnSlowApp("<LANG>dkssud<CONFIG>gktpdy wjsms", lag))
         }
     }
 

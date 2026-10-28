@@ -110,6 +110,66 @@ class ServiceInputTest {
     }
 
     @Test
+    fun configurationChangeKeepsTheHangulSyllableWhenTheAppReportsLate() {
+        val service = Robolectric.setupService(FoldKeyService::class.java)
+        service.onCreateInputView()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val edit = EditText(activity)
+        activity.setContentView(edit)
+        focus(edit)
+        val info = EditorInfo()
+        bindConnection(service, edit.onCreateInputConnection(info)!!)
+        service.onStartInput(info, false)
+        val engine = engineOf(service)
+        engine.perform(KeyAction.Lang)
+        engine.perform(ch('r'))
+        engine.perform(ch('k'))
+        engine.perform(KeyAction.Space)
+        idle()
+        val afterSpace = edit.selectionEnd
+        service.onStartInput(info, true)
+        engine.perform(ch('s'))
+        idle()
+        service.onUpdateSelection(1, 1, afterSpace, afterSpace, -1, -1)
+        engine.perform(ch('k'))
+        idle()
+        assertEquals("가 나", edit.text.toString())
+        service.onDestroy()
+    }
+
+    @Test
+    fun inputRestartedByTheAppStartsTheRecordAtItsNewSelection() {
+        val service = Robolectric.setupService(FoldKeyService::class.java)
+        service.onCreateInputView()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val edit = EditText(activity)
+        activity.setContentView(edit)
+        focus(edit)
+        val info = EditorInfo()
+        bindConnection(service, edit.onCreateInputConnection(info)!!)
+        service.onStartInput(info, false)
+        val engine = engineOf(service)
+        engine.perform(KeyAction.Lang)
+        engine.perform(ch('r'))
+        engine.perform(ch('k'))
+        engine.perform(KeyAction.Space)
+        idle()
+        edit.setText("hello")
+        edit.setSelection(5)
+        val restarted = EditorInfo()
+        bindConnection(service, edit.onCreateInputConnection(restarted)!!)
+        service.onStartInput(restarted, true)
+        "rksk".forEach { engine.perform(ch(it)) }
+        idle()
+        service.onUpdateSelection(5, 5, 6, 6, 5, 6)
+        service.onUpdateSelection(6, 6, 6, 6, -1, -1)
+        engine.perform(ch('s'))
+        idle()
+        assertEquals("hello가난", edit.text.toString())
+        service.onDestroy()
+    }
+
+    @Test
     fun keyHeldWhileTheAppRestartsInputIsStillTyped() {
         val service = Robolectric.setupService(FoldKeyService::class.java)
         val editor = fakeEngine(service)

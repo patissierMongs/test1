@@ -125,8 +125,9 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     }
 
     private fun startEngine(info: EditorInfo, restarting: Boolean) {
+        val sameEditor = restarting && info === startedInfo
         startedInfo = info
-        engine.startInput(contextOf(info), restarting)
+        engine.startInput(contextOf(info), restarting, sameEditor)
         val remote = info.packageName in prefs.remotePackages
         hardware.active = true
         hardware.passThrough = remote

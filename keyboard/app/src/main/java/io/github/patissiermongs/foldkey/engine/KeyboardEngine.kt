@@ -59,7 +59,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
 
     val isComposing: Boolean get() = composer.isComposing
 
-    fun startInput(ctx: EditorContext, restarting: Boolean = false) {
+    fun startInput(ctx: EditorContext, restarting: Boolean = false, sameEditor: Boolean = false) {
         if (composer.isComposing) {
             if (!context.raw) {
                 batch { editor.finishComposingText() }
@@ -73,7 +73,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             modifiers.clear()
             layer = if (ctx.raw) Layer.CODE else preferredLayer
         }
-        editor.restart(ctx.selStart, ctx.selEnd)
+        if (!sameEditor) editor.restart(ctx.selStart, ctx.selEnd)
         lang = if (ctx.preferLatin) Lang.LATIN else preferredLang
         listener.onPreedit("")
         listener.onStateChanged()
