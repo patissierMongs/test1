@@ -298,7 +298,7 @@ class KeyboardEngineTest {
     fun selectionMoveAbandonsComposition() {
         engine.perform(KeyAction.Lang)
         type("rk")
-        engine.selectionChanged(1, 1, 0, 0, 0, 1)
+        engine.selectionChanged(0, 0, 0, 1)
         tap('k')
         assertEquals("가ㅏ", editor.text.toString())
     }
@@ -651,11 +651,11 @@ class KeyboardEngineTest {
         engine.startInput(EditorContext(selStart = 0, selEnd = 0))
         engine.perform(KeyAction.Lang)
         type("gks")
-        engine.selectionChanged(0, 0, 1, 1, 0, 1)
+        engine.selectionChanged(1, 1, 0, 1)
         engine.perform(KeyAction.Space)
         tap('g')
-        engine.selectionChanged(1, 1, 2, 2, -1, -1)
-        engine.selectionChanged(2, 2, 3, 3, 2, 3)
+        engine.selectionChanged(2, 2, -1, -1)
+        engine.selectionChanged(3, 3, 2, 3)
         tap('k')
         engine.perform(KeyAction.Space)
         assertEquals("한 하 ", editor.text.toString())
@@ -666,10 +666,34 @@ class KeyboardEngineTest {
         engine.startInput(EditorContext(selStart = 0, selEnd = 0))
         engine.perform(KeyAction.Lang)
         type("rk")
-        engine.selectionChanged(0, 0, 1, 1, 0, 1)
-        engine.selectionChanged(1, 1, 0, 0, 0, 1)
+        engine.selectionChanged(1, 1, 0, 1)
+        engine.selectionChanged(0, 0, 0, 1)
         tap('k')
         assertEquals("가ㅏ", editor.text.toString())
+    }
+
+    @Test
+    fun onScreenBackspaceAndSpaceKeepTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            val app = LaggingApp()
+            val slow = KeyboardEngine(app, RecordingListener())
+            slow.startInput(EditorContext(selStart = 0, selEnd = 0))
+            fun step(action: KeyAction) {
+                app.deliver(slow, lag)
+                slow.perform(action)
+                app.nextKey()
+            }
+            step(KeyAction.Lang)
+            "rksk".forEach { step(ch(it)) }
+            step(KeyAction.Space)
+            step(KeyAction.Backspace)
+            step(KeyAction.Backspace)
+            "ekfk".forEach { step(ch(it)) }
+            step(KeyAction.Space)
+            "wkf".forEach { step(ch(it)) }
+            app.deliver(slow)
+            assertEquals("lag $lag", "가다라 잘", app.text.toString())
+        }
     }
 
     @Test

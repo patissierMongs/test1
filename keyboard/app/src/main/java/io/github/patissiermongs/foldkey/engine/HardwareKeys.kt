@@ -11,7 +11,7 @@ class HardwareKeys(private val engine: KeyboardEngine) {
     fun down(keyCode: Int, meta: Int, repeat: Int, unicode: Int): Boolean {
         if (keyCode != KeyEvent.KEYCODE_ALT_RIGHT) rightAltAlone = false
         if (repeat > 0) {
-            if (keyCode !in consumed) return false
+            if (keyCode !in consumed) return pass(keyCode)
             if (keyCode !in TOGGLE_KEYS && !compose(keyCode, meta)) {
                 engine.hardwareResend(keyCode, resendMeta(meta), resendText(meta, unicode))
             }
@@ -31,15 +31,18 @@ class HardwareKeys(private val engine: KeyboardEngine) {
         if (compose(keyCode, meta)) return consume(keyCode)
         val escape = keyCode == KeyEvent.KEYCODE_ESCAPE ||
             (keyCode == KeyEvent.KEYCODE_LEFT_BRACKET && meta and KeyEvent.META_CTRL_ON != 0)
-        if (engine.isComposing) {
-            if (engine.context.raw && typing(keyCode, unicode)) {
-                engine.hardwareResend(keyCode, resendMeta(meta), resendText(meta, unicode))
-                if (escape) engine.hardwareEscape()
-                return consume(keyCode)
-            }
-            engine.commitComposition()
+        if (engine.isComposing && engine.context.raw && typing(keyCode, unicode)) {
+            engine.hardwareResend(keyCode, resendMeta(meta), resendText(meta, unicode))
+            if (escape) engine.hardwareEscape()
+            return consume(keyCode)
         }
+        pass(keyCode)
         if (escape) engine.hardwareEscape()
+        return false
+    }
+
+    private fun pass(keyCode: Int): Boolean {
+        if (active && !passThrough && keyCode !in MODIFIER_KEYS && keyCode != KeyEvent.KEYCODE_ALT_RIGHT) engine.hardwarePass()
         return false
     }
 

@@ -73,7 +73,7 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
             modifiers.clear()
             layer = if (ctx.raw) Layer.CODE else preferredLayer
         }
-        editor.expected.reset(ctx.selStart, ctx.selEnd)
+        editor.restart(ctx.selStart, ctx.selEnd)
         lang = if (ctx.preferLatin) Lang.LATIN else preferredLang
         listener.onPreedit("")
         listener.onStateChanged()
@@ -97,19 +97,11 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
         listener.onStateChanged()
     }
 
-    fun selectionChanged(
-        oldSelStart: Int,
-        oldSelEnd: Int,
-        newSelStart: Int,
-        newSelEnd: Int,
-        candidatesStart: Int,
-        candidatesEnd: Int,
-    ) {
+    fun selectionChanged(selStart: Int, selEnd: Int, candidatesStart: Int, candidatesEnd: Int) {
         if (context.raw) return
-        if (editor.expected.isBelated(oldSelStart, oldSelEnd, newSelStart, newSelEnd)) return
-        editor.expected.reset(newSelStart, newSelEnd, candidatesStart)
+        if (editor.reconcile(selStart, selEnd, candidatesStart, candidatesEnd) == Reconciled.ECHO) return
         if (!composer.isComposing) return
-        if (candidatesStart < 0 || newSelStart != newSelEnd || newSelEnd != candidatesEnd) {
+        if (candidatesStart < 0 || selStart != selEnd || selEnd != candidatesEnd) {
             composer.reset()
             batch { editor.finishComposingText() }
         }
@@ -215,6 +207,11 @@ class KeyboardEngine(editor: Editor, private val listener: EngineListener) {
     fun hardwareResend(keyCode: Int, meta: Int, text: String?) = batch {
         flushComposition()
         if (text != null) editor.commitText(text) else editor.sendKey(keyCode, meta)
+    }
+
+    fun hardwarePass() {
+        if (composer.isComposing) commitComposition()
+        editor.yieldKey()
     }
 
     fun hardwareEscape() = leaveHangulOnEscape()

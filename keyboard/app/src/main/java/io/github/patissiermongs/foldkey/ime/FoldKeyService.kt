@@ -166,7 +166,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        engine.selectionChanged(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        engine.selectionChanged(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
     }
 
     private fun captureClip(fromListener: Boolean = false) {

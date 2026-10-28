@@ -10,12 +10,10 @@ class LaggingApp : Editor {
     private var composeEnd = -1
     private var depth = 0
     private var key = 0
-    private var reported = Report(0, 0, -1, -1, 0)
+    private var reported = Report(0, -1, -1, 0)
     private val pending = ArrayDeque<Report>()
 
-    private data class Report(val old: Int, val new: Int, val candStart: Int, val candEnd: Int, val key: Int)
-
-    val composing: String get() = if (composeStart < 0) "" else text.substring(composeStart, composeEnd)
+    private data class Report(val cursor: Int, val candStart: Int, val candEnd: Int, val key: Int)
 
     override fun commitText(text: String) {
         replaceTarget(text)
@@ -87,6 +85,28 @@ class LaggingApp : Editor {
         changed()
     }
 
+    fun appInsert(at: Int, c: Char) {
+        text.insert(at, c)
+        if (composeStart >= at) {
+            composeStart++
+            composeEnd++
+        }
+        if (cursor >= at) cursor++
+        changed()
+    }
+
+    fun appFinishComposing() {
+        clearComposing()
+        changed()
+    }
+
+    fun appClear() {
+        text.setLength(0)
+        cursor = 0
+        clearComposing()
+        changed()
+    }
+
     fun nextKey() {
         key++
     }
@@ -94,7 +114,7 @@ class LaggingApp : Editor {
     fun deliver(engine: KeyboardEngine, lag: Int = 0) {
         while (pending.isNotEmpty() && pending.first().key <= key - lag) {
             val r = pending.removeFirst()
-            engine.selectionChanged(r.old, r.old, r.new, r.new, r.candStart, r.candEnd)
+            engine.selectionChanged(r.cursor, r.cursor, r.candStart, r.candEnd)
         }
     }
 
@@ -113,8 +133,8 @@ class LaggingApp : Editor {
 
     private fun changed() {
         if (depth > 0) return
-        if (cursor == reported.new && composeStart == reported.candStart && composeEnd == reported.candEnd) return
-        reported = Report(reported.new, cursor, composeStart, composeEnd, key)
+        if (cursor == reported.cursor && composeStart == reported.candStart && composeEnd == reported.candEnd) return
+        reported = Report(cursor, composeStart, composeEnd, key)
         pending.addLast(reported)
     }
 }

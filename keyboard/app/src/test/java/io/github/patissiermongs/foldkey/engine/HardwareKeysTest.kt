@@ -101,6 +101,10 @@ class HardwareKeysTest {
             assertEquals(false to false, press(m))
         }
         assertEquals("아", editor.composing)
+        assertFalse(keys.down(KeyEvent.KEYCODE_SHIFT_LEFT, shift, 0, 0))
+        assertFalse(keys.down(KeyEvent.KEYCODE_SHIFT_LEFT, shift, 1, 0))
+        assertTrue(keys.down(code('r'), shift, 0, 'R'.code))
+        assertEquals("앆", editor.composing)
     }
 
     @Test
@@ -216,13 +220,13 @@ class HardwareKeysTest {
         val slow = KeyboardEngine(app, RecordingListener())
         slow.startInput(EditorContext(selStart = 0, selEnd = 0))
         val hw = HardwareKeys(slow).apply { active = true }
-        fun key(keyCode: Int, meta: Int = 0, unicode: Int = 0) {
+        fun key(keyCode: Int, meta: Int = 0, unicode: Int = 0, handle: (() -> Unit)? = null) {
             app.deliver(slow, lag)
             if (!hw.down(keyCode, meta, 0, unicode)) {
-                if (keyCode == KeyEvent.KEYCODE_DEL) {
-                    app.appDelete()
-                } else if (unicode >= ' '.code || unicode == '\n'.code) {
-                    app.appType(unicode.toChar())
+                when {
+                    handle != null -> handle()
+                    keyCode == KeyEvent.KEYCODE_DEL -> app.appDelete()
+                    unicode >= ' '.code || unicode == '\n'.code -> app.appType(unicode.toChar())
                 }
             }
             hw.up(keyCode)
@@ -238,6 +242,12 @@ class HardwareKeysTest {
                         "DEL" -> key(KeyEvent.KEYCODE_DEL)
                         "LANG" -> key(KeyEvent.KEYCODE_KANA)
                         "ENT" -> key(KeyEvent.KEYCODE_ENTER, unicode = '\n'.code)
+                        "SEND" -> key(KeyEvent.KEYCODE_ENTER, unicode = '\n'.code) { app.appClear() }
+                        "SETTLE" -> app.deliver(slow)
+                        "APPFINISH" -> app.appFinishComposing()
+                        "INSERT" -> app.appInsert(0, 'x')
+                        "HOLD" -> app.beginBatch()
+                        "RELEASE" -> app.endBatch()
                         else -> {
                             app.deliver(slow, lag)
                             app.appMoveCursor(token.removePrefix("TAP").toInt())
@@ -286,8 +296,50 @@ class HardwareKeysTest {
     }
 
     @Test
+    fun periodsAndDigitsKeepTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "안녕. 문제1 잘", typeOnSlowApp("<LANG>dkssud. answp1 wkf", lag))
+        }
+    }
+
+    @Test
+    fun enterThatSendsAndClearsKeepsTheNextSyllableWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "안녕", typeOnSlowApp("<LANG>rksk<SEND>dkssud", lag))
+        }
+    }
+
+    @Test
+    fun syllablesRetypedWhereBackspaceRemovedTextKeepTogetherWhenTheAppReportsLate() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "문저는", typeOnSlowApp("<LANG>answp <DEL><DEL>wjsms", lag))
+            assertEquals("lag $lag", "각", typeOnSlowApp("<LANG>r<DEL>rkr", lag))
+        }
+    }
+
+    @Test
     fun movingTheCursorStillEndsTheSyllable() {
         assertEquals("나가", typeOnSlowApp("<LANG>rk<TAP0>sk", lag = 0))
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "난가", typeOnSlowApp("<LANG>rk<SETTLE><TAP0><SETTLE>sks", lag))
+        }
+    }
+
+    @Test
+    fun textTheAppAddsBeforeTheSyllableKeepsIt() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "x간", typeOnSlowApp("<LANG>rk<SETTLE><INSERT><SETTLE>s", lag))
+            assertEquals("lag $lag", "x나", typeOnSlowApp("<LANG>rk<SETTLE><INSERT><SETTLE><DEL><DEL>sk", lag))
+        }
+    }
+
+    @Test
+    fun anAppEndingTheSyllableStillEndsIt() {
+        for (lag in 0..4) {
+            assertEquals("lag $lag", "가나", typeOnSlowApp("<LANG>rk<SETTLE><APPFINISH><SETTLE>sk", lag))
+            assertEquals("lag $lag", "가 나다", typeOnSlowApp("<LANG>rk sk<SETTLE><APPFINISH><SETTLE>ek", lag))
+            assertEquals("lag $lag", "가나", typeOnSlowApp("<LANG><HOLD>rk<APPFINISH><RELEASE><SETTLE>sk", lag))
+        }
     }
 
     @Test
