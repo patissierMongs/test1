@@ -3,6 +3,7 @@ package io.github.patissiermongs.foldkey.ui
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.layout.GeometrySpec
 import io.github.patissiermongs.foldkey.layout.KeyDef
 import io.github.patissiermongs.foldkey.layout.KeyboardGeometry
@@ -17,23 +18,33 @@ object LayoutBuilder {
         if (layer == Layer.GENERAL) Sides(prefs.generalSideLeftMm, prefs.generalSideRightMm)
         else Sides(prefs.codeSideLeftMm, prefs.codeSideRightMm)
 
-    fun splitUnitMm(prefs: Prefs, layer: Layer): Float {
-        if (layer != Layer.GENERAL) return prefs.splitUnitMm
+    fun codeSplitUnitMm(prefs: Prefs, profile: ScreenProfile): Float = prefs.keyWidthMm(profile, true) ?: KeyboardView.MAX_UNIT_MM
+
+    fun splitUnitMm(prefs: Prefs, layer: Layer, profile: ScreenProfile): Float {
+        val codeUnit = codeSplitUnitMm(prefs, profile)
+        if (layer != Layer.GENERAL) return codeUnit
         prefs.generalUnitMm?.let { return it }
         val code = sides(prefs, Layer.CODE)
         val general = sides(prefs, Layer.GENERAL)
         fun edge(mm: Float) = max(mm, KeyboardView.SIDE_MM)
         return Layouts.generalSplitUnitMm(
-            prefs.splitUnitMm,
+            codeUnit,
             edge(general.leftMm) - edge(code.leftMm),
             edge(general.rightMm) - edge(code.rightMm),
         )
+    }
+
+    fun maxWidthPx(prefs: Prefs, kind: LayoutKind, profile: ScreenProfile, pxPerMmX: Float): Float {
+        if (kind == LayoutKind.SPLIT) return Float.MAX_VALUE
+        val keyMm = prefs.keyWidthMm(profile, false) ?: return Float.MAX_VALUE
+        return Layouts.codeUnits(kind) * keyMm * pxPerMmX
     }
 
     fun spec(
         prefs: Prefs,
         kind: LayoutKind,
         layer: Layer,
+        profile: ScreenProfile,
         widthPx: Float,
         pxPerMmX: Float,
         pxPerMmY: Float,
@@ -59,7 +70,8 @@ object LayoutBuilder {
             splitMarginRightPx = if (split) sides.rightMm * pxPerMmX else 0f,
             bottomPaddingPx = bottomPx,
             maxUnitMm = KeyboardView.MAX_UNIT_MM,
-            splitUnitMm = splitUnitMm(prefs, layer),
+            maxWidthPx = maxWidthPx(prefs, kind, profile, pxPerMmX),
+            splitUnitMm = splitUnitMm(prefs, layer, profile),
             ghostUnits = if (split) KeyboardView.GHOST_UNITS else 0f,
             liftPx = liftPx,
             panelMinPx = panelMinPx,

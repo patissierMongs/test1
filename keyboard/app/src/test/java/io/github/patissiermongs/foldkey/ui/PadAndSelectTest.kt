@@ -81,6 +81,12 @@ class PadAndSelectTest {
 
     private fun pad(label: String): Box = view.fnLayoutKeys.first { it.pad && it.def.label == label }.face
 
+    private fun under(label: String): Char {
+        val b = pad(label)
+        val key = view.layoutKeys.first { !it.ghost && it.touch.contains(b.centerX, b.centerY) }
+        return (key.def.action as KeyAction.Char).base
+    }
+
     private fun save(name: String) {
         val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bmp))
@@ -94,29 +100,73 @@ class PadAndSelectTest {
         tap(fnKey())
         assertTrue(engine.modifiers.isLocked(Modifier.FN))
         save("split_portrait_fn_locked.png")
-        for (label in listOf("7", "4", "+", "1", "⌫", "(", "0", ".", "5", ")")) tap(pad(label))
-        assertEquals("74+(0.5)", editor.text.toString())
+        for (label in listOf("7", "4", "+", "1", "0", ".", "5", "*", "2", "-", "9", "/", "3")) tap(pad(label))
+        assertEquals("74+10.5*2-9/3", editor.text.toString())
         tap(pad("⏎"))
         assertEquals(KeyEvent.KEYCODE_ENTER, editor.keys.last().first)
         assertTrue(engine.modifiers.isLocked(Modifier.FN))
+        val typed = under("1")
         tap(fnKey())
         assertFalse(engine.modifiers.isActive(Modifier.FN))
         tap(pad("1"))
-        assertEquals("74+(0.5)k", editor.text.toString())
+        assertEquals("74+10.5*2-9/3$typed", editor.text.toString())
     }
 
     @Test
-    fun numpadStaysThroughDigitsAndBackspaceUntilFnIsTappedAgain() {
+    fun backspaceDeletesWhenPressedAndTheNumpadDotSwipesUpToDelete() {
+        setup()
+        val q = view.layoutKeys.first { (it.def.action as? KeyAction.Char)?.base == 'q' }.face
+        tap(q)
+        tap(q)
+        assertEquals("qq", editor.text.toString())
+        val bs = view.layoutKeys.single { it.def.action == KeyAction.Backspace }.face
+        touch(MotionEvent.ACTION_DOWN, bs.centerX, bs.centerY)
+        assertEquals("q", editor.text.toString())
+        touch(MotionEvent.ACTION_UP, bs.centerX, bs.centerY)
+        assertEquals("q", editor.text.toString())
+        tap(fnKey())
+        val dot = pad(".")
+        val keys = editor.keys.size
+        touch(MotionEvent.ACTION_DOWN, dot.centerX, dot.centerY)
+        touch(MotionEvent.ACTION_MOVE, dot.centerX, dot.centerY - 5f * pxPerMm)
+        touch(MotionEvent.ACTION_UP, dot.centerX, dot.centerY - 5f * pxPerMm)
+        assertEquals(keys + 1, editor.keys.size)
+        assertEquals(KeyEvent.KEYCODE_FORWARD_DEL, editor.keys.last().first)
+        assertEquals("q", editor.text.toString())
+        tap(pad("."))
+        assertEquals("q.", editor.text.toString())
+    }
+
+    @Test
+    fun numpadStaysThroughDigitsAndOperatorsUntilFnIsTappedAgain() {
         setup()
         tap(fnKey())
-        for (label in listOf("7", "+", "4", "⌫", "(")) {
+        for (label in listOf("7", "+", "4", "-", "/")) {
             tap(pad(label))
             assertTrue(engine.modifiers.isActive(Modifier.FN))
         }
+        val typed = under("1")
         tap(fnKey())
         assertFalse(engine.modifiers.isActive(Modifier.FN))
         tap(pad("1"))
-        assertEquals("7+(k", editor.text.toString())
+        assertEquals("7+4-/$typed", editor.text.toString())
+    }
+
+    @Test
+    fun numpadHasNoKeyInTheTopLeftCellAndFnStaysVisible() {
+        setup()
+        tap(fnKey())
+        val slash = pad("/")
+        val seven = pad("7")
+        val x = seven.centerX
+        val y = slash.centerY
+        assertTrue(view.fnLayoutKeys.none { it.touch.contains(x, y) })
+        touch(MotionEvent.ACTION_DOWN, x, y)
+        touch(MotionEvent.ACTION_UP, x, y)
+        assertEquals("", editor.text.toString())
+        assertTrue(view.fnLayoutKeys.any { it.def.action == KeyAction.Mod(Modifier.FN) })
+        tap(fnKey())
+        assertFalse(engine.modifiers.isActive(Modifier.FN))
     }
 
     @Test
@@ -136,9 +186,10 @@ class PadAndSelectTest {
         setup()
         tap(fnKey())
         tap(pad("4"))
+        val typed = under("1")
         tap(fnKey())
         tap(pad("1"))
-        assertEquals("4k", editor.text.toString())
+        assertEquals("4$typed", editor.text.toString())
         val fn = fnKey()
         touch(MotionEvent.ACTION_DOWN, fn.centerX, fn.centerY)
         val two = pad("2")
@@ -157,7 +208,7 @@ class PadAndSelectTest {
         assertTrue(engine.modifiers.isHeld(Modifier.FN))
         touch(MotionEvent.ACTION_UP, fn.centerX, fn.centerY)
         assertFalse(engine.modifiers.isActive(Modifier.FN))
-        assertEquals("4k2", editor.text.toString())
+        assertEquals("4${typed}2", editor.text.toString())
     }
 
     private fun space(): Box = view.layoutKeys.filter { it.def.isSpace }.maxBy { it.face.left }.face

@@ -18,6 +18,7 @@ import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.input.TypingPrompts
 import io.github.patissiermongs.foldkey.layout.LayoutKind
@@ -108,10 +109,14 @@ class TypingCalibrationActivityTest {
         render(root, "typing_calibration_result.png")
         val epoch = prefs.offsetsEpoch
         apply.performClick()
-        val unit = prefs.sp.getInt(Prefs.SPLIT_UNIT, 0)
+        val profile = ScreenProfile.of(activity)
+        assertEquals(ScreenProfile.INNER_LANDSCAPE, profile)
+        val unit = prefs.sp.getInt(Prefs.widthKey(profile), 0)
         assertTrue("$unit", unit in 52..66)
         assertTrue(prefs.sp.getInt(Prefs.GENERAL_UNIT, 0) >= 61)
-        assertEquals(88, prefs.sp.getInt(Prefs.ROW_HEIGHT, 0))
+        assertEquals(88, prefs.sp.getInt(Prefs.rowKey(profile), 0))
+        assertFalse(prefs.sp.contains(Prefs.SPLIT_UNIT))
+        assertFalse(prefs.sp.contains(Prefs.ROW_HEIGHT))
         val left = prefs.sp.getInt(Prefs.CODE_SIDE_LEFT, -1) / 10f
         assertEquals(30.6f - Layouts.splitLeftUnits * unit / 20f, left, 0.11f)
         assertEquals(epoch + 1, prefs.offsetsEpoch)
@@ -167,11 +172,11 @@ class TypingCalibrationActivityTest {
         val views = all(activity.window.decorView)
         val skip = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.typing_skip) }
         val apply = views.filterIsInstance<Button>().first { it.text == activity.getString(R.string.typing_apply) }
-        assertEquals(prefs.splitUnitMm, activity.session.round.unitMm, 0.05f)
+        assertEquals(Prefs.DEFAULT_SPLIT_UNIT / 10f, activity.session.round.unitMm, 0.05f)
         skip.performClick()
         skip.performClick()
         assertTrue(activity.session.finished)
         assertFalse(apply.isEnabled)
-        assertFalse(prefs.sp.contains(Prefs.SPLIT_UNIT))
+        assertTrue(Prefs.LAYOUT_KEYS.none { prefs.sp.contains(it) })
     }
 }

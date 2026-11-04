@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.layout.LayoutKind
 import java.io.File
 import java.io.FileOutputStream
@@ -68,6 +69,28 @@ class OffsetMapActivityTest {
         FileOutputStream(File(dir, "offset_map.png")).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         slots[1].performClick()
         assertTrue(texts(), texts().contains("8 samples · mean offset from key centres: x +0.3 mm (+ is right), y -0.6 mm (+ is down)"))
+    }
+
+    @Test
+    fun eachSlotIsDrawnWithTheRowHeightOfTheScreenItWasLearnedOn() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs = Prefs(ctx)
+        prefs.sp.edit().clear()
+            .putString(Prefs.OFFSETS_PREFIX + "split_ansi_150mm", zones(4 to "0.8,1.2,30"))
+            .putInt(Prefs.rowKey(ScreenProfile.INNER_LANDSCAPE), 120)
+            .putInt(Prefs.rowKey(ScreenProfile.COVER_LANDSCAPE), 60)
+            .commit()
+        fun mapHeight(): Int {
+            val activity = Robolectric.buildActivity(OffsetMapActivity::class.java).setup().get()
+            return all(activity.window.decorView).first { it.javaClass.simpleName == "OffsetMapView" }.height
+        }
+        val inner = mapHeight()
+        prefs.rememberSlotProfile("split_ansi_150mm", ScreenProfile.COVER_LANDSCAPE)
+        val cover = mapHeight()
+        prefs.sp.edit().putInt(Prefs.rowKey(ScreenProfile.COVER_LANDSCAPE), 90).commit()
+        val coverTaller = mapHeight()
+        assertTrue(cover < inner)
+        assertEquals((inner - cover) / 2f, (coverTaller - cover).toFloat(), 2f)
     }
 
     @Test

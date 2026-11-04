@@ -137,7 +137,7 @@ class LearnedOffsetTest {
         val zones = stored().size
         val seeded = OffsetModel(zones).apply { for (z in 0 until zones) seed(z, 0f, 1.5f, 20) }.serialize()
         repeat(12) { tap(letter('f')) }
-        prefs.applyCalibration(emptyMap(), mapOf(slot to seeded))
+        prefs.applyCalibration(emptyMap(), mapOf(slot to seeded), view.profile())
         view.saveState()
         assertEquals(seeded, prefs.offsets(slot))
         repeat(3) { tap(letter('f')) }

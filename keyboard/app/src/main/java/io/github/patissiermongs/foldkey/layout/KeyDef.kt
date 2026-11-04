@@ -22,11 +22,13 @@ data class KeyDef(
     val hasVariants: Boolean get() = action is KeyAction.Char || up != null || down != null
 }
 
-data class RowDef(val keys: List<KeyDef>, val indent: Float = 0f) {
+data class RowDef(val keys: List<KeyDef>, val indent: Float = 0f, val inward: Float = 0f) {
     val units: Float get() = keys.sumOf { it.width.toDouble() }.toFloat()
 
-    val span: Float get() = indent + units
+    val span: Float get() = indent + units - inward
 }
+
+data class PadCell(val def: KeyDef, val row: Int, val col: Int, val rowSpan: Int = 1, val colSpan: Int = 1)
 
 data class Box(val left: Float, val top: Float, val right: Float, val bottom: Float) {
     val width: Float get() = right - left

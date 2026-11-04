@@ -17,6 +17,7 @@ import android.widget.TextView
 import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.layout.KeyStyle
 import io.github.patissiermongs.foldkey.layout.KeyboardGeometry
@@ -144,8 +145,10 @@ private class OffsetMapView(context: Context, private val prefs: Prefs, private 
     private val pxPerMmX: Float get() = Dpi.physical(resources.displayMetrics, true) / KeyboardView.MM_PER_INCH
     private val pxPerMmY: Float get() = Dpi.physical(resources.displayMetrics, false) / KeyboardView.MM_PER_INCH
 
+    private fun profile(s: OffsetSlot): ScreenProfile = prefs.slotProfile(s.name) ?: ScreenProfile.of(context)
+
     private fun geometry(s: OffsetSlot): KeyboardGeometry {
-        val spec = LayoutBuilder.spec(prefs, s.kind, s.layer, s.widthMm * pxPerMmX, pxPerMmX, pxPerMmY, 0f, prefs.rowHeightMm)
+        val spec = LayoutBuilder.spec(prefs, s.kind, s.layer, profile(s), s.widthMm * pxPerMmX, pxPerMmX, pxPerMmY, 0f, prefs.rowHeightMm(profile(s)))
         return LayoutBuilder.build(s.kind, s.layer, spec)
     }
 
@@ -163,7 +166,7 @@ private class OffsetMapView(context: Context, private val prefs: Prefs, private 
         val s = slot
         val h = if (s == null) 0 else {
             val scale = min(1f, w / (s.widthMm * pxPerMmX))
-            (Layouts.rows(s.kind, s.layer) * prefs.rowHeightMm * pxPerMmY * scale + 4f * pxPerMmY).toInt()
+            (Layouts.rows(s.kind, s.layer) * prefs.rowHeightMm(profile(s)) * pxPerMmY * scale + 4f * pxPerMmY).toInt()
         }
         setMeasuredDimension(w, h)
     }
@@ -207,7 +210,7 @@ private class OffsetMapView(context: Context, private val prefs: Prefs, private 
             if (key.ghost || key.pad || key.def.style != KeyStyle.NORMAL) continue
             val n = model.samples(key.zone)
             if (n == 0) continue
-            val (dx, dy) = model.correctionMm(key.zone, unitMm, prefs.rowHeightMm)
+            val (dx, dy) = model.correctionMm(key.zone, unitMm, prefs.rowHeightMm(profile(s)))
             val x0 = key.face.centerX
             val y0 = key.face.centerY + key.face.height * 0.12f
             val x1 = x0 + dx * ARROW_SCALE * pxPerMmX

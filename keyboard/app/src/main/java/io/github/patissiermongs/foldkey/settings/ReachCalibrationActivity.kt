@@ -22,6 +22,7 @@ import android.widget.TextView
 import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.ThumbZones
 import io.github.patissiermongs.foldkey.input.ThumbZones.Side
 import io.github.patissiermongs.foldkey.input.ThumbZones.Zone
@@ -246,7 +247,8 @@ private class ZoneView(
             canvas.drawRect(rect, paint)
         }
         val placed = previewPlacement()
-        val base = LayoutBuilder.spec(prefs, LayoutKind.SPLIT, previewLayer, width.toFloat(), pxPerMmX, pxPerMmY, 0f, placed?.rowMm ?: prefs.rowHeightMm)
+        val profile = ScreenProfile.of(context)
+        val base = LayoutBuilder.spec(prefs, LayoutKind.SPLIT, previewLayer, profile, width.toFloat(), pxPerMmX, pxPerMmY, 0f, placed?.rowMm ?: prefs.rowHeightMm(profile))
         val spec = if (placed == null) base else base.copy(
             splitMarginLeftPx = placed.leftMm * pxPerMmX,
             splitMarginRightPx = placed.rightMm * pxPerMmX,

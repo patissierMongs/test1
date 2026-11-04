@@ -33,6 +33,14 @@
     <string name="pref_split_portrait">Split layout in portrait</string>
     <string name="pref_split_landscape">Split layout in landscape</string>
     <string name="pref_row_height">Row height</string>
+    <string name="settings_size">Size per screen</string>
+    <string name="settings_size_body">Each screen and orientation keeps its own row height and key width. Fill widens the keys to fit the screen width.</string>
+    <string name="size_inner_portrait">Unfolded screen, portrait</string>
+    <string name="size_inner_landscape">Unfolded screen, landscape</string>
+    <string name="size_cover_portrait">Cover screen, portrait</string>
+    <string name="size_cover_landscape">Cover screen, landscape</string>
+    <string name="size_current">%1$s (this screen)</string>
+    <string name="key_width_fill">Fill</string>
     <string name="pref_latin_hints">Show Latin letters on Korean keys</string>
 
     <string name="settings_feedback">Feedback</string>

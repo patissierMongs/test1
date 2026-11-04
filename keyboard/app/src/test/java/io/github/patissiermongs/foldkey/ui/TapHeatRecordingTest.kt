@@ -13,6 +13,7 @@ import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.RecordingListener
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.TapHeat
 import io.github.patissiermongs.foldkey.layout.Box
 import io.github.patissiermongs.foldkey.layout.Key
@@ -75,7 +76,7 @@ class TapHeatRecordingTest {
 
     private val slot: String get() = KeyboardView.offsetSlot(LayoutKind.SPLIT, Layer.CODE, view.width.toFloat(), pxPerMm)
 
-    private fun stored(): TapHeat = TapHeat.parse(prefs.heat(slot), prefs.layoutSignature)
+    private fun stored(): TapHeat = TapHeat.parse(prefs.heat(slot), prefs.heatSignature(view.profile()))
 
     @Test
     fun tapsAreGatheredPerKeyAndSavedWithTheLayout() {
@@ -131,5 +132,27 @@ class TapHeatRecordingTest {
         repeat(2) { tap(letter('f')) }
         view.saveState()
         assertEquals(2, stored().taps)
+    }
+
+    @Test
+    fun onlyTheSizeOfThisScreenStartsANewHeatmap() {
+        setup()
+        assertEquals(ScreenProfile.INNER_PORTRAIT, view.profile())
+        repeat(10) { tap(letter('f')) }
+        view.saveState()
+        assertEquals(10, stored().taps)
+        prefs.sp.edit()
+            .putInt(Prefs.rowKey(ScreenProfile.COVER_PORTRAIT), 80)
+            .putInt(Prefs.widthKey(ScreenProfile.INNER_LANDSCAPE), 70)
+            .commit()
+        view.reload()
+        repeat(4) { tap(letter('f')) }
+        view.saveState()
+        assertEquals(14, stored().taps)
+        prefs.sp.edit().putInt(Prefs.widthKey(ScreenProfile.INNER_PORTRAIT), 80).commit()
+        view.reload()
+        repeat(3) { tap(letter('f')) }
+        view.saveState()
+        assertEquals(3, stored().taps)
     }
 }

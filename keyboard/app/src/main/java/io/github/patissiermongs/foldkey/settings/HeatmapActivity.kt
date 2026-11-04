@@ -19,6 +19,7 @@ import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.input.PositionAdvice
 import io.github.patissiermongs.foldkey.input.TapHeat
@@ -111,10 +112,13 @@ class HeatmapActivity : Activity() {
         slots.firstOrNull()?.let { select(it) }
     }
 
-    private fun heat(slot: OffsetSlot): TapHeat = TapHeat.parse(prefs.heat(slot.name), prefs.layoutSignature)
+    private fun heat(slot: OffsetSlot): TapHeat = TapHeat.parse(prefs.heat(slot.name), prefs.heatSignature(profile(slot)))
+
+    private fun profile(slot: OffsetSlot): ScreenProfile = prefs.slotProfile(slot.name) ?: ScreenProfile.of(this)
 
     private fun geometry(slot: OffsetSlot): KeyboardGeometry {
-        val spec = LayoutBuilder.spec(prefs, slot.kind, slot.layer, slot.widthMm * pxPerMmX, pxPerMmX, pxPerMmY, 0f, prefs.rowHeightMm)
+        val profile = profile(slot)
+        val spec = LayoutBuilder.spec(prefs, slot.kind, slot.layer, profile, slot.widthMm * pxPerMmX, pxPerMmX, pxPerMmY, 0f, prefs.rowHeightMm(profile))
         return LayoutBuilder.build(slot.kind, slot.layer, spec)
     }
 

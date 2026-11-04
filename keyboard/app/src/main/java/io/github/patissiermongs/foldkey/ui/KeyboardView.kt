@@ -23,6 +23,7 @@ import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.engine.ModState
 import io.github.patissiermongs.foldkey.engine.Modifier
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.input.TapHeat
 import io.github.patissiermongs.foldkey.input.TouchParams
@@ -305,12 +306,15 @@ class KeyboardView(
 
     private fun isLandscape(): Boolean = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    internal fun profile(): ScreenProfile = ScreenProfile.of(context)
+
     private fun liftPx(kind: LayoutKind): Float = if (kind == LayoutKind.SPLIT) prefs.splitLiftMm * pxPerMmY else 0f
 
     private fun rowHeightMm(rows: Int, lift: Float): Float {
         val budget = resources.displayMetrics.heightPixels * MAX_HEIGHT_SHARE - stripHeightPx - bottomInset - lift
         val cap = budget / rows / pxPerMmY
-        return if (cap > 0f) min(prefs.rowHeightMm, cap) else prefs.rowHeightMm
+        val wanted = prefs.rowHeightMm(profile())
+        return if (cap > 0f) min(wanted, cap) else wanted
     }
 
     private fun geometry(): KeyboardGeometry {
@@ -320,8 +324,9 @@ class KeyboardView(
         val lift = liftPx(kind)
         rowMm = rowHeightMm(Layouts.rows(kind, layer), lift)
         val panelWanted = kind == LayoutKind.SPLIT && prefs.centerClipboard
+        val profile = profile()
         val spec = LayoutBuilder.spec(
-            prefs, kind, layer, width.toFloat(), pxPerMmX, pxPerMmY, stripHeightPx, rowMm,
+            prefs, kind, layer, profile, width.toFloat(), pxPerMmX, pxPerMmY, stripHeightPx, rowMm,
             bottomPx = bottomInset.toFloat(),
             sideInsetPx = sideInset.toFloat(),
             liftPx = lift,
@@ -339,16 +344,17 @@ class KeyboardView(
             holdMs = prefs.longPressMs.takeIf { it > 0L } ?: HOLD_MS,
         )
         val slot = offsetSlot(kind, layer, width.toFloat(), pxPerMmX)
+        prefs.rememberSlotProfile(slot, profile)
         if (slot != offsetSlot || offsets.zones != g.zoneCount) {
             saveState()
             offsets = OffsetModel(g.zoneCount)
             offsets.load(prefs.offsets(slot))
             offsetSlot = slot
-            heat = TapHeat.parse(prefs.heat(slot), prefs.layoutSignature)
+            heat = TapHeat.parse(prefs.heat(slot), prefs.heatSignature(profile))
             heatDirty = false
-        } else if (heat.signature != prefs.layoutSignature) {
+        } else if (heat.signature != prefs.heatSignature(profile)) {
             saveState()
-            heat = TapHeat(prefs.layoutSignature)
+            heat = TapHeat(prefs.heatSignature(profile))
             heatDirty = false
         }
         currentKind = kind
@@ -1105,7 +1111,7 @@ class KeyboardView(
         samples.clear()
         offsets = OffsetModel(offsets.zones).also { if (offsetSlot.isNotEmpty()) it.load(prefs.offsets(offsetSlot)) }
         offsetsDirty = false
-        heat = TapHeat.parse(if (offsetSlot.isEmpty()) null else prefs.heat(offsetSlot), prefs.layoutSignature)
+        heat = TapHeat.parse(if (offsetSlot.isEmpty()) null else prefs.heat(offsetSlot), prefs.heatSignature(prefs.slotProfile(offsetSlot) ?: profile()))
         heatDirty = false
     }
 

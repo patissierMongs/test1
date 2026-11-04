@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.OffsetModel
 import io.github.patissiermongs.foldkey.input.TapHeat
 import io.github.patissiermongs.foldkey.layout.Layouts
@@ -77,7 +78,7 @@ class HeatmapActivityTest {
         val prefs = prefs()
         prefs.sp.edit().clear().putInt(Prefs.SPLIT_LIFT, 30).putInt(Prefs.CODE_SIDE_LEFT, 50).putInt(Prefs.CODE_SIDE_RIGHT, 60).commit()
         prefs.sp.edit()
-            .putString(Prefs.HEAT_PREFIX + code, heat(prefs.layoutSignature, 25, 0.8f to 0.6f, -0.5f to 0.6f))
+            .putString(Prefs.HEAT_PREFIX + code, heat(prefs.heatSignature(ScreenProfile.INNER_LANDSCAPE), 25, 0.8f to 0.6f, -0.5f to 0.6f))
             .putString(Prefs.HEAT_PREFIX + "full_150mm", heat("stale", 25, 0f to 0f, 0f to 0f))
             .putString(Prefs.OFFSETS_PREFIX + code, zones(0.8f, -0.5f, 0.6f))
             .putString(Prefs.OFFSETS_PREFIX + general, zones(0.3f, 0.3f, 0.6f))
@@ -105,7 +106,12 @@ class HeatmapActivityTest {
         assertNull(prefs.heat(code))
         val codeModel = OffsetModel(20).also { it.load(prefs.offsets(code)) }
         for (z in 0 until 20) {
-            assertEquals("zone $z", 0f, codeModel.meanMm(z).first, 0.02f)
+            val x = codeModel.meanMm(z).first
+            when (z) {
+                17 -> assertTrue("zone $z $x", x > 0.05f && x < 0.8f)
+                18 -> assertTrue("zone $z $x", x < -0.05f && x > -0.5f)
+                else -> assertEquals("zone $z", 0f, x, 0.02f)
+            }
             assertEquals("zone $z", 0f, codeModel.meanMm(z).second, 0.02f)
             assertEquals(20, codeModel.samples(z))
         }
@@ -120,7 +126,7 @@ class HeatmapActivityTest {
     fun fewTapsAskForMoreAndTheHeatmapCanBeCleared() {
         val prefs = prefs()
         prefs.sp.edit().clear().commit()
-        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.layoutSignature, 4, 1.5f to 1.5f, -1.5f to 1.5f)).commit()
+        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.heatSignature(ScreenProfile.INNER_LANDSCAPE), 4, 1.5f to 1.5f, -1.5f to 1.5f)).commit()
         val epoch = prefs.offsetsEpoch
         val activity = Robolectric.buildActivity(HeatmapActivity::class.java).setup().get()
         val text = texts(activity)
@@ -137,7 +143,7 @@ class HeatmapActivityTest {
     fun smallOffsetsNeedNoMove() {
         val prefs = prefs()
         prefs.sp.edit().clear().commit()
-        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.layoutSignature, 25, 0.2f to -0.1f, -0.2f to 0.1f)).commit()
+        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.heatSignature(ScreenProfile.INNER_LANDSCAPE), 25, 0.2f to -0.1f, -0.2f to 0.1f)).commit()
         val activity = Robolectric.buildActivity(HeatmapActivity::class.java).setup().get()
         assertTrue(texts(activity), texts(activity).contains(activity.getString(R.string.heat_keep)))
         assertFalse(button(activity, R.string.heat_apply).isEnabled)
@@ -148,7 +154,7 @@ class HeatmapActivityTest {
     fun rendersInTheDarkTheme() {
         val prefs = prefs()
         prefs.sp.edit().clear().commit()
-        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.layoutSignature, 25, 0.8f to 0.6f, -0.5f to 0.6f)).commit()
+        prefs.sp.edit().putString(Prefs.HEAT_PREFIX + code, heat(prefs.heatSignature(ScreenProfile.INNER_LANDSCAPE), 25, 0.8f to 0.6f, -0.5f to 0.6f)).commit()
         val activity = Robolectric.buildActivity(HeatmapActivity::class.java).setup().get()
         render(activity, "heatmap_dark.png")
         val text = texts(activity)

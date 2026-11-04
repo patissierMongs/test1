@@ -16,6 +16,8 @@ object Layouts {
 
     const val PUNCT_UNITS = 0.75f
 
+    const val WIDE_VOWEL_UNITS = 1.25f
+
     private fun punct(c: Char) = ch(c, PUNCT_UNITS)
 
     private fun fkey(c: Char, f: Int) = KeyDef(
@@ -58,10 +60,10 @@ object Layouts {
     )
 
     val full: List<RowDef> = listOf(
-        RowDef(listOf(ch('`')) + digits(1..10) + listOf(fkey('-', 11), fkey('=', 12), backspace(2f))),
+        RowDef(listOf(ch('`')) + digits(1..10) + listOf(fkey('-', 11), fkey('=', 12))),
         RowDef(listOf(tab(1.5f)) + letters("qwertyuiop[]") + ch('\\', 1.5f)),
         RowDef(listOf(escCtrl(1.75f)) + letters("asdfghjkl;'") + enter(2.25f)),
-        RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcvbnm,./") + mod(Modifier.SHIFT, "⇧", 2.75f)),
+        RowDef(listOf(mod(Modifier.SHIFT, "⇧", 2.25f)) + letters("zxcvbnm,./") + backspace(2.75f)),
         RowDef(
             listOf(
                 mod(Modifier.CTRL, "Ctrl", 1.5f),
@@ -80,21 +82,30 @@ object Layouts {
         ),
         SplitRow(
             RowDef(listOf(tab(1f)) + letters("qwert")),
-            RowDef(letters("yuiop") + listOf(punct('['), punct(']'), backspace(1f))),
+            RowDef(letters("yuio") + listOf(ch('p', WIDE_VOWEL_UNITS), punct('['), punct(']'))),
         ),
         SplitRow(
             RowDef(listOf(escCtrl(1.25f)) + letters("asdfg")),
-            RowDef(letters("hjkl") + listOf(punct(';'), punct('\''), enter(1.25f))),
+            RowDef(letters("hjk") + listOf(ch('l', WIDE_VOWEL_UNITS), punct(';'), punct('\''), enter(1.25f))),
         ),
         SplitRow(
             RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.75f)) + letters("zxcv")),
-            RowDef(letters("bnm") + listOf(punct(','), punct('.'), punct('/'), mod(Modifier.SHIFT, "⇧", 1.25f))),
+            RowDef(letters("bn") + listOf(ch('m', WIDE_VOWEL_UNITS), punct(','), punct('.'), punct('/'), backspace(1.25f))),
         ),
         SplitRow(
-            RowDef(listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), mod(Modifier.FN, "Fn", 1f), lang(1f), space(2.25f))),
-            RowDef(listOf(space(2.25f)) + arrows()),
+            RowDef(
+                listOf(mod(Modifier.CTRL, "Ctrl", 1f), mod(Modifier.ALT, "Alt", 1f), lang(SPLIT_LANG_UNITS), space(3f + SPACE_INWARD_LEFT)),
+                inward = SPACE_INWARD_LEFT,
+            ),
+            RowDef(listOf(mod(Modifier.FN, "Fn", 1f), space(3f)) + arrows(), inward = SPACE_INWARD_RIGHT),
         ),
     )
+
+    const val SPLIT_LANG_UNITS = 1.25f
+
+    const val SPACE_INWARD_LEFT = 0.75f
+
+    const val SPACE_INWARD_RIGHT = 1.75f
 
     val splitUnits: Float = split.maxOf { it.left.span + it.right.span }
 
@@ -145,7 +156,7 @@ object Layouts {
     val general: List<RowDef> = listOf(
         RowDef(proseDigits(1..10)),
         RowDef(proseLetters("qwertyuiop")),
-        RowDef(letters("asdfghjkl")),
+        RowDef(letters("asdfghjkl"), indent = 0.5f),
         RowDef(listOf(mod(Modifier.SHIFT, "⇧", 1.5f)) + letters("zxcvbnm") + backspace(1.5f)),
         RowDef(listOf(lang(1.5f), space(5f), proseComma(), prosePeriod(), enter(1.5f))),
     )
@@ -176,19 +187,23 @@ object Layouts {
 
     private fun padKey(c: Char) = KeyDef(KeyAction.Text(c.toString()), label = c.toString())
 
-    private val padBackspace = KeyDef(
-        KeyAction.Backspace, label = "⌫", up = code(KeyEvent.KEYCODE_FORWARD_DEL), upLabel = "Del",
-        repeat = true, style = KeyStyle.MOD,
-    )
+    private val padDot = KeyDef(KeyAction.Text("."), label = ".", up = code(KeyEvent.KEYCODE_FORWARD_DEL), upLabel = "Del")
 
     const val PAD_ANCHOR = 'h'
 
-    val pad: List<List<KeyDef>> = listOf(
-        listOf(padKey('7'), padKey('8'), padKey('9'), padKey('/'), padBackspace),
-        listOf(padKey('4'), padKey('5'), padKey('6'), padKey('*'), padKey('(')),
-        listOf(padKey('1'), padKey('2'), padKey('3'), padKey('-'), padKey(')')),
-        listOf(padKey('0'), padKey('.'), padKey('='), padKey('+'), enter(1f)),
+    val pad: List<PadCell> = listOf(
+        PadCell(padKey('/'), 0, 1), PadCell(padKey('*'), 0, 2), PadCell(padKey('-'), 0, 3),
+        PadCell(padKey('7'), 1, 0), PadCell(padKey('8'), 1, 1), PadCell(padKey('9'), 1, 2), PadCell(padKey('+'), 1, 3, rowSpan = 2),
+        PadCell(padKey('4'), 2, 0), PadCell(padKey('5'), 2, 1), PadCell(padKey('6'), 2, 2),
+        PadCell(padKey('1'), 3, 0), PadCell(padKey('2'), 3, 1), PadCell(padKey('3'), 3, 2), PadCell(enter(1f), 3, 3, rowSpan = 2),
+        PadCell(padKey('0'), 4, 0, colSpan = 2), PadCell(padDot, 4, 2),
     )
+
+    fun codeUnits(kind: LayoutKind): Float = when (kind) {
+        LayoutKind.FULL -> full.maxOf { it.span }
+        LayoutKind.SPLIT -> splitUnits
+        LayoutKind.COMPACT -> compact.maxOf { it.span }
+    }
 
     fun rows(kind: LayoutKind, layer: Layer = Layer.CODE): Int = when {
         layer == Layer.GENERAL && kind == LayoutKind.SPLIT -> generalSplit.size

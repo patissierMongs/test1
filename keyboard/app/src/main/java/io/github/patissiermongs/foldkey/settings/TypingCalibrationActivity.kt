@@ -24,6 +24,7 @@ import android.widget.TextView
 import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.engine.Layer
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 import io.github.patissiermongs.foldkey.input.ThumbZones.Side
 import io.github.patissiermongs.foldkey.input.ThumbZones.Zone
 import io.github.patissiermongs.foldkey.input.TypingCalibration
@@ -123,9 +124,10 @@ class TypingCalibrationActivity : Activity() {
         val py = pxPerMmY
         val width = dm.widthPixels.toFloat()
         val start = intent.getFloatArrayExtra(EXTRA_START)?.takeIf { it.size == 3 }
-        val code = start?.get(0) ?: prefs.splitUnitMm
-        val general = start?.get(1) ?: LayoutBuilder.splitUnitMm(prefs, Layer.GENERAL)
-        val row = start?.get(2) ?: prefs.rowHeightMm
+        val profile = ScreenProfile.of(this)
+        val code = start?.get(0) ?: LayoutBuilder.codeSplitUnitMm(prefs, profile)
+        val general = start?.get(1) ?: LayoutBuilder.splitUnitMm(prefs, Layer.GENERAL, profile)
+        val row = start?.get(2) ?: prefs.rowHeightMm(profile)
         val measured = zones?.let { (l, r) -> TypingCalibration.anchors(l, r) }
         val anchors = Layer.entries.associateWith { measured ?: currentAnchors(it, width, px, py) }
         val plan = TypingSession.Plan(
@@ -144,7 +146,7 @@ class TypingCalibrationActivity : Activity() {
     private fun geometry(layer: Layer, p: TypingCalibration.Placement, width: Float, px: Float, py: Float): KeyboardGeometry {
         val panel = prefs.centerClipboard
         val spec = LayoutBuilder.spec(
-            prefs, LayoutKind.SPLIT, layer, width, px, py, 0f, p.rowMm,
+            prefs, LayoutKind.SPLIT, layer, ScreenProfile.of(this), width, px, py, 0f, p.rowMm,
             liftPx = p.liftMm * py,
             panelMinPx = if (panel) KeyboardView.PANEL_MIN_MM * px else 0f,
         ).copy(splitUnitMm = p.unitMm, splitMarginLeftPx = p.leftMm * px, splitMarginRightPx = p.rightMm * px)
@@ -152,7 +154,9 @@ class TypingCalibrationActivity : Activity() {
     }
 
     private fun currentAnchors(layer: Layer, width: Float, px: Float, py: Float): TypingCalibration.Anchors {
-        val g = LayoutBuilder.build(LayoutKind.SPLIT, layer, LayoutBuilder.spec(prefs, LayoutKind.SPLIT, layer, width, px, py, 0f, prefs.rowHeightMm))
+        val profile = ScreenProfile.of(this)
+        val row = prefs.rowHeightMm(profile)
+        val g = LayoutBuilder.build(LayoutKind.SPLIT, layer, LayoutBuilder.spec(prefs, LayoutKind.SPLIT, layer, profile, width, px, py, 0f, row))
         val unit = g.unitPx / px
         val sides = LayoutBuilder.sides(prefs, layer)
         val general = layer == Layer.GENERAL
@@ -161,7 +165,7 @@ class TypingCalibrationActivity : Activity() {
         return TypingCalibration.Anchors(
             max(sides.leftMm, KeyboardView.SIDE_MM) + leftUnits * unit / 2f,
             max(sides.rightMm, KeyboardView.SIDE_MM) + rightUnits * unit / 2f,
-            prefs.splitLiftMm + Layouts.rows(LayoutKind.SPLIT, layer) * prefs.rowHeightMm / 2f,
+            prefs.splitLiftMm + Layouts.rows(LayoutKind.SPLIT, layer) * row / 2f,
         )
     }
 
@@ -252,7 +256,7 @@ class TypingCalibrationActivity : Activity() {
         val offsets = c.offsets.entries.associate { (layer, model) ->
             KeyboardView.offsetSlot(LayoutKind.SPLIT, layer, width, pxPerMmX) to model.serialize()
         }
-        prefs.applyCalibration(c.placements, offsets)
+        prefs.applyCalibration(c.placements, offsets, ScreenProfile.of(this))
         finish()
     }
 

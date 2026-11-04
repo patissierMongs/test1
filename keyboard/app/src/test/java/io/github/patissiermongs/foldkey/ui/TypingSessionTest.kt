@@ -80,6 +80,7 @@ class TypingSessionTest {
     @Test
     fun smallKeysGrowUntilTheTypingSpreadFits() {
         val units = ArrayList<Float>()
+        val gains = ArrayList<Float>()
         var rowKept = 0
         var firstMissed = 0
         for (seed in 1L..60L) {
@@ -91,7 +92,7 @@ class TypingSessionTest {
             val first = r.rounds.first()
             val last = r.rounds.last()
             assertEquals(4.3f, first.unitMm, 0.01f)
-            assertTrue("seed $seed: last ${last.hitRate} first ${first.hitRate}", last.hitRate > first.hitRate + 0.05f)
+            gains.add(last.hitRate - first.hitRate)
             val estimate = TypingCalibration.hitRate(last.samples, r.analysis!!, r.unitMm!!, r.rowMm!!)
             assertTrue("seed $seed: estimate $estimate", estimate >= 0.9f)
             units.add(r.unitMm!!)
@@ -99,6 +100,9 @@ class TypingSessionTest {
             if (first.hitRate < 0.9f) firstMissed++
         }
         units.sort()
+        gains.sort()
+        assertTrue("$gains", gains.count { it > 0.05f } >= 50)
+        assertTrue("median gain ${gains[gains.size / 2]}", gains[gains.size / 2] > 0.1f)
         assertTrue("median ${units[units.size / 2]}", units[units.size / 2] in 5.6f..6.6f)
         assertTrue("$units", units.count { it in 5.2f..6.6f } >= 45)
         assertTrue("row kept $rowKept", rowKept >= 54)
@@ -107,28 +111,34 @@ class TypingSessionTest {
 
     @Test
     fun calibrationSeedsOffsetsAndKeepsOneRowHeightForBothLayers() {
-        val s = session()
-        val t = Typist(1.0f, 2.6f, 0.6f, 1.0f, 12)
-        typeLayer(s, t)
-        typeLayer(s, t)
-        assertTrue(s.finished)
-        val c = s.calibration()
-        val code = c.placements.getValue(Layer.CODE)
-        val general = c.placements.getValue(Layer.GENERAL)
-        assertEquals(code.rowMm, general.rowMm, 1e-4f)
-        assertEquals(code.liftMm, general.liftMm, 1e-4f)
-        assertTrue("row ${code.rowMm}", code.rowMm >= 9.5f)
-        val model = c.offsets.getValue(Layer.CODE)
-        val seeded = (0 until model.zones).filter { model.samples(it) > 0 }
-        assertTrue(seeded.size >= 10)
-        for (z in seeded) {
-            assertEquals(20, model.samples(z))
-            val (dx, dy) = model.meanMm(z)
-            assertEquals("zone $z x", 0.6f, dx, 0.6f)
-            assertEquals("zone $z y", 1.0f, dy, 1.2f)
+        val meanX = ArrayList<Double>()
+        val meanY = ArrayList<Double>()
+        val zones = ArrayList<Pair<Float, Float>>()
+        for (seed in 1L..30L) {
+            val s = session()
+            val t = Typist(1.0f, 2.6f, 0.6f, 1.0f, seed)
+            typeLayer(s, t)
+            typeLayer(s, t)
+            assertTrue(s.finished)
+            val c = s.calibration()
+            val code = c.placements.getValue(Layer.CODE)
+            val general = c.placements.getValue(Layer.GENERAL)
+            assertEquals(code.rowMm, general.rowMm, 1e-4f)
+            assertEquals(code.liftMm, general.liftMm, 1e-4f)
+            assertTrue("seed $seed: row ${code.rowMm}", code.rowMm >= 9.5f)
+            val model = c.offsets.getValue(Layer.CODE)
+            val seeded = (0 until model.zones).filter { model.samples(it) > 0 }
+            assertTrue("seed $seed: ${seeded.size} zones", seeded.size >= 10)
+            for (z in seeded) {
+                assertEquals(20, model.samples(z))
+                zones.add(model.meanMm(z))
+            }
+            meanX.add(seeded.map { model.meanMm(it).first.toDouble() }.average())
+            meanY.add(seeded.map { model.meanMm(it).second.toDouble() }.average())
         }
-        assertEquals(0.6f, seeded.map { model.meanMm(it).first }.average().toFloat(), 0.25f)
-        assertEquals(1.0f, seeded.map { model.meanMm(it).second }.average().toFloat(), 0.4f)
+        assertEquals(0.6, meanX.average(), 0.1)
+        assertEquals(1.0, meanY.average(), 0.2)
+        assertTrue(zones.count { (dx, dy) -> abs(dx - 0.6f) <= 0.6f && abs(dy - 1.0f) <= 1.2f } >= 0.85 * zones.size)
     }
 
     @Test

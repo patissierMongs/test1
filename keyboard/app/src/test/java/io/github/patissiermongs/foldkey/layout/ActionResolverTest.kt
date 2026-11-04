@@ -31,12 +31,12 @@ class ActionResolverTest {
     }
 
     @Test
-    fun numpadKeysTypeTheirTextAndBackspaceSwipesUpToDelete() {
-        val seven = Layouts.pad[0][0]
+    fun numpadKeysTypeTheirTextAndTheDotSwipesUpToDelete() {
+        val seven = Layouts.pad.single { it.def.label == "7" }.def
         for (g in Gesture.entries) assertEquals(Resolved(KeyAction.Text("7")), ActionResolver.resolve(seven, g, true))
-        val backspace = Layouts.pad[0][4]
-        assertEquals(Resolved(KeyAction.Backspace), ActionResolver.resolve(backspace, Gesture.TAP, true))
-        assertEquals(Resolved(KeyAction.Backspace), ActionResolver.resolve(backspace, Gesture.REPEAT, true))
-        assertEquals(Resolved(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL)), ActionResolver.resolve(backspace, Gesture.UP, true))
+        val dot = Layouts.pad.single { it.def.label == "." }.def
+        assertEquals(Resolved(KeyAction.Text(".")), ActionResolver.resolve(dot, Gesture.TAP, true))
+        assertEquals(Resolved(KeyAction.Text(".")), ActionResolver.resolve(dot, Gesture.DOWN, true))
+        assertEquals(Resolved(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL)), ActionResolver.resolve(dot, Gesture.UP, true))
     }
 }

@@ -18,8 +18,18 @@ class Prefs(context: Context) {
         sp.edit().putBoolean(GENERAL_LAYER, layer == Layer.GENERAL).apply()
     }
 
-    val rowHeightMm: Float get() = sp.getInt(ROW_HEIGHT, 95) / 10f
-    val splitUnitMm: Float get() = sp.getInt(SPLIT_UNIT, 85) / 10f
+    fun rowHeightTenths(profile: ScreenProfile): Int = sp.getInt(rowKey(profile), sp.getInt(ROW_HEIGHT, DEFAULT_ROW_HEIGHT))
+
+    fun rowHeightMm(profile: ScreenProfile): Float = rowHeightTenths(profile) / 10f
+
+    fun keyWidthTenths(profile: ScreenProfile, split: Boolean): Int =
+        sp.getInt(widthKey(profile), if (split) sp.getInt(SPLIT_UNIT, DEFAULT_SPLIT_UNIT) else KEY_WIDTH_FILL)
+
+    fun keyWidthMm(profile: ScreenProfile, split: Boolean): Float? =
+        keyWidthTenths(profile, split).takeIf { it > KEY_WIDTH_FILL }?.let { it / 10f }
+
+    fun usesSplit(profile: ScreenProfile): Boolean = !(profile.cover && !profile.landscape) && isSplit(profile.landscape)
+
     val splitLiftMm: Float get() = sp.getInt(SPLIT_LIFT, 0) / 10f
     val generalUnitMm: Float? get() = sp.getInt(GENERAL_UNIT, GENERAL_UNIT_AUTO).takeIf { it > GENERAL_UNIT_AUTO }?.let { it / 10f }
     val codeSideLeftMm: Float get() = sp.getInt(CODE_SIDE_LEFT, DEFAULT_CODE_SIDE) / 10f
@@ -56,17 +66,17 @@ class Prefs(context: Context) {
         sp.edit().putInt(HOVER_ALPHA, percent.coerceIn(HOVER_ALPHA_MIN, HOVER_ALPHA_MAX)).apply()
     }
 
-    fun applyCalibration(placements: Map<Layer, TypingCalibration.Placement>, offsets: Map<String, String>) {
+    fun applyCalibration(placements: Map<Layer, TypingCalibration.Placement>, offsets: Map<String, String>, profile: ScreenProfile) {
         fun t(mm: Float) = (mm * 10f).roundToInt()
         val editor = sp.edit()
         placements[Layer.CODE]?.let {
-            editor.putInt(SPLIT_UNIT, t(it.unitMm)).putInt(CODE_SIDE_LEFT, t(it.leftMm)).putInt(CODE_SIDE_RIGHT, t(it.rightMm))
+            editor.putInt(widthKey(profile), t(it.unitMm)).putInt(CODE_SIDE_LEFT, t(it.leftMm)).putInt(CODE_SIDE_RIGHT, t(it.rightMm))
         }
         placements[Layer.GENERAL]?.let {
             editor.putInt(GENERAL_UNIT, t(it.unitMm)).putInt(GENERAL_SIDE_LEFT, t(it.leftMm)).putInt(GENERAL_SIDE_RIGHT, t(it.rightMm))
         }
-        placements.values.firstOrNull()?.let { editor.putInt(ROW_HEIGHT, t(it.rowMm)).putInt(SPLIT_LIFT, t(it.liftMm)) }
-        for ((slot, data) in offsets) editor.putString(OFFSETS_PREFIX + slot, data)
+        placements.values.firstOrNull()?.let { editor.putInt(rowKey(profile), t(it.rowMm)).putInt(SPLIT_LIFT, t(it.liftMm)) }
+        for ((slot, data) in offsets) editor.putString(OFFSETS_PREFIX + slot, data).putString(SLOT_PROFILE_PREFIX + slot, profile.key)
         if (offsets.isNotEmpty()) editor.putInt(OFFSETS_EPOCH, offsetsEpoch + 1)
         editor.apply()
     }
@@ -89,6 +99,12 @@ class Prefs(context: Context) {
 
     val layoutSignature: String get() = LAYOUT_KEYS.joinToString(",") { sp.getInt(it, -1).toString() }
 
+    fun heatSignature(profile: ScreenProfile): String {
+        val own = listOf(rowKey(profile), widthKey(profile))
+        val keys = if (own.any { sp.contains(it) }) SHARED_LAYOUT_KEYS + own else SHARED_LAYOUT_KEYS
+        return keys.joinToString(",") { sp.getInt(it, -1).toString() }
+    }
+
     fun heat(slot: String): String? = sp.getString(HEAT_PREFIX + slot, null)
 
     fun heatSlots(): List<String> = sp.all.keys.filter { it.startsWith(HEAT_PREFIX) }.map { it.removePrefix(HEAT_PREFIX) }.sorted()
@@ -106,6 +122,13 @@ class Prefs(context: Context) {
     }
 
     fun offsets(slot: String): String? = sp.getString(OFFSETS_PREFIX + slot, null)
+
+    fun slotProfile(slot: String): ScreenProfile? =
+        sp.getString(SLOT_PROFILE_PREFIX + slot, null)?.let { key -> ScreenProfile.entries.firstOrNull { it.key == key } }
+
+    fun rememberSlotProfile(slot: String, profile: ScreenProfile) {
+        if (sp.getString(SLOT_PROFILE_PREFIX + slot, null) != profile.key) sp.edit().putString(SLOT_PROFILE_PREFIX + slot, profile.key).apply()
+    }
 
     fun offsetSlots(): List<String> = sp.all.keys.filter { it.startsWith(OFFSETS_PREFIX) }.map { it.removePrefix(OFFSETS_PREFIX) }.sorted()
 
@@ -178,12 +201,24 @@ class Prefs(context: Context) {
         const val HOVER_ALPHA_MAX = 100
         const val OFFSETS_PREFIX = "offsets_"
         const val HEAT_PREFIX = "heat_"
+        const val SLOT_PROFILE_PREFIX = "slot_profile_"
         const val OFFSETS_EPOCH = "touch_offsets_epoch"
         const val SETUP_SHOWN = "setup_shown"
-        val LAYOUT_KEYS = listOf(
+        const val DEFAULT_ROW_HEIGHT = 95
+        const val DEFAULT_SPLIT_UNIT = 85
+        const val KEY_WIDTH_FILL = 39
+        const val ROW_HEIGHT_PREFIX = "row_height_tenth_mm_"
+        const val KEY_WIDTH_PREFIX = "key_width_tenth_mm_"
+
+        fun rowKey(profile: ScreenProfile): String = ROW_HEIGHT_PREFIX + profile.key
+
+        fun widthKey(profile: ScreenProfile): String = KEY_WIDTH_PREFIX + profile.key
+
+        val SHARED_LAYOUT_KEYS = listOf(
             SPLIT_UNIT, GENERAL_UNIT, CODE_SIDE_LEFT, CODE_SIDE_RIGHT,
             GENERAL_SIDE_LEFT, GENERAL_SIDE_RIGHT, SPLIT_LIFT, ROW_HEIGHT,
         )
+        val LAYOUT_KEYS = SHARED_LAYOUT_KEYS + ScreenProfile.entries.flatMap { listOf(rowKey(it), widthKey(it)) }
         const val DEFAULT_RAW_PACKAGES =
             "com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm"
     }

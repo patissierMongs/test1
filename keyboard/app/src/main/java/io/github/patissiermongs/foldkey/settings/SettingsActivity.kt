@@ -21,6 +21,7 @@ import io.github.patissiermongs.foldkey.R
 import io.github.patissiermongs.foldkey.ime.ClipboardHistory
 import io.github.patissiermongs.foldkey.ime.FoldKeyService
 import io.github.patissiermongs.foldkey.ime.Prefs
+import io.github.patissiermongs.foldkey.ime.ScreenProfile
 
 class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
@@ -28,6 +29,7 @@ class SettingsActivity : Activity() {
     private lateinit var column: LinearLayout
     private var builtLayout = ""
     private val packageFields = ArrayList<Triple<EditText, String, String>>()
+    private val widthSliders = ArrayList<Pair<ScreenProfile, SeekBar>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,14 +97,13 @@ class SettingsActivity : Activity() {
         button(getString(R.string.settings_echo_clear)) { echo.clear() }
 
         heading(getString(R.string.settings_layout), 18f)
-        toggle(getString(R.string.pref_split_portrait), Prefs.SPLIT_PORTRAIT, false)
-        toggle(getString(R.string.pref_split_landscape), Prefs.SPLIT_LANDSCAPE, true)
-        slider(getString(R.string.pref_row_height), Prefs.ROW_HEIGHT, 95, Prefs.ROW_MIN, Prefs.ROW_MAX) { mm(it) }
+        toggle(getString(R.string.pref_split_portrait), Prefs.SPLIT_PORTRAIT, false) { refreshKeyWidths() }
+        toggle(getString(R.string.pref_split_landscape), Prefs.SPLIT_LANDSCAPE, true) { refreshKeyWidths() }
+        sizeSection()
         slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, Prefs.LIFT_MAX) { mm(it) }
         button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
         button(getString(R.string.settings_typing)) { startActivity(Intent(this, TypingCalibrationActivity::class.java)) }
         heading(getString(R.string.settings_split_code), 16f)
-        slider(getString(R.string.pref_unit), Prefs.SPLIT_UNIT, 85, Prefs.UNIT_MIN, Prefs.UNIT_MAX) { mm(it) }
         slider(getString(R.string.pref_side_left), Prefs.CODE_SIDE_LEFT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
         slider(getString(R.string.pref_side_right), Prefs.CODE_SIDE_RIGHT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
         heading(getString(R.string.settings_split_general), 16f)
@@ -165,6 +166,34 @@ class SettingsActivity : Activity() {
 
         heading(getString(R.string.settings_gestures), 18f)
         body(getString(R.string.settings_gestures_body))
+    }
+
+    private fun sizeSection() {
+        heading(getString(R.string.settings_size), 16f)
+        body(getString(R.string.settings_size_body))
+        val current = ScreenProfile.of(this)
+        for (profile in ScreenProfile.entries) {
+            val name = getString(
+                when (profile) {
+                    ScreenProfile.INNER_PORTRAIT -> R.string.size_inner_portrait
+                    ScreenProfile.INNER_LANDSCAPE -> R.string.size_inner_landscape
+                    ScreenProfile.COVER_PORTRAIT -> R.string.size_cover_portrait
+                    ScreenProfile.COVER_LANDSCAPE -> R.string.size_cover_landscape
+                }
+            )
+            body(if (profile == current) getString(R.string.size_current, name) else name).typeface = Typeface.DEFAULT_BOLD
+            slider(getString(R.string.pref_row_height), Prefs.rowKey(profile), prefs.rowHeightTenths(profile), Prefs.ROW_MIN, Prefs.ROW_MAX) { mm(it) }
+            val width = slider(getString(R.string.pref_unit), Prefs.widthKey(profile), keyWidthTenths(profile), Prefs.KEY_WIDTH_FILL, Prefs.UNIT_MAX) {
+                if (it <= Prefs.KEY_WIDTH_FILL) getString(R.string.key_width_fill) else mm(it)
+            }
+            widthSliders.add(profile to width)
+        }
+    }
+
+    private fun keyWidthTenths(profile: ScreenProfile): Int = prefs.keyWidthTenths(profile, prefs.usesSplit(profile))
+
+    private fun refreshKeyWidths() {
+        for ((profile, bar) in widthSliders) bar.progress = keyWidthTenths(profile).coerceIn(bar.min, bar.max)
     }
 
     private fun packagesField(key: String, default: String) {
@@ -231,13 +260,16 @@ class SettingsActivity : Activity() {
     }
 
     @Suppress("DEPRECATION")
-    private fun toggle(text: String, key: String, default: Boolean) {
+    private fun toggle(text: String, key: String, default: Boolean, onChanged: (() -> Unit)? = null) {
         column.addView(Switch(this).apply {
             this.text = text
             textSize = 15f
             isChecked = prefs.sp.getBoolean(key, default)
             setPadding(0, dp(8), 0, dp(8))
-            setOnCheckedChangeListener { _, checked -> prefs.sp.edit().putBoolean(key, checked).apply() }
+            setOnCheckedChangeListener { _, checked ->
+                prefs.sp.edit().putBoolean(key, checked).apply()
+                onChanged?.invoke()
+            }
         })
     }
 
@@ -245,12 +277,12 @@ class SettingsActivity : Activity() {
 
     private fun tenths(mm: Float): Int = Math.round(mm * 10f)
 
-    private fun slider(text: String, key: String, default: Int, min: Int, max: Int, format: (Int) -> String) {
+    private fun slider(text: String, key: String, default: Int, min: Int, max: Int, format: (Int) -> String): SeekBar {
         val label = TextView(this).apply { textSize = 15f; setPadding(0, dp(8), 0, 0) }
         val value = prefs.sp.getInt(key, default).coerceIn(min, max)
         label.text = getString(R.string.label_value, text, format(value))
         column.addView(label)
-        column.addView(SeekBar(this).apply {
+        return SeekBar(this).apply {
             this.min = min
             this.max = max
             progress = value
@@ -271,7 +303,8 @@ class SettingsActivity : Activity() {
                     prefs.sp.edit().putInt(key, seekBar.progress).apply()
                 }
             })
-        })
+            column.addView(this)
+        }
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()

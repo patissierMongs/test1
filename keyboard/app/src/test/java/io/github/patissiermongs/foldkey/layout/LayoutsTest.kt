@@ -5,6 +5,7 @@ import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.Modifier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -45,7 +46,7 @@ class LayoutsTest {
         assertTrue(name, KeyAction.Lang in actions)
         assertTrue(name, KeyAction.Code(KeyEvent.KEYCODE_TAB) in actions)
         for (m in Modifier.entries) assertTrue("$name $m", KeyAction.Mod(m) in actions)
-        val reachable = actions + (defs + Layouts.pad.flatten()).flatMap { listOfNotNull(it.up, it.down) }
+        val reachable = actions + (defs + Layouts.pad.map { it.def }).flatMap { listOfNotNull(it.up, it.down) }
         val navigation = listOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_MOVE_END, KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN,
@@ -79,17 +80,36 @@ class LayoutsTest {
         }
     }
 
+    private fun padGrid(): List<String> {
+        val rows = Layouts.pad.maxOf { it.row + it.rowSpan }
+        val columns = Layouts.pad.maxOf { it.col + it.colSpan }
+        val grid = Array(rows) { CharArray(columns) { '_' } }
+        for (cell in Layouts.pad) {
+            val mark = if (cell.def.action == KeyAction.Enter) 'E' else cell.def.label!!.single()
+            for (r in cell.row until cell.row + cell.rowSpan) for (c in cell.col until cell.col + cell.colSpan) {
+                assertEquals("cell $r,$c", '_', grid[r][c])
+                grid[r][c] = mark
+            }
+        }
+        return grid.map { String(it) }
+    }
+
     @Test
-    fun numpadIsSevenEightNineOnTopWithOperatorsAndEnter() {
-        val labels = Layouts.pad.map { row -> row.joinToString("") { it.label ?: "" } }
-        assertEquals(listOf("789/⌫", "456*(", "123-)", "0.=+⏎"), labels)
-        val texts = Layouts.pad.flatten().mapNotNull { (it.action as? KeyAction.Text)?.text }
-        assertEquals("789/456*(123-)0.=+".map { it.toString() }, texts)
-        assertTrue(Layouts.pad.flatten().none { it.action is KeyAction.Char })
-        val backspace = Layouts.pad[0][4]
-        assertEquals(KeyAction.Backspace, backspace.action)
-        assertEquals(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL), backspace.up)
-        assertEquals(KeyAction.Enter, Layouts.pad[3][4].action)
+    fun numpadIsTheStandardFourByFiveGridWithAnEmptyTopLeft() {
+        assertEquals(listOf("_/*-", "789+", "456+", "123E", "00.E"), padGrid())
+        val texts = Layouts.pad.mapNotNull { (it.def.action as? KeyAction.Text)?.text }.sorted()
+        assertEquals("/*-789+4561230.".map { it.toString() }.sorted(), texts)
+        assertTrue(Layouts.pad.none { it.def.action is KeyAction.Char || it.def.action == KeyAction.Backspace })
+        val dot = Layouts.pad.single { it.def.label == "." }.def
+        assertEquals(KeyAction.Code(KeyEvent.KEYCODE_FORWARD_DEL), dot.up)
+        assertEquals("Del", dot.upLabel)
+        assertTrue(Layouts.pad.filter { it.def !== dot }.all { it.def.up == null && it.def.down == null })
+        val layouts = listOf("full" to defsOf(Layouts.full), "split" to splitDefs, "compact" to defsOf(Layouts.compact)) + generalLayouts
+        for ((name, defs) in layouts) {
+            val backspace = defs.single { it.action == KeyAction.Backspace }
+            assertFalse(name, backspace.hasVariants)
+            assertTrue(name, backspace.repeat)
+        }
     }
 
     @Test
@@ -106,7 +126,8 @@ class LayoutsTest {
             val gap = left('7') - (side + 6.75f * u)
             for ((c, at) in listOf(
                 '7' to 6.75f, 'y' to 6f, 'h' to 6.25f, 'b' to 5.75f, 'n' to 6.75f, '=' to 11.75f, '\\' to 12.75f,
-                '[' to 11f, ']' to 11.75f, ';' to 10.25f, '\'' to 11f, ',' to 8.75f, '.' to 9.5f, '/' to 10.25f,
+                'p' to 10f, '[' to 11.25f, ']' to 12f, 'l' to 9.25f, ';' to 10.5f, '\'' to 11.25f,
+                'm' to 7.75f, ',' to 9f, '.' to 9.75f, '/' to 10.5f,
             )) {
                 assertEquals("$width '$c'", side + at * u + gap, left(c), 0.5f)
             }
@@ -116,7 +137,7 @@ class LayoutsTest {
                 assertEquals("$width row $row", gap, slotLeft(split.second, pxPerMm) - slotRight(split.first, pxPerMm), 0.5f)
             }
             val ends = Layouts.split.indices.map { r -> g.keys.filter { it.row == r && !it.ghost }.maxOf { slotRight(it, pxPerMm) } }
-            for ((r, total) in listOf(13.5f, 13.5f, 13f, 12.25f, 12.5f).withIndex()) {
+            for ((r, total) in listOf(13.5f, 12.75f, 13.25f, 12.5f, 12.5f).withIndex()) {
                 assertEquals("$width row $r", side + total * u + gap, ends[r], 0.5f)
             }
             assertEquals(width - side, ends.max(), 0.5f)
@@ -133,30 +154,94 @@ class LayoutsTest {
         val enter = g.keys.single { it.def.action == KeyAction.Enter }
         val tab = g.keys.single { it.def.action == KeyAction.Code(KeyEvent.KEYCODE_TAB) }
         val esc = g.keys.single { it.def.action == KeyAction.EscCtrl }
-        val shifts = g.keys.filter { it.def.action == KeyAction.Mod(Modifier.SHIFT) }.sortedBy { it.face.left }
-        assertEquals(1, backspace.row)
+        val shift = g.keys.single { it.def.action == KeyAction.Mod(Modifier.SHIFT) }
+        assertEquals(3, backspace.row)
         assertEquals(2, enter.row)
-        assertEquals(1f * u, width(backspace), 0.5f)
+        assertEquals(1.25f * u, width(backspace), 0.5f)
         assertEquals(1.25f * u, width(enter), 0.5f)
         assertEquals(1f * u, width(tab), 0.5f)
         assertEquals(1.25f * u, width(esc), 0.5f)
-        assertEquals(listOf(3, 3), shifts.map { it.row })
-        assertEquals(1.75f * u, width(shifts[0]), 0.5f)
-        assertEquals(1.25f * u, width(shifts[1]), 0.5f)
+        assertEquals(3, shift.row)
+        assertEquals(1.75f * u, width(shift), 0.5f)
         for (c in "`\\[];',./") {
             assertEquals("'$c'", Layouts.PUNCT_UNITS * u, width(g.keys.single { base(it) == c }), 0.5f)
         }
         for (c in "-=") assertEquals("'$c'", u, width(g.keys.single { base(it) == c }), 0.5f)
+        for (c in "plm") assertEquals("'$c'", Layouts.WIDE_VOWEL_UNITS * u, width(g.keys.single { base(it) == c }), 0.5f)
+        for (c in "yuiohjkbn") assertEquals("'$c'", u, width(g.keys.single { base(it) == c }), 0.5f)
         val z = g.keys.first { base(it) == 'z' }
-        assertEquals(slotRight(shifts[0], pxPerMm), slotLeft(z, pxPerMm), 0.5f)
+        assertEquals(slotRight(shift, pxPerMm), slotLeft(z, pxPerMm), 0.5f)
         val backslash = g.keys.single { base(it) == '\\' }
         val equals = g.keys.first { base(it) == '=' }
         assertEquals(0, backslash.row)
         assertEquals(slotRight(equals, pxPerMm), slotLeft(backslash, pxPerMm), 0.5f)
         assertEquals(1968f - 0.5f * pxPerMm, slotRight(backslash, pxPerMm), 0.5f)
-        assertEquals(slotRight(backslash, pxPerMm), slotRight(backspace, pxPerMm), 0.5f)
-        for (k in listOf(backslash, backspace, enter, shifts[1])) assertEquals(1968f, k.touch.right, 0.01f)
-        for (k in listOf(g.keys.first { base(it) == '`' }, tab, esc, shifts[0])) assertEquals(0f, k.touch.left, 0.01f)
+        val slash = g.keys.single { base(it) == '/' }
+        assertEquals(slotRight(slash, pxPerMm), slotLeft(backspace, pxPerMm), 0.5f)
+        assertEquals(']', base(g.keys.filter { it.row == 1 }.maxBy { it.face.right }))
+        for (k in listOf(backslash, backspace, enter, g.keys.single { base(it) == ']' })) assertEquals(1968f, k.touch.right, 0.01f)
+        for (k in listOf(g.keys.first { base(it) == '`' }, tab, esc, shift)) assertEquals(0f, k.touch.left, 0.01f)
+    }
+
+    private fun bottomRow(g: KeyboardGeometry) = g.keys.filter { it.row == Layouts.split.lastIndex }.sortedBy { it.face.left }
+
+    @Test
+    fun splitBottomRowReachesIntoTheGapWithFnBesideTheRightSpace() {
+        val pxPerMm = 368f / 25.4f
+        val side = 0.5f * pxPerMm
+        val landscape = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm))
+        val u = landscape.unitPx
+        val keys = bottomRow(landscape)
+        assertEquals(
+            listOf(
+                KeyAction.Mod(Modifier.CTRL), KeyAction.Mod(Modifier.ALT), KeyAction.Lang, KeyAction.Space, KeyAction.Mod(Modifier.FN), KeyAction.Space,
+                KeyAction.Code(KeyEvent.KEYCODE_DPAD_LEFT), KeyAction.Code(KeyEvent.KEYCODE_DPAD_DOWN), KeyAction.Code(KeyEvent.KEYCODE_DPAD_UP),
+                KeyAction.Code(KeyEvent.KEYCODE_DPAD_RIGHT),
+            ),
+            keys.map { it.def.action },
+        )
+        fun w(k: Key) = slotRight(k, pxPerMm) - slotLeft(k, pxPerMm)
+        val ctrl = keys[0]
+        val alt = keys[1]
+        val lang = keys[2]
+        val leftSpace = keys[3]
+        val fn = keys[4]
+        val rightSpace = keys[5]
+        assertEquals(1f * u, w(ctrl), 0.5f)
+        assertEquals(1f * u, w(alt), 0.5f)
+        assertEquals(Layouts.SPLIT_LANG_UNITS * u, w(lang), 0.5f)
+        assertEquals(1f * u, w(fn), 0.5f)
+        val h = landscape.keys.first { base(it) == 'h' }
+        val gap = slotLeft(h, pxPerMm) - (side + 6.25f * u)
+        assertEquals(side + (6.25f + Layouts.SPACE_INWARD_LEFT) * u, slotRight(leftSpace, pxPerMm), 0.5f)
+        assertEquals(side + (6.25f - Layouts.SPACE_INWARD_RIGHT) * u + gap, slotLeft(fn, pxPerMm), 0.5f)
+        assertEquals(slotRight(fn, pxPerMm), slotLeft(rightSpace, pxPerMm), 0.5f)
+        assertEquals(side + 8.5f * u + gap, slotRight(rightSpace, pxPerMm), 0.5f)
+        assertEquals((3f + Layouts.SPACE_INWARD_LEFT) * u, w(leftSpace), 0.5f)
+        assertEquals(3f * u, w(rightSpace), 0.5f)
+        assertEquals(slotRight(rightSpace, pxPerMm), slotLeft(keys[6], pxPerMm), 0.5f)
+        val center = slotLeft(fn, pxPerMm) - slotRight(leftSpace, pxPerMm)
+        assertEquals(gap - (Layouts.SPACE_INWARD_LEFT + Layouts.SPACE_INWARD_RIGHT) * u, center, 0.5f)
+        val panel = landscape.panel.last()
+        assertEquals(slotRight(leftSpace, pxPerMm), panel.left, 0.5f)
+        assertEquals(slotLeft(fn, pxPerMm), panel.right, 0.5f)
+
+        val portrait = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f))
+        val pu = portrait.unitPx
+        val pKeys = bottomRow(portrait)
+        val pGap = slotLeft(portrait.keys.first { base(it) == 'h' }, pxPerMm) - (side + 6.25f * pu)
+        assertTrue(pGap < (Layouts.SPACE_INWARD_LEFT + Layouts.SPACE_INWARD_RIGHT + KeyboardGeometry.MIN_CENTER_UNITS) * pu)
+        val scale = (pGap - KeyboardGeometry.MIN_CENTER_UNITS * pu) / ((Layouts.SPACE_INWARD_LEFT + Layouts.SPACE_INWARD_RIGHT) * pu)
+        assertEquals(side + (6.25f + Layouts.SPACE_INWARD_LEFT * scale) * pu, slotRight(pKeys[3], pxPerMm), 0.5f)
+        assertEquals(side + (6.25f - Layouts.SPACE_INWARD_RIGHT * scale) * pu + pGap, slotLeft(pKeys[4], pxPerMm), 0.5f)
+        assertEquals(KeyboardGeometry.MIN_CENTER_UNITS * pu, slotLeft(pKeys[4], pxPerMm) - slotRight(pKeys[3], pxPerMm), 0.5f)
+        assertEquals(side + 8.5f * pu + pGap, slotLeft(pKeys[6], pxPerMm), 0.5f)
+
+        val tight = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, splitUnitMm = 11f, ghost = 0f))
+        val tKeys = bottomRow(tight)
+        val tu = tight.unitPx
+        assertEquals(Layouts.SPLIT_LANG_UNITS * tu + 3f * tu, slotRight(tKeys[3], pxPerMm) - slotLeft(tKeys[2], pxPerMm), 0.5f)
+        assertTrue(slotLeft(tKeys[4], pxPerMm) >= slotRight(tKeys[3], pxPerMm) - 0.5f)
     }
 
     @Test
@@ -179,8 +264,9 @@ class LayoutsTest {
         assertEquals(8.5f, g.unitPx / pxPerMm, 0.001f)
         assertEquals(Layouts.split.size, g.panel.size)
         val gapMm = 2184f / pxPerMm - 1f - 13.5f * 8.5f
+        val inward = (Layouts.SPACE_INWARD_LEFT + Layouts.SPACE_INWARD_RIGHT) * 8.5f
         g.panel.forEachIndexed { r, box ->
-            assertEquals("row $r", if (r < 4) gapMm - 2f * 8.5f else gapMm, box.width / pxPerMm, 0.01f)
+            assertEquals("row $r", if (r < 4) gapMm - 2f * 8.5f else gapMm - inward, box.width / pxPerMm, 0.01f)
             assertEquals(r * 9.5f, box.top / pxPerMm, 0.01f)
             assertEquals(9.5f, box.height / pxPerMm, 0.01f)
         }
@@ -212,10 +298,13 @@ class LayoutsTest {
 
     @Test
     fun rowWidthsAreConsistent() {
-        Layouts.full.forEach { assertEquals(15f, it.units, 1e-4f) }
+        assertEquals(listOf(13f, 15f, 15f, 15f, 15f), Layouts.full.map { it.span })
         Layouts.compact.forEach { assertEquals(10f, it.units, 1e-4f) }
-        assertEquals(listOf(13.5f, 13.5f, 13f, 12.25f, 12.5f), Layouts.split.map { it.left.units + it.right.units })
-        assertEquals(listOf(6.75f, 6f, 6.25f, 5.75f, 6.25f), Layouts.split.map { it.left.units })
+        assertEquals(listOf(13.5f, 12.75f, 13.25f, 12.5f, 12.5f), Layouts.split.map { it.left.span + it.right.span })
+        assertEquals(listOf(6.75f, 6f, 6.25f, 5.75f, 6.25f), Layouts.split.map { it.left.span })
+        assertEquals(Layouts.SPACE_INWARD_LEFT, Layouts.split.last().left.inward, 1e-4f)
+        assertEquals(Layouts.SPACE_INWARD_RIGHT, Layouts.split.last().right.inward, 1e-4f)
+        assertTrue(Layouts.split.dropLast(1).all { it.left.inward == 0f && it.right.inward == 0f })
         assertEquals(13.5f, Layouts.splitUnits, 1e-4f)
         assertEquals(6.75f, Layouts.splitLeftUnits, 1e-4f)
         assertEquals(7.75f, Layouts.splitRightUnits, 1e-4f)
@@ -251,7 +340,7 @@ class LayoutsTest {
             val (left, right) = spans
             val g = KeyboardGeometry.split(Layouts.split, spec(width, 368f, splitUnitMm = unitMm, ghost = 1f))
             val leftDefs = Layouts.split.flatMap { it.left.keys }
-            val visible = g.keys.filter { !it.ghost }
+            val visible = g.keys.filter { !it.ghost && it.row < Layouts.split.lastIndex }
             val leftHalf = visible.filter { k -> leftDefs.any { it === k.def } }
             val rightHalf = visible.filter { k -> leftDefs.none { it === k.def } }
             assertEquals("$width $unitMm left", left, slotRight(leftHalf.maxBy { it.face.right }, pxPerMm) / pxPerMm, 0.02f)
@@ -274,16 +363,20 @@ class LayoutsTest {
         for (g in layouts) {
             for (fn in listOf(false, true)) {
                 val keys = g.layer(fn)
-                val padLeft = keys.filter { it.pad }.minOfOrNull { it.touch.left } ?: Float.MAX_VALUE
+                val pad = keys.filter { it.pad }
+                val padLeft = pad.minOfOrNull { it.touch.left } ?: Float.MAX_VALUE
+                val slash = pad.firstOrNull { it.def.label == "/" }
                 var y = 1f
                 while (y < g.heightPx - 1f) {
-                    val row = keys.first { y >= it.touch.top && y < it.touch.bottom }.row
-                    val visibleEnd = keys.filter { it.row == row && !it.pad }.maxOf { it.touch.right }
+                    val rowKeys = keys.filter { !it.pad && y >= it.touch.top && y < it.touch.bottom }
+                    val visibleEnd = rowKeys.maxOfOrNull { it.touch.right } ?: 0f
+                    val padRow = fn && pad.any { y >= it.touch.top && y < it.touch.bottom }
                     var x = 0.5f
                     while (x < keys.maxOf { it.touch.right } - 0.5f) {
                         val hits = keys.count { it.touch.contains(x, y) }
-                        val empty = fn && row < 4 && x >= visibleEnd && x < padLeft
-                        assertEquals("fn=$fn ($x,$y)", if (empty) 0 else 1, hits)
+                        val beforePad = padRow && x >= visibleEnd && x < padLeft
+                        val emptyCell = slash != null && fn && y >= slash.touch.top && y < slash.touch.bottom && x >= padLeft && x < slash.touch.left
+                        assertEquals("fn=$fn ($x,$y)", if (beforePad || emptyCell) 0 else 1, hits)
                         x += 7f
                     }
                     y += 11f
@@ -292,59 +385,113 @@ class LayoutsTest {
         }
     }
 
-    private fun checkPad(g: KeyboardGeometry, rows: Int, pxPerMm: Float) {
+    private fun checkPad(g: KeyboardGeometry, layoutRows: Int, pxPerMm: Float) {
         val pad = g.fnKeys.filter { it.pad }
-        assertEquals(20, pad.size)
-        assertEquals(listOf("789/⌫", "456*(", "123-)", "0.=+⏎"), (0 until 4).map { r -> pad.filter { it.row == r }.sortedBy { it.face.left }.joinToString("") { it.def.label ?: "" } })
-        val columns = pad.groupBy { (it.face.left * 10).roundToInt() }
-        assertEquals(5, columns.size)
-        assertTrue(columns.values.all { col -> col.map { it.row }.sorted() == listOf(0, 1, 2, 3) })
-        assertTrue(pad.all { abs((slotRight(it, pxPerMm) - slotLeft(it, pxPerMm)) - g.unitPx) < 0.5f })
-        val end = g.keys.filter { !it.ghost }.maxOf { slotRight(it, pxPerMm) }
-        assertEquals(end, pad.maxOf { slotRight(it, pxPerMm) }, 0.5f)
-        assertEquals(end - 5f * g.unitPx, pad.minOf { slotLeft(it, pxPerMm) }, 0.5f)
+        assertEquals(Layouts.pad.size, pad.size)
+        val padRows = Layouts.pad.maxOf { it.row + it.rowSpan }
+        val gapX = 0.45f * pxPerMm
         val hText = g.keys.first { base(it) == Layouts.PAD_ANCHOR }
+        val fnKeys = g.keys.filter { !it.ghost && it.row < padRows && it.def.action == KeyAction.Mod(Modifier.FN) }
+        val start = maxOf(slotLeft(hText, pxPerMm), fnKeys.maxOfOrNull { slotRight(it, pxPerMm) } ?: 0f)
+        val end = g.keys.filter { !it.ghost }.maxOf { slotRight(it, pxPerMm) }
+        val w = (end - start) / 4f
+        val rowTop = (0 until padRows).map { r -> g.keys.first { it.row == r && !it.ghost }.face.top }
+        val rowBottom = (0 until padRows).map { r -> g.keys.first { it.row == r && !it.ghost }.face.bottom }
+        for (cell in Layouts.pad) {
+            val k = pad.single { it.def === cell.def }
+            assertEquals("${cell.def.label}", start + cell.col * w, slotLeft(k, pxPerMm), 0.5f)
+            assertEquals("${cell.def.label}", start + (cell.col + cell.colSpan) * w, slotRight(k, pxPerMm), 0.5f)
+            assertEquals("${cell.def.label}", rowTop[cell.row], k.face.top, 0.5f)
+            assertEquals("${cell.def.label}", rowBottom[cell.row + cell.rowSpan - 1], k.face.bottom, 0.5f)
+            assertEquals(cell.row, k.row)
+        }
+        assertEquals(end, pad.maxOf { slotRight(it, pxPerMm) }, 0.5f)
+        assertTrue(pad.filter { it.def.label == "-" || it.def.label == "+" || it.def.action == KeyAction.Enter }.all { it.touch.right == g.keys.maxOf { k -> k.touch.right } })
         val others = g.fnKeys.filter { !it.pad }
-        assertTrue(others.all { k -> g.keys.any { it === k } })
-        assertTrue(others.none { it.ghost && it.row < 4 })
-        assertTrue(others.filter { it.row < 4 }.all { slotRight(it, pxPerMm) <= slotLeft(hText, pxPerMm) + 0.5f })
-        for (r in 4 until rows) assertEquals(g.keys.filter { it.row == r && !it.ghost }.toSet(), others.filter { it.row == r && !it.ghost }.toSet())
-        val leftOfPad = g.keys.filter { it.row < 4 && !it.ghost && slotRight(it, pxPerMm) <= slotLeft(hText, pxPerMm) + 0.5f }
-        assertTrue(leftOfPad.isNotEmpty())
-        assertTrue(leftOfPad.all { k -> others.any { it === k } })
+        assertTrue(others.none { it.ghost && it.row < padRows })
+        for (k in others.filter { it.row < padRows }) {
+            assertTrue(slotRight(k, pxPerMm) <= start + 0.5f)
+            val original = g.keys.single { it.def === k.def && !it.ghost }
+            if (original !== k) {
+                assertEquals(original.face.left, k.face.left, 0.01f)
+                assertEquals(start - gapX, k.face.right, 0.5f)
+                assertTrue(slotRight(k, pxPerMm) - slotLeft(k, pxPerMm) >= g.unitPx - 0.5f)
+            }
+        }
+        for (k in g.keys.filter { !it.ghost && it.row < padRows && slotRight(it, pxPerMm) > start + 0.5f }) {
+            val kept = others.firstOrNull { it.def === k.def }
+            if (kept != null) assertTrue(start - slotLeft(k, pxPerMm) >= g.unitPx - 0.5f)
+        }
+        for (r in padRows until layoutRows) assertEquals(g.keys.filter { it.row == r }.toSet(), others.filter { it.row == r }.toSet())
+        assertTrue(others.any { it.def.action == KeyAction.Mod(Modifier.FN) })
+        assertNull(g.keyAt(start + w / 2f, (rowTop[0] + rowBottom[0]) / 2f, fn = true))
     }
 
     @Test
-    fun fnSwapsTheRightPartOfTheTopFourRowsForAStraightNumpad() {
+    fun fnSwapsTheRightPartOfTheTopFiveRowsForTheStandardNumpad() {
         val pxPerMm = 368f / 25.4f
-        checkPad(KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad), Layouts.split.size, pxPerMm)
-        checkPad(KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm), Layouts.pad), Layouts.split.size, pxPerMm)
-        checkPad(KeyboardGeometry.full(Layouts.full, spec(1968, 368f), Layouts.pad), Layouts.full.size, pxPerMm)
+        val splitPortrait = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad)
+        checkPad(splitPortrait, Layouts.split.size, pxPerMm)
+        val splitLandscape = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm), Layouts.pad)
+        checkPad(splitLandscape, Layouts.split.size, pxPerMm)
+        val full = KeyboardGeometry.full(Layouts.full, spec(1968, 368f), Layouts.pad)
+        checkPad(full, Layouts.full.size, pxPerMm)
         val cover = KeyboardGeometry.full(Layouts.compact, spec(1080, 422f), Layouts.pad)
         checkPad(cover, Layouts.compact.size, 422f / 25.4f)
+        for (g in listOf(splitPortrait, splitLandscape)) {
+            val seven = g.fnKeys.single { it.pad && it.def.label == "7" }
+            assertEquals(7.25f / 4f * g.unitPx, slotRight(seven, pxPerMm) - slotLeft(seven, pxPerMm), 0.5f)
+        }
+        val fullSeven = full.fnKeys.single { it.pad && it.def.label == "7" }
+        assertEquals(8.25f / 4f * full.unitPx, slotRight(fullSeven, pxPerMm) - slotLeft(fullSeven, pxPerMm), 0.5f)
+        val space = full.fnKeys.single { !it.pad && it.def.isSpace }
+        assertEquals(1.5f * full.unitPx, slotRight(space, pxPerMm) - slotLeft(space, pxPerMm), 0.5f)
+        assertTrue(full.fnKeys.none { it.def.action == KeyAction.Code(KeyEvent.KEYCODE_DPAD_LEFT) })
+        val coverSeven = cover.fnKeys.single { it.pad && it.def.label == "7" }
+        assertEquals(1.25f * cover.unitPx, slotRight(coverSeven, 422f / 25.4f) - slotLeft(coverSeven, 422f / 25.4f), 0.5f)
         val coverH = cover.keys.first { base(it) == Layouts.PAD_ANCHOR }
         assertEquals(coverH.face.left, cover.fnKeys.filter { it.pad }.minOf { it.face.left }, 0.5f)
     }
 
     @Test
-    fun splitNumpadSitsAtTheRightEdgeWithLetterSizedKeys() {
+    fun splitNumpadKeepsFnAndTheLeftHalf() {
         val pxPerMm = 368f / 25.4f
-        val g = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, ghost = 1f), Layouts.pad)
-        val seven = g.fnKeys.first { it.pad && it.def.label == "7" }
-        assertEquals(8.5f, (slotRight(seven, pxPerMm) - slotLeft(seven, pxPerMm)) / pxPerMm, 0.02f)
-        assertEquals(43f, (1968f - slotLeft(seven, pxPerMm)) / pxPerMm, 0.05f)
-        assertEquals(38.75f, (1968f - seven.face.centerX) / pxPerMm, 0.05f)
+        val g = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm), Layouts.pad)
+        val fn = g.fnKeys.single { it.def.action == KeyAction.Mod(Modifier.FN) }
+        assertTrue(g.keys.any { it === fn })
+        assertEquals(fn, g.keyAt(fn.touch.centerX, fn.touch.centerY, fn = true))
+        val h = g.keys.first { base(it) == 'h' }
+        assertEquals(slotLeft(h, pxPerMm), g.fnKeys.filter { it.pad }.minOf { slotLeft(it, pxPerMm) }, 0.5f)
+        assertTrue(slotRight(fn, pxPerMm) < slotLeft(h, pxPerMm))
+        val leftDefs = Layouts.split.flatMap { it.left.keys }
+        assertEquals(g.keys.filter { k -> !k.ghost && leftDefs.any { it === k.def } }.toSet(), g.fnKeys.filter { k -> leftDefs.any { it === k.def } }.toSet())
+        assertTrue(g.fnKeys.none { it.def.action == KeyAction.Backspace })
         val y = g.keys.first { base(it) == 'y' }
         val ghostY = g.keys.first { it.ghost && (it.def.action as? KeyAction.Char)?.base == 'y' }
         assertEquals(ghostY, g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY))
         assertNull(g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY, fn = true))
-        assertNull(g.keyAt(y.touch.centerX, y.touch.centerY, fn = true))
         assertEquals(y, g.keyAt(y.touch.centerX, y.touch.centerY))
         val four = g.fnKeys.first { it.pad && it.def.label == "4" }
         assertEquals(four, g.keyAt(four.touch.centerX, four.touch.centerY, fn = true))
-        val backspace = g.fnKeys.first { it.pad && it.def.action == KeyAction.Backspace }
-        assertEquals(backspace, g.keyAt(1967f, 1f, fn = true))
-        assertEquals('\\', base(g.keyAt(1967f, 1f)!!))
+        val plus = g.fnKeys.single { it.pad && it.def.label == "+" }
+        val enter = g.fnKeys.single { it.pad && it.def.action == KeyAction.Enter }
+        assertEquals(plus, g.keyAt(2183f, g.keys.first { it.row == 2 }.face.centerY, fn = true))
+        assertEquals(enter, g.keyAt(2183f, g.keys.first { it.row == 4 }.face.centerY, fn = true))
+        assertEquals("-", g.keyAt(2183f, 1f, fn = true)!!.def.label)
+        assertEquals('\\', base(g.keyAt(2183f, 1f)!!))
+    }
+
+    @Test
+    fun numpadStartsRightOfFnWhenTheHalvesTouch() {
+        val pxPerMm = 368f / 25.4f
+        val g = KeyboardGeometry.split(Layouts.split, spec(1968, 368f, splitUnitMm = 11f, ghost = 0f), Layouts.pad)
+        val fn = g.fnKeys.single { it.def.action == KeyAction.Mod(Modifier.FN) }
+        val h = g.keys.first { base(it) == Layouts.PAD_ANCHOR }
+        assertTrue(slotRight(fn, pxPerMm) > slotLeft(h, pxPerMm) + 0.5f * g.unitPx)
+        val pad = g.fnKeys.filter { it.pad }
+        assertEquals(slotRight(fn, pxPerMm), pad.minOf { slotLeft(it, pxPerMm) }, 0.5f)
+        assertEquals(fn, g.keyAt(fn.touch.centerX, fn.touch.centerY, fn = true))
+        assertTrue(pad.none { it.touch.left < fn.touch.right && it.touch.right > fn.touch.left && it.touch.top < fn.touch.bottom && it.touch.bottom > fn.touch.top })
     }
 
     @Test
@@ -424,7 +571,8 @@ class LayoutsTest {
 
     @Test
     fun generalRowWidthsAndSplitUnits() {
-        assertEquals(listOf(10f, 10f, 9f, 10f, 10f), Layouts.general.map { it.span })
+        assertEquals(listOf(10f, 10f, 9.5f, 10f, 10f), Layouts.general.map { it.span })
+        assertEquals(0.5f, Layouts.general[2].indent, 1e-4f)
         assertEquals(listOf(10f, 10.5f, 9.75f, 9.75f, 10f), Layouts.generalSplit.map { it.left.span + it.right.span })
         assertEquals(listOf(5f, 5.5f, 5.75f, 5.25f, 5f), Layouts.generalSplit.map { it.left.span })
         assertEquals(10.5f, Layouts.generalSplitUnits, 1e-4f)
@@ -524,7 +672,7 @@ class LayoutsTest {
             Layouts.pad,
         )
         assertEquals(4.3f, code.unitPx / pxPerMm, 0.01f)
-        val visible = code.keys.filter { !it.ghost }
+        val visible = code.keys.filter { !it.ghost && it.row < Layouts.split.lastIndex }
         val leftDefs = Layouts.split.flatMap { it.left.keys }
         val leftHalf = visible.filter { k -> leftDefs.any { it === k.def } }
         val rightHalf = visible.filter { k -> leftDefs.none { it === k.def } }
@@ -533,8 +681,9 @@ class LayoutsTest {
         assertEquals(13.7f + 6.75f * 4.3f, slotRight(leftHalf.maxBy { it.face.right }, pxPerMm) / pxPerMm, 0.02f)
         assertEquals(17.4f + 7.75f * 4.3f, (2184 - slotLeft(rightHalf.minBy { it.face.left }, pxPerMm)) / pxPerMm, 0.02f)
         for (r in Layouts.split.indices) {
-            assertEquals(0f, visible.filter { it.row == r }.minOf { it.touch.left }, 0.01f)
-            assertEquals(2184f, visible.filter { it.row == r }.maxOf { it.touch.right }, 0.01f)
+            val row = code.keys.filter { !it.ghost && it.row == r }
+            assertEquals(0f, row.minOf { it.touch.left }, 0.01f)
+            assertEquals(2184f, row.maxOf { it.touch.right }, 0.01f)
         }
         assertEquals(8.5f, Layouts.generalSplitUnitMm(8.5f, 13.5f, 0f), 1e-4f)
         assertEquals(9.6f, Layouts.generalSplitUnitMm(8.5f, 0f, -5f), 1e-4f)
