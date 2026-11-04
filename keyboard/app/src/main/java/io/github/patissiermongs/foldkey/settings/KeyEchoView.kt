@@ -69,7 +69,11 @@ class KeyEchoView(context: Context) : TextView(context) {
             if (event.isShiftPressed) add("Shift")
             if (event.isMetaPressed) add("Meta")
         }
-        val name = KeyEvent.keyCodeToString(event.keyCode).removePrefix("KEYCODE_")
+        val name = if (event.keyCode == KeyEvent.KEYCODE_UNKNOWN) {
+            "UNKNOWN(scan ${event.scanCode})"
+        } else {
+            KeyEvent.keyCodeToString(event.keyCode).removePrefix("KEYCODE_")
+        }
         return (mods + name).joinToString("+")
     }
 

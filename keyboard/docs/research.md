@@ -45,6 +45,7 @@
 | 터치 히트맵과 배치 제안(0.10.0) | 키마다 탭 수와 편차 합만 모아 밀도로 그리고, 엄지별 평균 어긋남이 0.3 mm 이상이면서 표준오차의 2배보다 클 때 반쪽 옆 거리와 올림 높이를 옮기자고 제안한다. 적용하면 학습값도 키가 움직인 만큼 옮긴다 | 사용자 요청, Henze 외(2012), Holz·Baudisch(2011), Findlater·Wobbrock(2012)(4.4절) |
 | 띄운 키보드(0.11.0) | 상단 줄 `띄우기`로 같은 자리·크기의 키보드를 앱 화면 위에 띄운다. 앱은 줄거나 밀려 올라가지 않고, 키보드 영역만 터치를 받는다. 떠 있는 동안 상단 줄 슬라이더로 불투명도(20–100%)를 바꾸고, `접기`로 손잡이만 남겨 뒤 화면을 조작한다 | 사용자 요청, AOSP 16 `InputMethodService.onComputeInsets`, `ViewRootImpl`, `DisplayContent`(3.15절) |
 | 물리 키보드(0.11.0) | 물리 키보드가 연결되어 있으면 배열 대신 칩만 띄우고, 칩을 눌러야 배열이 나온다. 한글 모드에서 A–Z를 두벌식으로 조합하고, 한/영 키(`KEYCODE_KANA`)나 오른쪽 Alt 단독 누름으로 전환한다. 터미널에서는 조합 중인 음절을 키보다 먼저 보낸다. 원격 데스크톱 앱(기본 Parsec)에는 키를 그대로 넘긴다 | 사용자 요청, HID 사용표, Linux `hid-input.c`, AOSP `Generic.kl`·`PhoneWindowManager`·`InputMethodService`(7.12절) |
+| 지정 해제한 Ctrl·Alt·Win(0.12.0) | Android 설정에서 지정 해제해 keycode 없이(`KEYCODE_UNKNOWN`) 오는 키를 scan code로 Ctrl·Alt·Win으로 되돌려, 시스템 단축키 처리를 거치지 않는 `InputConnection.sendKeyEvent`로 지금 앱에 보낸다. 누르고 있는 동안 친 키에는 그 수정키 상태를 붙인다. Parsec의 Alt+Tab 같은 조합이 Android 대신 원격 PC로 간다 | 사용자 진단 로그, AOSP `KeyGestureController`·`KeyboardInputMapper`·`EventHub`·`InputDispatcher`·`ViewRootImpl`(7.13절) |
 | 늦은 커서 위치 보고(0.11.1) | FoldKey가 보낸 편집이 만들 입력창 상태와 앱이 직접 처리한 키의 자리를 순서대로 기록하고, 앱의 커서 위치 보고를 그 기록에 앞에서부터 맞춘다. 기록으로 설명되지 않고 커서가 조합 끝에 있지 않은 보고에서만 음절을 끝낸다. LatinIME `isBelatedExpectedUpdate` 방식은 버렸다 | 사용자 보고, 에뮬레이터 Chromium WebView 재현과 진단 로그(8.5절) |
 | 일반 레이어를 옆 끝에서 띄우기(0.7.1) | 일반 레이어 분할 반쪽을 화면 옆 끝에서 14 mm 띄운다(설정 0–25 mm). 띄운 거리만큼 키를 줄여 반쪽의 먼 끝은 코드 레이어를 넘지 않게 하고, 설정값보다 작게는 줄이지 않는다. 반쪽과 옆 끝 사이도 바깥 키의 판정 영역이다. 코드 레이어는 옆 끝에 붙은 그대로 | 사용자 제보와 엄지로 그린 범위, Trudeau 외(2012), 글자 빈도 측정(3.11절) |
 
@@ -791,6 +792,43 @@ Windows 쪽에서 오른쪽 Alt가 한/영이 되는지는 그 PC의 한국어 �
 
 **한계.** 폴드7과 실제 블루투스 키보드로는 시험하지 않았다. 삼성 기기의 키 배치 파일이 `KEY_HANGEUL`을 `KANA`가 아닌 keycode로 바꾸면 한/영 키로는 전환되지 않는다. 이때는 오른쪽 Alt 단독 누름이나 화면 키보드의 `한/A`를 쓴다. Shift+Space 전환은 8.4절의 이유로 넣지 않았고, 한자 키는 처리하지 않는다.
 
+### 7.13 지정 해제한 Ctrl·Alt·Win 되살리기(0.12.0)
+
+사용자는 블루투스 키보드로 Parsec을 쓸 때 Ctrl·Alt 같은 키를 Android가 쓰지 않고 원격 PC에 넘기고 싶다고 했다. Android 설정에서 Alt·Ctrl을 지정 해제하면 Android의 단축키는 멈추지만 원격에서도 키가 먹지 않았다. 사용자는 진단 빌드로 Alt+Tab과 Ctrl+Shift+Alt를 친 기록을 보냈다. 전달할 키는 Ctrl·Alt·Win, 적용 범위는 모든 앱으로 정했다.
+
+**기록에서 본 것.**
+
+- 지정 해제한 키는 버려지지 않고 IME와 앱에 `KEYCODE_UNKNOWN`(0)으로 왔다. meta에는 Ctrl·Alt 비트가 없었다(`0x200000`은 Num Lock, `0x200041`은 Num Lock과 왼쪽 Shift). 원격 앱이 이 키를 수정키로 알아볼 방법이 없다.
+- Alt를 누른 채 친 Tab은 Alt 없는 Tab으로 왔다. Android의 최근 앱 전환은 뜨지 않았지만 앱도 평범한 Tab을 받았다.
+- Ctrl과 Alt를 거의 함께 누르면 두 번째 키의 `repeatCount`가 1이었다. AOSP `InputDispatcher::dispatchKeyLocked`는 같은 장치에서 keycode가 같은 down이 연달아 오면 장치가 만든 반복으로 보고 repeat 값을 올린다. 두 키가 모두 `UNKNOWN`이라 같은 키로 센 것이다. keycode와 repeat 값으로는 두 키를 가를 수 없다.
+
+**Android가 단축키를 가져가는 자리.** AOSP `KeyGestureController.interceptKeyBeforeDispatching`은 앱과 IME에 키를 보내기 전에 불린다. 여기서 `interceptSystemKeysAndShortcuts`는 Alt를 누른 Tab의 첫 down을 `KEY_GESTURE_TYPE_RECENT_APPS_SWITCHER`로 쓰고 키를 소비한다. 수정키를 지정 해제하지 않으면 IME는 Alt+Tab을 받지도 못하므로, 지정 해제가 이 기능의 전제다.
+
+**scan code가 남는 이유.** AOSP `KeyboardInputMapper::processKey`는 `EventHub::mapKey`로 scan code를 keycode로 바꾸고, 바꾸지 못하면 `AKEYCODE_UNKNOWN`을 쓴다. `mapKey`는 사용자 키 재지정(`applyKeyRemapping`)을 keycode에만 적용한다. `NotifyKeyArgs`에는 keycode와 scan code가 따로 실리므로, 지정 해제한 키의 `KeyEvent.getScanCode()`는 Linux 키 번호(`KEY_LEFTCTRL` 29 등)를 그대로 돌려준다. 이것은 AOSP 소스에서 확인한 경로이고, One UI의 지정 해제가 같은 경로를 쓰는지는 확인하지 않았다.
+
+**IME가 보낸 키의 경로.** `InputConnection.sendKeyEvent`는 `InputMethodManager.dispatchKeyEventFromInputMethod`를 거쳐 앱 창의 `ViewRootImpl.dispatchKeyFromIme`로 가고, `enqueueInputEvent(..., FLAG_DELIVER_POST_IME)`로 앱 안에서 IME 다음 단계부터 처리된다. `InputDispatcher`와 창 정책을 다시 거치지 않으므로 이 경로로 보낸 Alt+Tab은 시스템 단축키가 되지 않는다. `ViewPostImeInputStage`는 수정키가 붙은 down을 `dispatchKeyShortcutEvent`에 넘기므로, 일반 앱의 Ctrl+C·Ctrl+V 같은 앱 단축키도 동작한다.
+
+**구현.**
+
+- `ModifierRelay`는 keycode가 `UNKNOWN`인 키의 scan code 29·97을 `KEYCODE_CTRL_LEFT`·`KEYCODE_CTRL_RIGHT`로, 56·100을 `KEYCODE_ALT_LEFT`·`KEYCODE_ALT_RIGHT`로, 125·126을 `KEYCODE_META_LEFT`·`KEYCODE_META_RIGHT`로 되돌린다. keycode가 있는 키는 건드리지 않으므로, 지정 해제하지 않은 사용자에게는 변화가 없다(`mappedModifiersAreLeftToAndroid`, `keysWithoutAKeyCodeThatAreNotModifiersPassUnchanged`).
+- `FoldKeyService.onKeyDown`은 되살린 수정키를 누름 상태에 넣고, 원래 이벤트의 장치 번호·scan code·source를 그대로 둔 수정키 이벤트를 `sendKeyEvent`로 보낸다. meta에는 왼쪽·오른쪽 비트까지 넣는다(`META_CTRL_ON | META_CTRL_LEFT_ON` 등. `unmappedCtrlReachesTheAppAsCtrl`, `unmappedWindowsKeysArriveAsMeta`, `rightCtrlAndRightAltKeepTheirSide`).
+- 수정키를 누르고 있는 동안 들어온 다른 키는 원래 이벤트를 소비하고, 수정키의 meta를 붙인 같은 키를 보낸다. Alt를 누른 채 Tab을 여러 번 쳐도 Alt 누름은 한 번만 간다(`unmappedAltStaysHeldWhileTabIsPressedAgain`). 뗌은 누름을 다시 보낸 키에만 다시 보내고, 수정키보다 먼저 누른 키의 뗌은 원래대로 앱에 간다(`keyPressedBeforeTheModifierKeepsItsOwnRelease`).
+- 되살린 수정키의 반복은 scan code로 가려 처음 누름만 보낸다. 다른 scan code의 down은 repeat 값이 1이어도 새 누름으로 보고 repeat 0으로 보낸다(`heldUnmappedModifierIsSentOnce`, `secondUnmappedModifierCountsEvenWhenAndroidReportsItAsARepeat`).
+- `HardwareKeys`에는 되살린 keycode를 넘긴다. 그래서 수정키와 함께 친 키는 한글로 조합되지 않고, 조합 중인 음절을 확정한 뒤 보내진다(`restoredCtrlEndsTheSyllableBeforeTheShortcut`). 원격 앱 밖에서 오른쪽 Alt만 눌렀다 떼면 지금처럼 한글·영문이 바뀐다(`unmappedRightAltAloneStillSwitchesHangul`).
+- 원격 데스크톱 앱에서도 되살린다. 그 밖의 키는 지금처럼 그대로 넘긴다(`remoteDesktopAppsGetTheRestoredModifiers`).
+- 뒤로 가기·볼륨 같은 시스템 키(`KeyEvent.isSystem`)는 수정키를 누르고 있어도 다시 보내지 않고 시스템에 맡긴다(`systemKeysAreLeftToTheSystemWhileAModifierIsHeld`).
+- 하드웨어 키보드가 없어진 구성 변경이 오면, 누르고 있던 수정키의 뗌을 나중에 누른 것부터 보낸다. 연결이 끊겨 뗌을 받지 못한 원격 PC에 수정키가 눌린 채 남지 않게 하려는 것이다(`detachingTheKeyboardReleasesHeldModifiers`).
+- 설정의 키 이벤트 확인창은 keycode 없는 키를 `UNKNOWN(scan N)`으로 보여 준다. 기기에서 되살리기가 동작하지 않을 때 그 키의 scan code를 바로 알 수 있다(`eventMonitorShowsTheScanCodeOfKeysWithoutAKeyCode`).
+
+**Parsec이 받는 방식.** 0.10.0 때 사용자는 이전 키보드 앱이 `sendKeyEvent`로 보낸 오른쪽 Alt가 Parsec에서 원격 PC의 한/영을 바꿨다고 알렸다(7.11절). 같은 경로로 보낸 키를 Parsec이 원격 PC에 넘긴다는 근거다. 이번 이벤트는 그때와 달리 실제 키보드의 장치 번호와 scan code를 그대로 두므로, keycode를 읽는 앱과 scan code를 읽는 앱이 같은 키로 받는다.
+
+**고르지 않은 방법.**
+
+- 별도 시험용 IME: 같은 기능을 두 번 만들게 되고, Parsec에서 쓰는 FoldKey의 원격 앱 모드·오른쪽 Alt 전환과 겹치는 부분을 시험할 수 없다.
+- 접근성 서비스의 키 필터(`AccessibilityService.onKeyEvent`): 창 정책보다 먼저 키를 받으므로 지정 해제 없이도 Alt+Tab을 가로챌 수 있다. 받은 키를 앱에 넣으려면 결국 IME를 거쳐야 하고, 사용자가 접근성 권한을 따로 줘야 한다.
+
+**한계.** 폴드7의 One UI가 지정 해제한 키에 scan code를 남기는지, Parsec이 이 이벤트로 원격 PC의 Ctrl·Alt·Win을 누르는지는 기기에서 확인하지 않았다. 입력 연결(`InputConnection`)이 없는 화면에서는 키를 앱에 보낼 수 없으므로 원래 이벤트를 그대로 넘긴다. 수정키를 누른 채 다른 앱의 입력창으로 포커스가 옮겨 가면, 그 수정키의 뗌은 손을 뗄 때의 입력 연결로 간다. `InputDispatcher`가 포커스를 잃은 창에 만들어 보내는 취소 이벤트는 keycode가 `UNKNOWN`이라, 이전 앱은 되살린 수정키의 뗌을 받지 못한다. 입력 종료(`onFinishInput`) 때 뗌을 보내면 이 경우는 막을 수 있지만, `onFinishInput`은 같은 창 안에서 다른 입력창으로 포커스가 옮겨 갈 때도 불린다. 같은 창 안의 포커스 이동은 `InputDispatcher`가 알지 못해 물리 수정키가 눌린 채 남으므로, 그때 뗌을 보내면 손으로 누르고 있는 수정키가 앱에서 풀린다. 그래서 입력 종료 때는 뗌을 보내지 않았다.
+
 ## 8. 한글 입력
 
 ### 8.1 표준과 자판
@@ -1008,6 +1046,10 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
   - 위 40번의 틀린 결과 가운데 ㅜ와 줄바꿈이 하나씩 더 들어간 것은 FoldKey가 키 이벤트를 하나 더 받지 않으면 나올 수 없다. Gradle 전체 테스트와 함께 돌린 회전 시험에서 회전 전의 `dkssud`가 `안녀ㅕㅇ`이 되었을 때 진단 로그에 `u` 키가 `rep=1`(시스템이 만든 키 반복)로 한 번 더 들어와 있었다. 부하 때문에 가상 키보드의 뗌 보고가 늦어 Android가 키 반복을 만든 것으로 판단한다. 끝의 ` 좀`이 빠진 1번은 로그가 없는 빌드라 원인을 가리지 못했다.
   - 에뮬레이터는 백그라운드 실행 시간 제한(2시간)에 걸려 한 번 종료되어 다시 부팅했다. 부팅 뒤 system과 System UI의 응답 없음 대화상자를 "Wait"로 닫았다.
   - 빌드 결과를 모두 지우고 만든 전달용 APK(테스트 335개 통과, SHA-256 `507d8717…be73`)를 덮어 설치하고, 스페이스와 Enter 경우를 0.08초 간격으로 2번씩, 회전 시험을 2번 다시 쳐 모두 맞았다.
+- **0.12.0 자동 테스트.** 빌드 결과를 모두 지우고 돌린 테스트는 350개이고 모두 통과했다. 새로 넣은 것은 `ModifierRelayTest` 15개(Robolectric, 실제 `EditText`의 입력 연결)다. 입력 연결을 `sendKeyEvent` 기록용 `InputConnectionWrapper`로 감싸 FoldKey가 앱에 다시 보낸 키를 본다. 시험 이름과 확인하는 동작은 7.13절의 구현 항목 괄호에 적었다.
+  - 고치기 전 코드(`49ea7c0`)에 그때까지 쓴 새 시험 14개를 돌리자 12개가 실패했고 기존 335개는 모두 통과했다. 통과한 2개는 동작이 바뀌지 않아야 하는 경우(`mappedModifiersAreLeftToAndroid`, `keysWithoutAKeyCodeThatAreNotModifiersPassUnchanged`)다. 15번째 시험(`systemKeysAreLeftToTheSystemWhileAModifierIsHeld`)은 그 뒤 코드를 다시 읽다가 수정키를 누르고 있으면 볼륨·뒤로 가기 키까지 다시 보내는 결함을 찾아, 고치면서 더했다.
+  - 새 시험이 결함을 잡는지 보려고 코드를 14가지로 바꿔 돌렸다. 누르고 있는 수정키의 반복을 다시 보내기, 수정키에 Android의 repeat 값을 그대로 쓰기, 다시 보낸 누름을 기록하지 않기, 누르고 있는 수정키의 meta를 붙이지 않기, 키보드를 떼도 뗌을 보내지 않기, 시스템 키도 다시 보내기, 수정키 뗌에 그 수정키의 meta를 남기기, 다시 보낸 이벤트의 장치 번호와 scan code를 지우기, `HardwareKeys`에 `UNKNOWN`을 넘기기, 오른쪽 Ctrl에 왼쪽 비트 쓰기, 키보드를 뗄 때 누른 순서대로 떼기, 왼쪽 Win을 표에서 빼기, 확인창의 scan code 숨기기, 원격 데스크톱 앱에서는 되살리지 않기다. 14가지 모두 1개 이상의 시험이 실패했다.
+  - lint 경고는 0.11.1과 같은 3개다.
 - **0.2.0 에뮬레이터 실행.** 같은 에뮬레이터(Android 11, 1968×2184, 368 dpi)를 가로로 놓고 확인했다.
   - 여러 줄 `EditText`에서 Fn+`,`, Fn을 켜고 `.` 위로 밀기, Fn+`\`가 `·≥₩`를 입력했다. 가운데 아래쪽에 같은 글자가 표시되었다.
   - a 아래로 밀기(Ctrl+A)와 c 아래로 밀기(Ctrl+C) 뒤 가운데 위쪽에 복사한 글이 나타났고, 그 칸을 누르자 커서 위치에 붙여 넣어져 `·≥₩·≥₩`가 되었다.
@@ -1124,6 +1166,7 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 - **0.10.0 클립 저장.** 에뮬레이터에 잠금 화면 비밀번호를 걸지 않아, 다시 켠 뒤 처음 잠금을 풀기 전의 동작은 시험하지 않았다.
 - **0.11.0 물리 키보드와 띄운 키보드.** 폴드7과 실제 블루투스 키보드, Parsec로는 시험하지 않았다. 삼성 기기의 키 배치 파일이 `KEY_HANGEUL`을 `KANA`로 옮기는지, One UI가 한/영 키를 앱과 IME보다 먼저 가져가지 않는지, One UI의 화면 키보드 표시 설정 기본값은 확인하지 못했다. 제스처 내비게이션에서의 뒤로 가기 제스처 제외와 Android 16의 IME 내비게이션 버튼은 에뮬레이터(Android 11, 3버튼)에서 볼 수 없었다. 터미널에서 음절 뒤에 다시 보낸 키 이벤트를 이어 친 음절이 앞지르는 일은 에뮬레이터에서 0.12초 간격일 때 일어났고, 실기기에서 얼마나 자주 일어나는지는 재지 않았다.
 - **0.11.1 늦은 커서 위치 보고.** 재현과 확인은 Android 11 에뮬레이터의 Chromium 83 WebView와 설정 화면 `EditText`에서만 했다. 폴드7의 Chrome, 삼성 인터넷, 카카오톡, 삼성 노트, Jetpack Compose 입력창에서 보고가 얼마나 늦는지와 이 수정 뒤의 결과는 재지 않았다. 사용자가 알린 "스페이스가 가끔 씹힌다"는 증상은 에뮬레이터 시험에서 나오지 않았다. 끊긴 음절을 스페이스가 빠진 것으로 본 것인지, 다른 원인이 있는지는 기기에서 확인해야 한다(10.3절 32번). 앱에 키를 넘긴 직후 앱이 스스로 조합을 끝내는 경우(8.5절)는 JVM 테스트로만 다뤘다. 물리 키보드가 다시 연결될 때의 구성 변경은 회전과 같은 경로(`resetStateForNewConfiguration`)를 타지만 에뮬레이터에서는 회전만 시험했다. 보고를 키 두 번에 걸쳐 합치는 앱과 `restartInput` 전후로 보고 순서가 바뀌는 앱은 찾지 못했고, 있다면 8.5절의 남는 경우가 생긴다.
+- **0.12.0 지정 해제한 수정키 되살리기.** Android 11에는 수정키를 지정 해제하는 설정이 없다. 에뮬레이터에서는 가상 키보드 전용 키 배치 파일(`/data/system/devices/keylayout/Vendor_1234_Product_5678.kl`)에서 Ctrl·Alt·Win 줄을 빼 같은 이벤트를 만들었다. AOSP `KeyboardInputMapper`는 배치 파일에 없는 키를 keycode `UNKNOWN`과 원래 scan code로 보내므로 사용자 로그와 같은 모양이 되지만, One UI의 지정 해제가 같은 경로인지는 모른다. Parsec과 Windows PC로는 시험하지 않았다.
 - **사용자 실험.** 입력 속도와 오류율을 사람으로 측정한 적이 없다. 이 문서의 수치는 모두 인용한 연구의 값이다. 평가할 때는 Soukoreff·MacKenzie(2003)의 전체·수정·미수정 오류율과 KSPC(keystrokes per character, 문자당 키 입력 수)를 쓰고, 명령어와 식별자 같은 사전 밖 문자열을 과제에 넣어야 한다. Palin 외(2019)의 두 엄지 평균(38 WPM, 미수정 오류 2.3%)이 휴대폰 입력의 참고값이다.
 
 ### 10.3 기기에서 확인할 항목
@@ -1161,6 +1204,8 @@ AOSP 16(android-16.0.0_r1) 소스와 Android 문서에서 확인한 사항이다
 31. Parsec에서 상단 줄 `띄우기`로 키보드를 띄우고 불투명도를 바꿔 보며 원격 화면이 보이는 정도를 확인하고, `접기` → 원격 화면 조작 → 손잡이로 돌아오기가 편한지 본다. 제스처 내비게이션이면 떠 있는 키보드 옆 끝에서 엄지를 밀 때 뒤로 가기가 일어나지 않는지, 내비게이션 버튼이 키보드와 겹치지 않는지 본다.
 32. 블루투스 키보드로 Chrome, 삼성 인터넷, 카카오톡, 삼성 노트에서 `지금 저는 문제 진짜 좀 했는데요. 2번 다시 해봐`를 평소 속도로 쳐서 음절이 끊기거나(`ㅈㅓ`, `ㅁㅜㄵㅔ`) 스페이스가 빠지는지 본다. 스페이스가 빠지면 그 앱과 직전에 친 키(Shift를 누른 채였는지 등)를 알린다.
 33. 같은 앱에서 Enter, 확정된 글자의 Backspace, 영문 입력 뒤 한/영 키를 친 직후 바로 한글을 이어 쳐 첫 음절이 붙어 들어가는지, 한글을 치는 도중 화면을 눌러 커서를 옮기면 음절이 끝나고 새 자리에서 시작하는지 본다. 기기를 접었다 펴거나 돌린 직후, 블루투스 키보드가 잠들었다 깨어난 직후에 바로 한글을 이어 쳐 음절이 끊기지 않는지도 본다.
+34. One UI 설정에서 Ctrl·Alt·Win을 지정 해제한 뒤, FoldKey 설정의 키 이벤트 확인창에서 Ctrl+C, Alt+Tab, Win+R을 쳐 `down Ctrl+C`, `down Alt+TAB`, `down Meta+R`이 보이는지 본다. `UNKNOWN(scan N)`이 보이면 그 숫자를 기록한다.
+35. Parsec로 Windows PC에 접속해 메모장에서 Ctrl+A·Ctrl+C·Ctrl+V, Alt를 누른 채 Tab 여러 번, Win, Win+R이 원격 PC에서 동작하는지, 키를 뗀 뒤 원격 PC에 수정키가 눌린 채 남지 않는지 본다. 블루투스 키보드가 잠들었다 깨어난 뒤에도 같은지 본다.
 
 ## 11. 얽힌 이야기들
 

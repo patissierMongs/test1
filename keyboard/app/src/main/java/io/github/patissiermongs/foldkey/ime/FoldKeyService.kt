@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
 import android.text.InputType
 import android.util.Log
 import android.view.KeyEvent
@@ -18,6 +19,7 @@ import io.github.patissiermongs.foldkey.engine.EngineListener
 import io.github.patissiermongs.foldkey.engine.EngineSettings
 import io.github.patissiermongs.foldkey.engine.HardwareKeys
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
+import io.github.patissiermongs.foldkey.engine.ModifierRelay
 import io.github.patissiermongs.foldkey.settings.SettingsActivity
 import io.github.patissiermongs.foldkey.ui.Clip
 import io.github.patissiermongs.foldkey.ui.ClipEdit
@@ -39,6 +41,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     private var lastClip: Pair<Long, String>? = null
     private var locked = false
     private lateinit var hardware: HardwareKeys
+    private val relay = ModifierRelay()
     private val overlay = Overlay()
     private var startedInfo: EditorInfo? = null
     private var hardwareAttached = false
@@ -113,11 +116,46 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        hardware.down(keyCode, event.metaState, event.repeatCount, event.unicodeChar) || super.onKeyDown(keyCode, event)
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val modifier = ModifierRelay.modifierFor(keyCode, event.scanCode)
+        if (modifier != null && relay.isHeld(event.scanCode)) return true
+        val ic = currentInputConnection
+        if (modifier != null && ic != null) {
+            relay.press(ModifierRelay.Held(modifier, event.scanCode, event.deviceId, event.source, event.downTime))
+        }
+        val code = modifier ?: keyCode
+        val meta = event.metaState or relay.meta
+        val repeat = if (modifier != null) 0 else event.repeatCount
+        if (hardware.down(code, meta, repeat, event.unicodeChar)) return true
+        if (ic == null || event.isSystem || (modifier == null && relay.meta == 0)) return super.onKeyDown(keyCode, event)
+        relay.own(keyCode, event.scanCode)
+        ic.sendKeyEvent(relayed(event, code, meta, repeat))
+        return true
+    }
 
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
-        hardware.up(keyCode) || super.onKeyUp(keyCode, event)
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        val modifier = ModifierRelay.modifierFor(keyCode, event.scanCode)
+        if (modifier != null) relay.release(event.scanCode)
+        val owned = relay.disown(keyCode, event.scanCode)
+        val code = modifier ?: keyCode
+        if (hardware.up(code)) return true
+        if (!owned) return super.onKeyUp(keyCode, event)
+        currentInputConnection?.sendKeyEvent(relayed(event, code, event.metaState or relay.meta, 0))
+        return true
+    }
+
+    private fun relayed(event: KeyEvent, keyCode: Int, meta: Int, repeat: Int) = KeyEvent(
+        event.downTime, event.eventTime, event.action, keyCode, repeat, meta,
+        event.deviceId, event.scanCode, event.flags, event.source,
+    )
+
+    private fun releaseHeldModifiers() {
+        val ic = currentInputConnection
+        val now = SystemClock.uptimeMillis()
+        for ((key, meta) in relay.releaseAll()) {
+            ic?.sendKeyEvent(KeyEvent(key.downTime, now, KeyEvent.ACTION_UP, key.keyCode, 0, meta, key.deviceId, key.scanCode, 0, key.source))
+        }
+    }
 
     override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
@@ -213,6 +251,7 @@ class FoldKeyService : InputMethodService(), EngineListener, SharedPreferences.O
     override fun onConfigurationChanged(newConfig: Configuration) {
         engine.commitComposition()
         val attached = Overlay.hardwareKeyboard(newConfig)
+        if (!attached) releaseHeldModifiers()
         if (attached != hardwareAttached) {
             hardwareAttached = attached
             overlay.reset()

@@ -17,7 +17,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 1. "시스템 설정에서 FoldKey 사용 켜기"를 눌러 FoldKey를 켠다.
 2. "입력 방법을 FoldKey로 선택"을 눌러 FoldKey를 고른다.
-3. 같은 화면의 입력창과 "키 이벤트 확인창"에서 동작을 확인한다. 확인창은 터미널처럼 `TYPE_NULL` 입력을 요청하고, 받은 글자와 키 이벤트를 그대로 보여 준다.
+3. 같은 화면의 입력창과 "키 이벤트 확인창"에서 동작을 확인한다. 확인창은 터미널처럼 `TYPE_NULL` 입력을 요청하고, 받은 글자와 키 이벤트를 그대로 보여 준다. keycode가 없는 키는 `UNKNOWN(scan 29)`처럼 scan code와 함께 보여 준다.
 
 adb(Android Debug Bridge)로 켜려면 다음 명령을 쓴다.
 
@@ -207,7 +207,12 @@ q w e r t y u i o p
   - `KEYCODE_LANGUAGE_SWITCH`도 전환으로 받지만, AOSP의 창 정책(`PhoneWindowManager`)은 이 키를 앱과 IME에 보내기 전에 가져가 전환 동작에 쓴다(Android 11 소스는 물리 키보드 배치 전환, Android 16 소스는 입력 방법 전환). 이 키를 보내는 키보드나 기기에서는 FoldKey의 전환이 일어나지 않는다.
   - 한자 키(`KEYCODE_EISU`)는 처리하지 않는다. Shift+Space도 전환 키로 쓰지 않는다.
 - 한글 모드에서 Esc나 Ctrl+[를 누르면 영문 모드로 바뀐다(설정의 "Esc를 누르면 한글에서 영문으로 전환").
-- 원격 데스크톱 앱(설정의 "원격 데스크톱 앱", 기본 `tv.parsec.client`)에서는 물리 키를 하나도 바꾸지 않고 앱에 넘긴다. 한/영 키와 오른쪽 Alt도 FoldKey가 쓰지 않으므로 원격 PC의 한국어 입력기가 한·영을 바꾼다. 칩에는 ⌨만 보인다.
+- 원격 데스크톱 앱(설정의 "원격 데스크톱 앱", 기본 `tv.parsec.client`)에서는 물리 키를 바꾸지 않고 앱에 넘긴다. 예외는 아래의 지정 해제한 Ctrl·Alt·Win이다. 한/영 키와 오른쪽 Alt도 FoldKey가 쓰지 않으므로 원격 PC의 한국어 입력기가 한·영을 바꾼다. 칩에는 ⌨만 보인다.
+- Android 설정에서 지정 해제한 Ctrl·Alt·Win을 되살린다(0.12.0).
+  - **필요한 이유:** Android는 Alt+Tab 같은 시스템 단축키를 앱과 IME에 보내기 전에 가로챈다. 이 조합을 원격 PC로 보내려면 Android 설정에서 해당 키를 지정 해제해야 하는데, 그러면 Android는 그 키를 단축키로 쓰지 않는 대신 앱에도 keycode 없는 키(`KEYCODE_UNKNOWN`)로 넘긴다. 원격 앱은 이 키를 Ctrl·Alt·Win으로 알아보지 못한다.
+  - **FoldKey가 하는 일:** keycode 없는 키의 scan code(물리 키 번호)가 Ctrl(29, 97), Alt(56, 100), Win(125, 126)이면 원래 수정키 이벤트(`KEYCODE_CTRL_LEFT` 등)로 바꿔 지금 입력 중인 앱에 직접 보낸다. 수정키를 누르고 있는 동안 친 다른 키에는 그 수정키 상태를 붙여 보낸다. IME가 보낸 키는 Android의 시스템 단축키 처리를 거치지 않으므로, Alt+Tab은 Android의 최근 앱 전환을 일으키지 않고 입력 중인 앱에 간다.
+  - **범위:** 모든 앱에 적용한다. 일반 앱에서도 Ctrl+C·Ctrl+V 같은 앱 단축키는 다시 동작하고, Android 시스템 단축키는 꺼진 채로 남는다. 지정 해제하지 않은 수정키와 뒤로 가기·볼륨 같은 시스템 키는 건드리지 않는다. 오른쪽 Alt만 눌렀다 떼면 원격 앱 밖에서는 지금처럼 한글·영문이 바뀐다. 키보드 연결이 끊기면 누르고 있던 수정키를 뗀 것으로 앱에 알린다.
+  - **확인:** 설정의 키 이벤트 확인창에서 Ctrl+C를 쳐 `down Ctrl+C`가 보이면 동작하는 것이다. `down UNKNOWN(scan 29)`처럼 보이면 FoldKey가 그 키를 알아보지 못한 것이고, 괄호 안 숫자가 그 키의 scan code다.
 - 입력창이 없는 화면(앱 목록, 게임 등)에서는 물리 키를 처리하지 않는다. 터미널(`TYPE_NULL`)은 화면 키보드와 같이 영문으로 시작한다.
 
 ## 오타를 줄이는 장치
@@ -253,7 +258,7 @@ q w e r t y u i o p
 | 내 터치 편차 학습 | 켬 |
 | 터치 히트맵과 배치 제안 | 화면에서 "제안대로 옮기기", "이 히트맵 지우기" |
 | 터미널로 취급할 앱 | `com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm` |
-| 원격 데스크톱 앱(물리 키를 바꾸지 않고 넘김) | `tv.parsec.client` |
+| 원격 데스크톱 앱(물리 키를 한글로 조합하지 않고 넘김) | `tv.parsec.client` |
 | 띄운 키보드, 불투명도 | 설정 화면이 아니라 키보드 상단 줄에서 바꿈(기본 붙음, 띄웠을 때 70%) |
 
 ## 소스 구조
@@ -267,6 +272,7 @@ q w e r t y u i o p
 | `engine/TrackingEditor.kt` | FoldKey가 보낸 편집이 만들 입력창 상태와 앱이 직접 처리한 키의 자리를 순서대로 기록하고, 앱이 늦게 보낸 커서 위치 보고를 그 기록에 맞춰 판정한다(0.11.1) |
 | `engine/UsKeyMap.kt` | 문자 → US 배열 keycode와 Shift |
 | `engine/HardwareKeys.kt` | 물리 키 처리(두벌식 조합, 한/영 키와 오른쪽 Alt 전환, 터미널 순서 유지, 원격 앱 통과) |
+| `engine/ModifierRelay.kt` | 지정 해제한 Ctrl·Alt·Win의 scan code 표, 누르고 있는 수정키와 FoldKey가 다시 보낸 키 기록 |
 | `input/TouchTracker.kt` | 다중 터치, 밀기 판정, 반복, 길게 누르기, 스페이스 커서 이동과 선택, 수정키 roll·조합 판정 |
 | `input/OffsetModel.kt` | 터치 편차 학습 |
 | `input/TapHeat.kt` | 터치 히트맵 집계(키마다 탭 수, 합, 제곱합, 곱의 합) |
@@ -296,13 +302,14 @@ q w e r t y u i o p
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드 여덟 칸, 클립 고정·삭제 버튼, 터미널의 조합 중 한글 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 엄지마다 세 번 문지른 획을 넣어 시작 크기와 범위가 타이핑 보정 화면으로 넘어가는지 확인하고 `reach_calibration_code.png`, `reach_calibration_general.png`를 그린다. `TypingCalibrationActivityTest`는 정해진 편차와 흩어짐으로 두 레이어를 끝까지 쳐서 키가 커지고 보정값이 저장되는지 확인하고 `typing_calibration_code.png`, `typing_calibration_result.png`를 그린다. 한글 글은 친 음절까지 흐리게 바뀌는지도 본다. `TypingSessionTest`는 같은 방식으로 회차 진행과 크기 증가(60개 시드의 분포로 판정), 틀린 키를 눌렀을 때 글이 넘어가지 않는지, 둘째 회차가 앞 회차의 보정으로 판정하는지, 두 레이어가 큰 행 높이를 함께 쓰는지, 건너뛴 레이어, 한글 조합 표시를 확인한다. `TypingCalibrationTest`는 구역마다 탭이 몇 개뿐일 때도 흩어짐을 작게 잡지 않는지 300번 반복해 평균으로 확인한다. `OffsetMapActivityTest`는 저장된 학습값으로 터치 편차 화면을 그려 `offset_map.png`를 만든다. `HeatmapActivityTest`는 정해진 탭 분포로 히트맵 화면을 밝은 테마와 어두운 테마로 그리고(`heatmap.png`, `heatmap_dark.png`), 제안 문구와 "제안대로 옮기기"가 바꾸는 설정·학습값을 확인한다. `TapHeatRecordingTest`는 키보드 뷰를 눌러 히트맵이 키마다 쌓이는지, 비밀번호 입력창과 설정 변경을 어떻게 다루는지 확인한다. `LayerTest`는 키보드 뷰에서 상단 줄 `일반`/`코드` 버튼으로 레이어를 바꾸고 일반 레이어에서 한글과 문장 부호, 윗줄 아래로 밀기 기호를 쳐 보며, 일반 레이어의 옆 끝 거리 설정이 일반 레이어 반쪽만 옮기는지, 측정으로 정한 값(키 4.3 mm·6.1 mm, 거리 13.7 mm·17.4 mm)이 두 레이어에 그대로 그려지는지, 0.7.1에서 정한 일반 레이어 거리가 왼쪽·오른쪽 거리로 이어지는지 확인한다. `RenderTest`는 일반 레이어도 `general_*.png`로 그린다. `ModifierTouchTest`는 실제 시간 간격을 둔 터치로 수정키 roll과 조합, 취소된 터치, Alt 전환, 고정한 Shift의 숫자 행, `한/A` 길게 누르기를 확인하고, `OutputOrderTest`는 겹쳐 누른 Enter·Tab과 글자가 터미널에 도착하는 순서를, `ServiceInputTest`는 입력 다시 시작, 화면 회전, 잠금 화면, 늦게 온 커서 위치 보고(0.11.1부터 같은 `EditorInfo`로 다시 시작한 뒤와 앱이 새 `EditorInfo`로 다시 시작한 뒤 포함)를 확인한다. `HardwareKeysTest`는 물리 키의 두벌식 조합, 한/영 키와 오른쪽 Alt 전환, 누르고 있을 때의 반복, 터미널에서 음절과 키의 순서, 원격 앱 통과를 확인한다(0.11.0). 0.11.1부터는 커서 위치 보고를 0–4키 늦게 보내는 입력창(`LaggingApp`)에 물리 키로 쳐서, 스페이스·문장 부호·숫자·Enter·영문 입력과 한/영 키·확정된 글자의 Backspace 뒤에 친 음절이 끊기지 않는지, 앱이 음절 앞에 글을 넣거나 조합을 끝내거나 커서를 옮겼을 때, 화면 회전 같은 구성 변경 뒤에 친 음절의 처리를 확인한다. `KeyboardEngineTest`는 같은 입력창에서 화면 키보드의 ⌫와 스페이스 뒤 음절을 확인한다. `PhysicalKeyboardTest`는 서비스에 `KeyEvent`를 넣어 입력창에 한글이 들어가는지, 칩·`숨김`·키보드 연결과 해제, 창이 늦게 열려도 터미널의 조합 중 음절이 남는지, 띄운 키보드와 접은 키보드의 insets와 터치 영역을 확인한다. `HoverTest`는 키보드 뷰의 `띄우기`·`고정`, 불투명도 슬라이더(끄는 동안과 뗀 뒤, 취소된 터치), `접기`와 손잡이, 칩의 크기와 내용을, `OverlayTest`는 표시 상태 규칙을 확인한다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
+JVM(Java Virtual Machine) 단위 테스트와 Robolectric 테스트가 함께 돈다. `RenderTest`는 폴드7 내부 화면과 커버 화면 크기의 키보드를 `app/build/render/*.png`로 그린다(Fn 숫자판, 가운데 클립보드 여덟 칸, 클립 고정·삭제 버튼, 터미널의 조합 중 한글 포함). `PadAndSelectTest`는 키보드 뷰를 직접 눌러 숫자판 입력과 스페이스 선택을 확인하고, 선택 중인 화면을 `split_portrait_space_select.png`로 그린다. `ReachCalibrationActivityTest`는 측정 화면에 엄지마다 세 번 문지른 획을 넣어 시작 크기와 범위가 타이핑 보정 화면으로 넘어가는지 확인하고 `reach_calibration_code.png`, `reach_calibration_general.png`를 그린다. `TypingCalibrationActivityTest`는 정해진 편차와 흩어짐으로 두 레이어를 끝까지 쳐서 키가 커지고 보정값이 저장되는지 확인하고 `typing_calibration_code.png`, `typing_calibration_result.png`를 그린다. 한글 글은 친 음절까지 흐리게 바뀌는지도 본다. `TypingSessionTest`는 같은 방식으로 회차 진행과 크기 증가(60개 시드의 분포로 판정), 틀린 키를 눌렀을 때 글이 넘어가지 않는지, 둘째 회차가 앞 회차의 보정으로 판정하는지, 두 레이어가 큰 행 높이를 함께 쓰는지, 건너뛴 레이어, 한글 조합 표시를 확인한다. `TypingCalibrationTest`는 구역마다 탭이 몇 개뿐일 때도 흩어짐을 작게 잡지 않는지 300번 반복해 평균으로 확인한다. `OffsetMapActivityTest`는 저장된 학습값으로 터치 편차 화면을 그려 `offset_map.png`를 만든다. `HeatmapActivityTest`는 정해진 탭 분포로 히트맵 화면을 밝은 테마와 어두운 테마로 그리고(`heatmap.png`, `heatmap_dark.png`), 제안 문구와 "제안대로 옮기기"가 바꾸는 설정·학습값을 확인한다. `TapHeatRecordingTest`는 키보드 뷰를 눌러 히트맵이 키마다 쌓이는지, 비밀번호 입력창과 설정 변경을 어떻게 다루는지 확인한다. `LayerTest`는 키보드 뷰에서 상단 줄 `일반`/`코드` 버튼으로 레이어를 바꾸고 일반 레이어에서 한글과 문장 부호, 윗줄 아래로 밀기 기호를 쳐 보며, 일반 레이어의 옆 끝 거리 설정이 일반 레이어 반쪽만 옮기는지, 측정으로 정한 값(키 4.3 mm·6.1 mm, 거리 13.7 mm·17.4 mm)이 두 레이어에 그대로 그려지는지, 0.7.1에서 정한 일반 레이어 거리가 왼쪽·오른쪽 거리로 이어지는지 확인한다. `RenderTest`는 일반 레이어도 `general_*.png`로 그린다. `ModifierTouchTest`는 실제 시간 간격을 둔 터치로 수정키 roll과 조합, 취소된 터치, Alt 전환, 고정한 Shift의 숫자 행, `한/A` 길게 누르기를 확인하고, `OutputOrderTest`는 겹쳐 누른 Enter·Tab과 글자가 터미널에 도착하는 순서를, `ServiceInputTest`는 입력 다시 시작, 화면 회전, 잠금 화면, 늦게 온 커서 위치 보고(0.11.1부터 같은 `EditorInfo`로 다시 시작한 뒤와 앱이 새 `EditorInfo`로 다시 시작한 뒤 포함)를 확인한다. `HardwareKeysTest`는 물리 키의 두벌식 조합, 한/영 키와 오른쪽 Alt 전환, 누르고 있을 때의 반복, 터미널에서 음절과 키의 순서, 원격 앱 통과를 확인한다(0.11.0). 0.11.1부터는 커서 위치 보고를 0–4키 늦게 보내는 입력창(`LaggingApp`)에 물리 키로 쳐서, 스페이스·문장 부호·숫자·Enter·영문 입력과 한/영 키·확정된 글자의 Backspace 뒤에 친 음절이 끊기지 않는지, 앱이 음절 앞에 글을 넣거나 조합을 끝내거나 커서를 옮겼을 때, 화면 회전 같은 구성 변경 뒤에 친 음절의 처리를 확인한다. `KeyboardEngineTest`는 같은 입력창에서 화면 키보드의 ⌫와 스페이스 뒤 음절을 확인한다. `PhysicalKeyboardTest`는 서비스에 `KeyEvent`를 넣어 입력창에 한글이 들어가는지, 칩·`숨김`·키보드 연결과 해제, 창이 늦게 열려도 터미널의 조합 중 음절이 남는지, 띄운 키보드와 접은 키보드의 insets와 터치 영역을 확인한다. `ModifierRelayTest`는 keycode 없이 scan code만 있는 Ctrl·Alt·Win을 서비스에 넣고, 앱이 받은 이벤트의 keycode·수정키·scan code·장치 번호, 누르고 있는 수정키와 반복, 시스템 키, 키보드 연결 해제, 오른쪽 Alt 전환, 조합 중 음절, 확인창의 `UNKNOWN(scan N)` 표시를 확인한다(0.12.0). `HoverTest`는 키보드 뷰의 `띄우기`·`고정`, 불투명도 슬라이더(끄는 동안과 뗀 뒤, 취소된 터치), `접기`와 손잡이, 칩의 크기와 내용을, `OverlayTest`는 표시 상태 규칙을 확인한다. Robolectric의 `KeyCharacterMap`은 Ctrl+A에도 글자 `a`를 돌려주는 등 실제 Android와 달라서, 일반 입력창의 Ctrl 단축키는 에뮬레이터나 기기에서 확인해야 한다. 기기에서 확인할 항목은 [docs/research.md의 10.3절](docs/research.md#103-기기에서-확인할-항목)에 있다.
 
 ## 알려진 한계
 
 - 폴드7 실기기에서 시험하지 않았다. Android 11 에뮬레이터(폴드7 내부 화면 해상도와 밀도)에서 키 이벤트, 한글 조합, Ctrl 단축키, 가로 분할 배열을 확인했다. 햅틱 느낌, One UI(삼성 user interface)의 키보드 진동 설정 연동, `xdpi` 정확도, 작업 표시줄과의 상호작용, Android 16의 하단 insets 처리는 기기 확인이 필요하다.
 - 접근성 서비스(TalkBack)용 가상 뷰 구조를 제공하지 않는다.
 - 물리 키보드 처리는 Android 11 에뮬레이터에 `hid` 명령으로 등록한 가상 블루투스 키보드로 확인했다. 폴드7과 실제 블루투스 키보드에서 한/영 키가 `KEYCODE_KANA`로 오는지, One UI가 이 키를 먼저 가져가지 않는지는 확인하지 않았다.
+- 지정 해제한 Ctrl·Alt·Win 되살리기는 Android 11 에뮬레이터에서 키 배치 파일에서 뺀 수정키(keycode 없이 scan code만 오는 키)로 확인했다. One UI의 지정 해제가 scan code를 남기는지, Parsec이 FoldKey가 보낸 수정키 이벤트로 원격 PC의 Ctrl·Alt·Win을 누르는지는 기기에서 확인하지 않았다.
 - 띄운 키보드의 터치 통과, insets, 불투명도는 Android 11 에뮬레이터(3버튼 내비게이션)에서 확인했다. 제스처 내비게이션에서 키보드 영역의 뒤로 가기 제스처가 막히는지, Android 16에서 IME가 직접 그리는 내비게이션 버튼과 어떻게 겹치는지, Parsec에서의 동작은 확인하지 않았다.
 - Esc, 방향키, Ctrl 조합처럼 키 이벤트로 보내는 키는 같은 순간에 보낸 글자보다 늦게 도착할 수 있다. 터미널의 Enter·Tab과 여러 줄 입력창의 Enter는 글자로 보내 이 경우를 피했고, ⌫는 누르는 순간 보내 앞뒤 키와 한 번에 나가지 않게 했다. 물리 키보드로 터미널에서 한글을 치다가 이런 키를 누를 때도 같다. 조합 중인 음절은 그 키보다 먼저 도착하지만, 앱의 메인 스레드가 밀려 있으면 그 뒤에 이어 친 음절이 키를 앞지를 수 있다(에뮬레이터에서 0.12초 간격으로 쳤을 때 일어났고, 3초를 쉬었을 때는 두 번 모두 순서대로 도착했다).
 - 앱에 키를 넘긴 뒤 다음 음절의 첫 커서 위치 보고가 올 때까지, 조합 영역이 없는 보고는 늦게 온 보고로 본다. 그 사이에 앱이 스스로 조합을 끝내면(페이지 스크립트가 입력값을 바꾸거나, 조합 영역을 지우는 편집기에서 화면을 눌러 커서를 옮기는 경우) FoldKey는 그 음절을 계속 조합해 같은 음절이 한 번 더 들어갈 수 있다. 보고가 따라잡은 뒤에는 0.11.0처럼 음절을 끝낸다. 이 기록은 앱이 FoldKey의 편집 묶음마다 커서 위치를 보고한다고 가정한다. Android `TextView`와 Jetpack Compose는 그렇게 보고하고, 에뮬레이터의 Chromium 83 로그에서도 어긋난 경우가 없었다. 키 두 번의 보고를 하나로 합치는 앱에서는 보고가 따라잡은 뒤의 화면 누르기를 놓쳐 같은 음절이 다시 들어갈 수 있다([docs/research.md 8.5절](docs/research.md#85-앱이-처리한-키와-늦은-커서-위치-보고0111)).
