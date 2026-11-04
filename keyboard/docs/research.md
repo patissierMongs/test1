@@ -800,7 +800,7 @@ Windows 쪽에서 오른쪽 Alt가 한/영이 되는지는 그 PC의 한국어 �
 
 - 지정 해제한 키는 버려지지 않고 IME와 앱에 `KEYCODE_UNKNOWN`(0)으로 왔다. meta에는 Ctrl·Alt 비트가 없었다(`0x200000`은 Num Lock, `0x200041`은 Num Lock과 왼쪽 Shift). 원격 앱이 이 키를 수정키로 알아볼 방법이 없다.
 - Alt를 누른 채 친 Tab은 Alt 없는 Tab으로 왔다. Android의 최근 앱 전환은 뜨지 않았지만 앱도 평범한 Tab을 받았다.
-- Ctrl과 Alt를 거의 함께 누르면 두 번째 키의 `repeatCount`가 1이었다. AOSP `InputDispatcher::dispatchKeyLocked`는 같은 장치에서 keycode가 같은 down이 연달아 오면 장치가 만든 반복으로 보고 repeat 값을 올린다. 두 키가 모두 `UNKNOWN`이라 같은 키로 센 것이다. keycode와 repeat 값으로는 두 키를 가를 수 없다.
+- Ctrl과 Alt를 거의 함께 누르면 두 번째 키의 `repeatCount`가 1이었다. AOSP `InputDispatcher::dispatchKeyLocked`는 같은 장치에서 keycode가 같은 down이 연달아 오면 장치가 만든 반복으로 보고 repeat 값을 올린다. 두 키가 모두 `UNKNOWN`이라 같은 키로 처리된 것이다. keycode와 repeat 값으로는 두 키를 가를 수 없다.
 
 **Android가 단축키를 가져가는 자리.** AOSP `KeyGestureController.interceptKeyBeforeDispatching`은 앱과 IME에 키를 보내기 전에 불린다. 여기서 `interceptSystemKeysAndShortcuts`는 Alt를 누른 Tab의 첫 down을 `KEY_GESTURE_TYPE_RECENT_APPS_SWITCHER`로 쓰고 키를 소비한다. 수정키를 지정 해제하지 않으면 IME는 Alt+Tab을 받지도 못하므로, 지정 해제가 이 기능의 전제다.
 
