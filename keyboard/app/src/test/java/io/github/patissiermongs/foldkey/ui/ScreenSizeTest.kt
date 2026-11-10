@@ -45,11 +45,12 @@ class ScreenSizeTest {
     private var pxPerMm = 0f
     private val gap = KeyboardView.GAP_MM
 
-    private fun setup(ppi: Float, layer: Layer = Layer.CODE, values: (SharedPreferences.Editor) -> SharedPreferences.Editor) {
+    private fun setup(ppi: Float, layer: Layer = Layer.CODE, density: Int? = null, values: (SharedPreferences.Editor) -> SharedPreferences.Editor) {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val dm = activity.resources.displayMetrics
         dm.xdpi = ppi
         dm.ydpi = ppi
+        density?.let { dm.densityDpi = it }
         pxPerMm = ppi / 25.4f
         prefs = Prefs(activity)
         values(prefs.sp.edit().clear()).commit()
@@ -103,6 +104,28 @@ class ScreenSizeTest {
         assertEquals(LayoutKind.SPLIT, view.layoutKind(view.width))
         assertEquals(11f - gap, mm(face('a').height), 0.05f)
         assertEquals(6f - gap, mm(face('q').width), 0.05f)
+    }
+
+    @Test
+    fun aLowerDisplayDensityLeavesTheKeySizesAndTheScreenKindAlone() {
+        for (density in listOf(420, 300, 233, 160)) {
+            setup(368f, density = density) {
+                it.putBoolean(Prefs.SPLIT_PORTRAIT, true).putInt(Prefs.rowKey(INNER_PORTRAIT), 110).putInt(Prefs.widthKey(INNER_PORTRAIT), 80)
+            }
+            assertEquals("density $density", INNER_PORTRAIT, view.profile())
+            assertEquals("density $density", 11f - gap, mm(face('a').height), 0.05f)
+            assertEquals("density $density", 8f - gap, mm(face('q').width), 0.05f)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h900dp-420dpi")
+    fun aLowerDisplayDensityStillTellsTheCoverScreenApart() {
+        for (density in listOf(420, 233)) {
+            setup(422f, density = density) { it.putInt(Prefs.rowKey(COVER_PORTRAIT), 80) }
+            assertEquals("density $density", COVER_PORTRAIT, view.profile())
+            assertEquals("density $density", 8f - gap, mm(face('a').height), 0.05f)
+        }
     }
 
     @Test

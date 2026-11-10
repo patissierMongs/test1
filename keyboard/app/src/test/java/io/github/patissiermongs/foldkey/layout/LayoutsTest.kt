@@ -258,7 +258,7 @@ class LayoutsTest {
     }
 
     @Test
-    fun fold7LandscapeSplitGetsOnePanelBoxPerRowBetweenGhostKeys() {
+    fun fold7LandscapeSplitGetsOnePanelBoxPerRowBesideTheInnerKeys() {
         val pxPerMm = 368f / 25.4f
         val g = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm))
         assertEquals(8.5f, g.unitPx / pxPerMm, 0.001f)
@@ -270,17 +270,39 @@ class LayoutsTest {
             assertEquals(r * 9.5f, box.top / pxPerMm, 0.01f)
             assertEquals(9.5f, box.height / pxPerMm, 0.01f)
         }
-        val ghosts = g.keys.filter { it.ghost }
-        assertEquals(8, ghosts.size)
-        assertTrue(ghosts.all { abs(it.touch.width / pxPerMm - 8.5f) < 0.02f })
+        assertTrue(g.keys.none { it.ghost })
         for (box in g.panel) {
             assertTrue(g.keys.none { it.touch.left < box.right && it.touch.right > box.left && it.touch.top < box.bottom && it.touch.bottom > box.top })
         }
-        val halfGhosts = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 20f * pxPerMm))
-        assertEquals(Layouts.split.size, halfGhosts.panel.size)
-        assertTrue(halfGhosts.keys.filter { it.ghost }.all { abs(it.touch.width / pxPerMm - 4.25f) < 0.02f })
+        val halfMargin = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 20f * pxPerMm))
+        assertEquals(Layouts.split.size, halfMargin.panel.size)
+        assertTrue(halfMargin.keys.none { it.ghost })
+        halfMargin.panel.take(4).forEach { assertEquals(gapMm - 2f * 4.25f, it.width / pxPerMm, 0.01f) }
         val noPanel = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = (gapMm - 8.5f + 0.1f) * pxPerMm))
         assertTrue(noPanel.panel.isEmpty())
+        assertEquals(8, noPanel.keys.count { it.ghost })
+    }
+
+    @Test
+    fun theBlankBesideTheClipboardBelongsToTheKeyOfTheSameHalf() {
+        val pxPerMm = 368f / 25.4f
+        val g = KeyboardGeometry.split(Layouts.split, spec(2184, 368f, ghost = 1f).copy(panelMinPx = 12f * pxPerMm))
+        for ((row, pair) in listOf('6' to '7', 't' to 'y', 'g' to 'h', 'v' to 'b').withIndex()) {
+            val leftKey = g.keys.first { base(it) == pair.first }
+            val rightKey = g.keys.first { base(it) == pair.second }
+            val box = g.panel[row]
+            val y = leftKey.face.centerY
+            assertEquals(row, leftKey.row)
+            assertEquals(row, rightKey.row)
+            assertEquals(box.left, leftKey.touch.right, 0.01f)
+            assertEquals(box.right, rightKey.touch.left, 0.01f)
+            assertTrue(box.left - slotRight(leftKey, pxPerMm) > 0.9f * g.unitPx)
+            assertEquals(leftKey, g.keyAt((slotRight(leftKey, pxPerMm) + box.left) / 2f, y))
+            assertEquals(leftKey, g.keyAt(box.left - 0.5f, y))
+            assertEquals(rightKey, g.keyAt((box.right + slotLeft(rightKey, pxPerMm)) / 2f, y))
+            assertEquals(rightKey, g.keyAt(box.right + 0.5f, y))
+            assertNull(g.keyAt(box.centerX, y))
+        }
     }
 
     @Test
@@ -467,10 +489,10 @@ class LayoutsTest {
         assertEquals(g.keys.filter { k -> !k.ghost && leftDefs.any { it === k.def } }.toSet(), g.fnKeys.filter { k -> leftDefs.any { it === k.def } }.toSet())
         assertTrue(g.fnKeys.none { it.def.action == KeyAction.Backspace })
         val y = g.keys.first { base(it) == 'y' }
-        val ghostY = g.keys.first { it.ghost && (it.def.action as? KeyAction.Char)?.base == 'y' }
-        assertEquals(ghostY, g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY))
-        assertNull(g.keyAt(ghostY.touch.centerX, ghostY.touch.centerY, fn = true))
-        assertEquals(y, g.keyAt(y.touch.centerX, y.touch.centerY))
+        val blankBesideY = (g.panel[1].right + slotLeft(y, pxPerMm)) / 2f
+        assertEquals(y, g.keyAt(blankBesideY, y.face.centerY))
+        assertNull(g.keyAt(blankBesideY, y.face.centerY, fn = true))
+        assertEquals(y, g.keyAt(y.face.centerX, y.face.centerY))
         val four = g.fnKeys.first { it.pad && it.def.label == "4" }
         assertEquals(four, g.keyAt(four.touch.centerX, four.touch.centerY, fn = true))
         val plus = g.fnKeys.single { it.pad && it.def.label == "+" }
@@ -747,6 +769,18 @@ class LayoutsTest {
         assertTrue(g.panel.all { it.width >= 12f * pxPerMm })
         for (box in g.panel) {
             assertTrue(g.keys.none { it.touch.left < box.right && it.touch.right > box.left && it.touch.top < box.bottom && it.touch.bottom > box.top })
+        }
+        assertTrue(g.keys.none { it.ghost })
+        for ((row, pair) in listOf('5' to '6', 't' to 'y', 'g' to 'h', 'v' to 'b').withIndex()) {
+            val leftKey = g.keys.first { base(it) == pair.first }
+            val rightKey = g.keys.first { base(it) == pair.second }
+            val box = g.panel[row]
+            val y = leftKey.face.centerY
+            assertEquals(box.left, leftKey.touch.right, 0.01f)
+            assertEquals(box.right, rightKey.touch.left, 0.01f)
+            assertEquals(leftKey, g.keyAt((slotRight(leftKey, pxPerMm) + box.left) / 2f, y))
+            assertEquals(rightKey, g.keyAt((box.right + slotLeft(rightKey, pxPerMm)) / 2f, y))
+            assertNull(g.keyAt(box.centerX, y))
         }
     }
 

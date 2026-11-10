@@ -138,32 +138,42 @@ class KeyboardGeometry(
                     place(def, x, right, if (i == 0) 0f else x, right)
                     x = right
                 }
+                val leftLastAt = keys.lastIndex
                 val innerLeft = x - extLeft
                 val innerRight = innerLeft + gap
                 val leftLast = row.left.keys.last()
                 val rightFirst = row.right.keys.first()
                 val ghosts = ghost > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL
-                if (ghosts) {
+                if (ghosts && !withPanel) {
                     val gr = innerLeft + ghost
                     keys.add(Key(rightFirst, Box(innerLeft, top, gr, bottom), Box(innerLeft, touchTop, gr, touchBottom), r, r * spec.zonesPerRow + 1, ghost = true))
                     val hl = innerRight - ghost
                     keys.add(Key(leftLast, Box(hl, top, innerRight, bottom), Box(hl, touchTop, innerRight, touchBottom), r, r * spec.zonesPerRow + 2, ghost = true))
                 }
+                var panelRight = Float.NaN
                 if (withPanel) {
                     val inset = if (ghosts) ghost else 0f
-                    panel.add(Box(innerLeft + maxOf(inset, extLeft), top, innerRight - maxOf(inset, extRight), bottom))
+                    val panelLeft = innerLeft + maxOf(inset, extLeft)
+                    panelRight = innerRight - maxOf(inset, extRight)
+                    panel.add(Box(panelLeft, top, panelRight, bottom))
+                    if (ghosts) keys[leftLastAt] = keys[leftLastAt].withTouch(right = panelLeft)
                 }
                 x = innerRight + row.right.indent * unit - extRight
+                val rightFirstAt = keys.size
                 row.right.keys.forEachIndexed { i, def ->
                     val trim = if (i == stretchRight) row.right.inward * unit - extRight else 0f
                     val right = x + def.width * unit - trim
                     place(def, x, right, x, if (i == row.right.keys.lastIndex) spec.widthPx else right)
                     x = right
                 }
+                if (withPanel && ghosts) keys[rightFirstAt] = keys[rightFirstAt].withTouch(left = panelRight)
             }
             val height = spec.topPx + rows.size * rowH + spec.liftPx + spec.bottomPaddingPx
             return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel, padLayer(keys, pad, spec, unit))
         }
+
+        private fun Key.withTouch(left: Float = touch.left, right: Float = touch.right): Key =
+            Key(def, face, touch.copy(left = left, right = right), row, zone, ghost, pad)
 
         private fun stretchIndex(row: RowDef, fallback: Int): Int =
             row.keys.indexOfFirst { it.isSpace }.takeIf { it >= 0 } ?: fallback

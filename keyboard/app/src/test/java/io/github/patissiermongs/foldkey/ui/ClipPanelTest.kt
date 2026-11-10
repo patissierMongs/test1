@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import io.github.patissiermongs.foldkey.engine.Command
 import io.github.patissiermongs.foldkey.engine.EditorContext
 import io.github.patissiermongs.foldkey.engine.FakeEditor
+import io.github.patissiermongs.foldkey.engine.KeyAction
 import io.github.patissiermongs.foldkey.engine.KeyboardEngine
 import io.github.patissiermongs.foldkey.engine.RecordingListener
 import io.github.patissiermongs.foldkey.ime.Prefs
@@ -16,6 +17,7 @@ import io.github.patissiermongs.foldkey.layout.Box
 import io.github.patissiermongs.foldkey.layout.Key
 import java.time.Duration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -133,6 +135,30 @@ class ClipPanelTest {
         touch(MotionEvent.ACTION_MOVE, slots[0].centerX, slots[0].centerY - 10f * slots[0].height)
         touch(MotionEvent.ACTION_UP, slots[0].centerX, slots[0].centerY - 10f * slots[0].height)
         assertEquals(clips.size - slots.size, view.clipOffset)
+    }
+
+    @Test
+    fun theBlankBesideTheClipboardTypesTheKeyOfThatSideAndNeverTheOtherSide() {
+        setup()
+        val rows = view.clipSlots.chunked(2)
+        fun key(c: Char) = view.layoutKeys.first { !it.ghost && (it.def.action as? KeyAction.Char)?.base == c }
+        assertTrue(view.layoutKeys.none { it.ghost })
+        val typed = StringBuilder()
+        for ((row, pair) in listOf('6' to '7', 't' to 'y', 'g' to 'h', 'v' to 'b').withIndex()) {
+            val left = key(pair.first)
+            val right = key(pair.second)
+            val slot = rows[row][0]
+            val blankLeft = (left.face.right + slot.left) / 2f
+            val blankRight = (slot.right + right.face.left) / 2f
+            for ((x, key) in listOf(blankLeft to left, blankRight to right)) {
+                assertFalse(key.face.contains(x, key.face.centerY))
+                assertTrue(rows[row].none { it.contains(x, key.face.centerY) })
+            }
+            tap(blankLeft, left.face.centerY)
+            tap(blankRight, right.face.centerY)
+            typed.append(pair.first).append(pair.second)
+            assertEquals(typed.toString(), editor.text.toString())
+        }
     }
 
     @Test
