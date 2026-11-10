@@ -177,6 +177,12 @@ object Layouts {
 
     const val GENERAL_KEY_MM = 9.6f
 
+    fun generalSplitUnitsMm(codeLeftMm: Float, codeRightMm: Float, insetLeftMm: Float, insetRightMm: Float): Pair<Float, Float> {
+        val left = (codeLeftMm * splitLeftUnits - insetLeftMm) / generalSplitLeftUnits
+        val right = (codeRightMm * splitRightUnits - insetRightMm) / generalSplitRightUnits
+        return maxOf(codeLeftMm, minOf(GENERAL_KEY_MM, left)) to maxOf(codeRightMm, minOf(GENERAL_KEY_MM, right))
+    }
+
     fun generalSplitUnitMm(codeUnitMm: Float, insetLeftMm: Float = 0f, insetRightMm: Float = insetLeftMm): Float {
         val sameReach = minOf(
             (codeUnitMm * splitLeftUnits - insetLeftMm) / generalSplitLeftUnits,

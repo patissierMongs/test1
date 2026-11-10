@@ -28,7 +28,56 @@ class Prefs(context: Context) {
     fun keyWidthMm(profile: ScreenProfile, split: Boolean): Float? =
         keyWidthTenths(profile, split).takeIf { it > KEY_WIDTH_FILL }?.let { it / 10f }
 
+    fun hasHalfWidths(profile: ScreenProfile): Boolean = sp.contains(widthLeftKey(profile)) || sp.contains(widthRightKey(profile))
+
+    fun keyWidthLeftTenths(profile: ScreenProfile, split: Boolean): Int = sp.getInt(widthLeftKey(profile), keyWidthTenths(profile, split))
+
+    fun keyWidthRightTenths(profile: ScreenProfile, split: Boolean): Int = sp.getInt(widthRightKey(profile), keyWidthTenths(profile, split))
+
+    fun keyWidthLeftMm(profile: ScreenProfile, split: Boolean): Float? =
+        keyWidthLeftTenths(profile, split).takeIf { it > KEY_WIDTH_FILL }?.let { it / 10f }
+
+    fun keyWidthRightMm(profile: ScreenProfile, split: Boolean): Float? =
+        keyWidthRightTenths(profile, split).takeIf { it > KEY_WIDTH_FILL }?.let { it / 10f }
+
+    val hasGeneralHalfWidths: Boolean get() = sp.contains(GENERAL_UNIT_LEFT) || sp.contains(GENERAL_UNIT_RIGHT)
+
+    val generalUnitLeftMm: Float? get() = generalHalf(GENERAL_UNIT_LEFT)
+
+    val generalUnitRightMm: Float? get() = generalHalf(GENERAL_UNIT_RIGHT)
+
+    private fun generalHalf(key: String): Float? =
+        sp.getInt(key, sp.getInt(GENERAL_UNIT, GENERAL_UNIT_AUTO)).takeIf { it > GENERAL_UNIT_AUTO }?.let { it / 10f }
+
     fun usesSplit(profile: ScreenProfile): Boolean = !(profile.cover && !profile.landscape) && isSplit(profile.landscape)
+
+    fun saveCodeHalves(profile: ScreenProfile, leftUnitTenths: Int, rightUnitTenths: Int, leftSideTenths: Int, rightSideTenths: Int) {
+        sp.edit()
+            .putInt(widthLeftKey(profile), leftUnitTenths)
+            .putInt(widthRightKey(profile), rightUnitTenths)
+            .putInt(widthKey(profile), (leftUnitTenths + rightUnitTenths + 1) / 2)
+            .putInt(CODE_SIDE_LEFT, leftSideTenths)
+            .putInt(CODE_SIDE_RIGHT, rightSideTenths)
+            .apply()
+    }
+
+    fun saveGeneralHalves(leftUnitTenths: Int, rightUnitTenths: Int, leftSideTenths: Int, rightSideTenths: Int) {
+        sp.edit()
+            .putInt(GENERAL_UNIT_LEFT, leftUnitTenths)
+            .putInt(GENERAL_UNIT_RIGHT, rightUnitTenths)
+            .putInt(GENERAL_UNIT, (leftUnitTenths + rightUnitTenths + 1) / 2)
+            .putInt(GENERAL_SIDE_LEFT, leftSideTenths)
+            .putInt(GENERAL_SIDE_RIGHT, rightSideTenths)
+            .apply()
+    }
+
+    fun clearHalfWidths(profile: ScreenProfile) {
+        if (hasHalfWidths(profile)) sp.edit().remove(widthLeftKey(profile)).remove(widthRightKey(profile)).apply()
+    }
+
+    fun clearGeneralHalfWidths() {
+        if (hasGeneralHalfWidths) sp.edit().remove(GENERAL_UNIT_LEFT).remove(GENERAL_UNIT_RIGHT).apply()
+    }
 
     val splitLiftMm: Float get() = sp.getInt(SPLIT_LIFT, 0) / 10f
     val generalUnitMm: Float? get() = sp.getInt(GENERAL_UNIT, GENERAL_UNIT_AUTO).takeIf { it > GENERAL_UNIT_AUTO }?.let { it / 10f }
@@ -71,9 +120,11 @@ class Prefs(context: Context) {
         val editor = sp.edit()
         placements[Layer.CODE]?.let {
             editor.putInt(widthKey(profile), t(it.unitMm)).putInt(CODE_SIDE_LEFT, t(it.leftMm)).putInt(CODE_SIDE_RIGHT, t(it.rightMm))
+            editor.remove(widthLeftKey(profile)).remove(widthRightKey(profile))
         }
         placements[Layer.GENERAL]?.let {
             editor.putInt(GENERAL_UNIT, t(it.unitMm)).putInt(GENERAL_SIDE_LEFT, t(it.leftMm)).putInt(GENERAL_SIDE_RIGHT, t(it.rightMm))
+            editor.remove(GENERAL_UNIT_LEFT).remove(GENERAL_UNIT_RIGHT)
         }
         placements.values.firstOrNull()?.let { editor.putInt(rowKey(profile), t(it.rowMm)).putInt(SPLIT_LIFT, t(it.liftMm)) }
         for ((slot, data) in offsets) editor.putString(OFFSETS_PREFIX + slot, data).putString(SLOT_PROFILE_PREFIX + slot, profile.key)
@@ -101,7 +152,8 @@ class Prefs(context: Context) {
 
     fun heatSignature(profile: ScreenProfile): String {
         val own = listOf(rowKey(profile), widthKey(profile))
-        val keys = if (own.any { sp.contains(it) }) SHARED_LAYOUT_KEYS + own else SHARED_LAYOUT_KEYS
+        val halves = listOf(widthLeftKey(profile), widthRightKey(profile), GENERAL_UNIT_LEFT, GENERAL_UNIT_RIGHT).filter { sp.contains(it) }
+        val keys = (if (own.any { sp.contains(it) }) SHARED_LAYOUT_KEYS + own else SHARED_LAYOUT_KEYS) + halves
         return keys.joinToString(",") { sp.getInt(it, -1).toString() }
     }
 
@@ -156,6 +208,8 @@ class Prefs(context: Context) {
         const val GENERAL_MARGIN = "general_margin_tenth_mm"
         const val GENERAL_UNIT = "general_unit_tenth_mm"
         const val GENERAL_UNIT_AUTO = 39
+        const val GENERAL_UNIT_LEFT = "general_unit_left_tenth_mm"
+        const val GENERAL_UNIT_RIGHT = "general_unit_right_tenth_mm"
         const val CODE_SIDE_LEFT = "code_side_left_tenth_mm"
         const val CODE_SIDE_RIGHT = "code_side_right_tenth_mm"
         const val GENERAL_SIDE_LEFT = "general_side_left_tenth_mm"
@@ -209,16 +263,23 @@ class Prefs(context: Context) {
         const val KEY_WIDTH_FILL = 39
         const val ROW_HEIGHT_PREFIX = "row_height_tenth_mm_"
         const val KEY_WIDTH_PREFIX = "key_width_tenth_mm_"
+        const val KEY_WIDTH_LEFT_PREFIX = "key_width_left_tenth_mm_"
+        const val KEY_WIDTH_RIGHT_PREFIX = "key_width_right_tenth_mm_"
 
         fun rowKey(profile: ScreenProfile): String = ROW_HEIGHT_PREFIX + profile.key
 
         fun widthKey(profile: ScreenProfile): String = KEY_WIDTH_PREFIX + profile.key
 
+        fun widthLeftKey(profile: ScreenProfile): String = KEY_WIDTH_LEFT_PREFIX + profile.key
+
+        fun widthRightKey(profile: ScreenProfile): String = KEY_WIDTH_RIGHT_PREFIX + profile.key
+
         val SHARED_LAYOUT_KEYS = listOf(
             SPLIT_UNIT, GENERAL_UNIT, CODE_SIDE_LEFT, CODE_SIDE_RIGHT,
             GENERAL_SIDE_LEFT, GENERAL_SIDE_RIGHT, SPLIT_LIFT, ROW_HEIGHT,
         )
-        val LAYOUT_KEYS = SHARED_LAYOUT_KEYS + ScreenProfile.entries.flatMap { listOf(rowKey(it), widthKey(it)) }
+        val LAYOUT_KEYS = SHARED_LAYOUT_KEYS + listOf(GENERAL_UNIT_LEFT, GENERAL_UNIT_RIGHT) +
+            ScreenProfile.entries.flatMap { listOf(rowKey(it), widthKey(it), widthLeftKey(it), widthRightKey(it)) }
         const val DEFAULT_RAW_PACKAGES =
             "com.termux, org.connectbot, com.sonelli.juicessh, jackpal.androidterm"
     }

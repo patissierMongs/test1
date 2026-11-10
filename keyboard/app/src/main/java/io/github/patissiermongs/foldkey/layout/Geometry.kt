@@ -20,6 +20,7 @@ data class GeometrySpec(
     val maxUnitMm: Float,
     val maxWidthPx: Float = Float.MAX_VALUE,
     val splitUnitMm: Float,
+    val splitUnitRightMm: Float = Float.NaN,
     val ghostUnits: Float,
     val zonesPerRow: Int = 4,
     val liftPx: Float = 0f,
@@ -34,6 +35,8 @@ class KeyboardGeometry(
     val zoneCount: Int,
     val panel: List<Box> = emptyList(),
     val fnKeys: List<Key> = keys,
+    val leftUnitPx: Float = unitPx,
+    val rightUnitPx: Float = unitPx,
 ) {
     fun layer(fn: Boolean): List<Key> = if (fn) fnKeys else keys
 
@@ -98,15 +101,38 @@ class KeyboardGeometry(
             val edge = spec.sidePaddingMm * spec.pxPerMmX + spec.sideInsetPx
             val side = maxOf(edge, spec.splitMarginLeftPx)
             val available = spec.widthPx - side - maxOf(edge, spec.splitMarginRightPx)
-            val unit = minOf(spec.splitUnitMm * spec.pxPerMmX, available / (units + 2f * spec.ghostUnits))
+            val explicit = !spec.splitUnitRightMm.isNaN()
+            val wantedLeft = spec.splitUnitMm * spec.pxPerMmX
+            val unitLeft: Float
+            val unitRight: Float
+            val total: Float
+            if (explicit) {
+                val wantedRight = spec.splitUnitRightMm * spec.pxPerMmX
+                val wantedTotal = rows.maxOf { it.left.span * wantedLeft + it.right.span * wantedRight }
+                val fit = minOf(1f, available / (wantedTotal + MIN_CENTER_UNITS * (wantedLeft + wantedRight) / 2f))
+                unitLeft = wantedLeft * fit
+                unitRight = wantedRight * fit
+                total = rows.maxOf { it.left.span * unitLeft + it.right.span * unitRight }
+            } else {
+                val unit = minOf(wantedLeft, available / (units + 2f * spec.ghostUnits))
+                unitLeft = unit
+                unitRight = unit
+                total = units * unit
+            }
             val rowH = spec.rowHeightMm * spec.pxPerMmY
             val gapX = spec.gapMm * spec.pxPerMmX / 2f
             val gapY = spec.gapMm * spec.pxPerMmY / 2f
-            val gap = available - units * unit
-            var ghost = spec.ghostUnits * unit
-            val withPanel = spec.panelMinPx > 0f && gap - 2f * spec.panelGhostUnits * unit >= spec.panelMinPx
-            if (withPanel && gap - 2f * ghost < spec.panelMinPx) ghost = spec.panelGhostUnits * unit
-            ghost = minOf(ghost, gap / 2f)
+            val gap = available - total
+            var ghostLeft = spec.ghostUnits * unitLeft
+            var ghostRight = spec.ghostUnits * unitRight
+            val withPanel = spec.panelMinPx > 0f &&
+                gap - spec.panelGhostUnits * unitLeft - spec.panelGhostUnits * unitRight >= spec.panelMinPx
+            if (withPanel && gap - ghostLeft - ghostRight < spec.panelMinPx) {
+                ghostLeft = spec.panelGhostUnits * unitLeft
+                ghostRight = spec.panelGhostUnits * unitRight
+            }
+            ghostLeft = minOf(ghostLeft, gap / 2f)
+            ghostRight = minOf(ghostRight, gap / 2f)
             val keys = ArrayList<Key>()
             val panel = ArrayList<Box>()
             rows.forEachIndexed { r, row ->
@@ -125,16 +151,17 @@ class KeyboardGeometry(
                         )
                     )
                 }
-                val inward = (row.left.inward + row.right.inward) * unit
-                val scale = if (inward > 0f) minOf(1f, maxOf(0f, gap - MIN_CENTER_UNITS * unit) / inward) else 1f
-                val extLeft = row.left.inward * unit * scale
-                val extRight = row.right.inward * unit * scale
+                val inward = if (explicit) row.left.inward * unitLeft + row.right.inward * unitRight else (row.left.inward + row.right.inward) * unitLeft
+                val centerUnit = if (explicit) (unitLeft + unitRight) / 2f else unitLeft
+                val scale = if (inward > 0f) minOf(1f, maxOf(0f, gap - MIN_CENTER_UNITS * centerUnit) / inward) else 1f
+                val extLeft = row.left.inward * unitLeft * scale
+                val extRight = row.right.inward * unitRight * scale
                 val stretchLeft = stretchIndex(row.left, row.left.keys.lastIndex)
                 val stretchRight = stretchIndex(row.right, 0)
-                var x = side + row.left.indent * unit
+                var x = side + row.left.indent * unitLeft
                 row.left.keys.forEachIndexed { i, def ->
-                    val trim = if (i == stretchLeft) row.left.inward * unit - extLeft else 0f
-                    val right = x + def.width * unit - trim
+                    val trim = if (i == stretchLeft) row.left.inward * unitLeft - extLeft else 0f
+                    val right = x + def.width * unitLeft - trim
                     place(def, x, right, if (i == 0) 0f else x, right)
                     x = right
                 }
@@ -143,33 +170,43 @@ class KeyboardGeometry(
                 val innerRight = innerLeft + gap
                 val leftLast = row.left.keys.last()
                 val rightFirst = row.right.keys.first()
-                val ghosts = ghost > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL
+                val ghosts = ghostLeft > 0f && ghostRight > 0f && rightFirst.style == KeyStyle.NORMAL && leftLast.style == KeyStyle.NORMAL
                 if (ghosts && !withPanel) {
-                    val gr = innerLeft + ghost
+                    val gr = innerLeft + ghostLeft
                     keys.add(Key(rightFirst, Box(innerLeft, top, gr, bottom), Box(innerLeft, touchTop, gr, touchBottom), r, r * spec.zonesPerRow + 1, ghost = true))
-                    val hl = innerRight - ghost
+                    val hl = innerRight - ghostRight
                     keys.add(Key(leftLast, Box(hl, top, innerRight, bottom), Box(hl, touchTop, innerRight, touchBottom), r, r * spec.zonesPerRow + 2, ghost = true))
                 }
                 var panelRight = Float.NaN
                 if (withPanel) {
-                    val inset = if (ghosts) ghost else 0f
-                    val panelLeft = innerLeft + maxOf(inset, extLeft)
-                    panelRight = innerRight - maxOf(inset, extRight)
+                    val insetLeft = if (ghosts) ghostLeft else 0f
+                    val insetRight = if (ghosts) ghostRight else 0f
+                    val panelLeft = innerLeft + maxOf(insetLeft, extLeft)
+                    panelRight = innerRight - maxOf(insetRight, extRight)
                     panel.add(Box(panelLeft, top, panelRight, bottom))
                     if (ghosts) keys[leftLastAt] = keys[leftLastAt].withTouch(right = panelLeft)
                 }
-                x = innerRight + row.right.indent * unit - extRight
+                x = innerRight + row.right.indent * unitRight - extRight
                 val rightFirstAt = keys.size
                 row.right.keys.forEachIndexed { i, def ->
-                    val trim = if (i == stretchRight) row.right.inward * unit - extRight else 0f
-                    val right = x + def.width * unit - trim
+                    val trim = if (i == stretchRight) row.right.inward * unitRight - extRight else 0f
+                    val right = x + def.width * unitRight - trim
                     place(def, x, right, x, if (i == row.right.keys.lastIndex) spec.widthPx else right)
                     x = right
                 }
                 if (withPanel && ghosts) keys[rightFirstAt] = keys[rightFirstAt].withTouch(left = panelRight)
             }
             val height = spec.topPx + rows.size * rowH + spec.liftPx + spec.bottomPaddingPx
-            return KeyboardGeometry(keys, height, unit, rows.size * spec.zonesPerRow, panel, padLayer(keys, pad, spec, unit))
+            return KeyboardGeometry(
+                keys,
+                height,
+                minOf(unitLeft, unitRight),
+                rows.size * spec.zonesPerRow,
+                panel,
+                padLayer(keys, pad, spec, unitRight),
+                unitLeft,
+                unitRight,
+            )
         }
 
         private fun Key.withTouch(left: Float = touch.left, right: Float = touch.right): Key =

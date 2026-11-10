@@ -101,13 +101,14 @@ class SettingsActivity : Activity() {
         toggle(getString(R.string.pref_split_landscape), Prefs.SPLIT_LANDSCAPE, true) { refreshKeyWidths() }
         sizeSection()
         slider(getString(R.string.pref_split_lift), Prefs.SPLIT_LIFT, 0, 0, Prefs.LIFT_MAX) { mm(it) }
+        button(getString(R.string.settings_edit)) { startActivity(Intent(this, LayoutEditorActivity::class.java)) }
         button(getString(R.string.settings_reach)) { startActivity(Intent(this, ReachCalibrationActivity::class.java)) }
         button(getString(R.string.settings_typing)) { startActivity(Intent(this, TypingCalibrationActivity::class.java)) }
         heading(getString(R.string.settings_split_code), 16f)
         slider(getString(R.string.pref_side_left), Prefs.CODE_SIDE_LEFT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
         slider(getString(R.string.pref_side_right), Prefs.CODE_SIDE_RIGHT, Prefs.DEFAULT_CODE_SIDE, 0, Prefs.SIDE_MAX) { mm(it) }
         heading(getString(R.string.settings_split_general), 16f)
-        slider(getString(R.string.pref_unit), Prefs.GENERAL_UNIT, Prefs.GENERAL_UNIT_AUTO, Prefs.GENERAL_UNIT_AUTO, Prefs.UNIT_MAX) {
+        slider(getString(R.string.pref_unit), Prefs.GENERAL_UNIT, Prefs.GENERAL_UNIT_AUTO, Prefs.GENERAL_UNIT_AUTO, Prefs.UNIT_MAX, { prefs.clearGeneralHalfWidths() }) {
             if (it <= Prefs.GENERAL_UNIT_AUTO) getString(R.string.unit_auto) else mm(it)
         }
         slider(getString(R.string.pref_side_left), Prefs.GENERAL_SIDE_LEFT, tenths(prefs.generalSideLeftMm), 0, Prefs.SIDE_MAX) { mm(it) }
@@ -183,7 +184,7 @@ class SettingsActivity : Activity() {
             )
             body(if (profile == current) getString(R.string.size_current, name) else name).typeface = Typeface.DEFAULT_BOLD
             slider(getString(R.string.pref_row_height), Prefs.rowKey(profile), prefs.rowHeightTenths(profile), Prefs.ROW_MIN, Prefs.ROW_MAX) { mm(it) }
-            val width = slider(getString(R.string.pref_unit), Prefs.widthKey(profile), keyWidthTenths(profile), Prefs.KEY_WIDTH_FILL, Prefs.UNIT_MAX) {
+            val width = slider(getString(R.string.pref_unit), Prefs.widthKey(profile), keyWidthTenths(profile), Prefs.KEY_WIDTH_FILL, Prefs.UNIT_MAX, { prefs.clearHalfWidths(profile) }) {
                 if (it <= Prefs.KEY_WIDTH_FILL) getString(R.string.key_width_fill) else mm(it)
             }
             widthSliders.add(profile to width)
@@ -277,7 +278,10 @@ class SettingsActivity : Activity() {
 
     private fun tenths(mm: Float): Int = Math.round(mm * 10f)
 
-    private fun slider(text: String, key: String, default: Int, min: Int, max: Int, format: (Int) -> String): SeekBar {
+    private fun slider(text: String, key: String, default: Int, min: Int, max: Int, format: (Int) -> String): SeekBar =
+        slider(text, key, default, min, max, null, format)
+
+    private fun slider(text: String, key: String, default: Int, min: Int, max: Int, saved: (() -> Unit)?, format: (Int) -> String): SeekBar {
         val label = TextView(this).apply { textSize = 15f; setPadding(0, dp(8), 0, 0) }
         val value = prefs.sp.getInt(key, default).coerceIn(min, max)
         label.text = getString(R.string.label_value, text, format(value))
@@ -291,7 +295,10 @@ class SettingsActivity : Activity() {
 
                 override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                     label.text = getString(R.string.label_value, text, format(progress))
-                    if (fromUser && !tracking) prefs.sp.edit().putInt(key, progress).apply()
+                    if (fromUser && !tracking) {
+                        saved?.invoke()
+                        prefs.sp.edit().putInt(key, progress).apply()
+                    }
                 }
 
                 override fun onStartTrackingTouch(seekBar: SeekBar) {
@@ -300,6 +307,7 @@ class SettingsActivity : Activity() {
 
                 override fun onStopTrackingTouch(seekBar: SeekBar) {
                     tracking = false
+                    saved?.invoke()
                     prefs.sp.edit().putInt(key, seekBar.progress).apply()
                 }
             })

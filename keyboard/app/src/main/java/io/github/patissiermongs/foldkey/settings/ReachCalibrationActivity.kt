@@ -253,6 +253,7 @@ private class ZoneView(
             splitMarginLeftPx = placed.leftMm * pxPerMmX,
             splitMarginRightPx = placed.rightMm * pxPerMmX,
             splitUnitMm = placed.unitMm,
+            splitUnitRightMm = Float.NaN,
         )
         val geometry = LayoutBuilder.build(LayoutKind.SPLIT, previewLayer, spec)
         val lift = (placed?.liftMm ?: prefs.splitLiftMm) * pxPerMmY

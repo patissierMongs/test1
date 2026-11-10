@@ -149,7 +149,7 @@ class TypingCalibrationActivity : Activity() {
             prefs, LayoutKind.SPLIT, layer, ScreenProfile.of(this), width, px, py, 0f, p.rowMm,
             liftPx = p.liftMm * py,
             panelMinPx = if (panel) KeyboardView.PANEL_MIN_MM * px else 0f,
-        ).copy(splitUnitMm = p.unitMm, splitMarginLeftPx = p.leftMm * px, splitMarginRightPx = p.rightMm * px)
+        ).copy(splitUnitMm = p.unitMm, splitUnitRightMm = Float.NaN, splitMarginLeftPx = p.leftMm * px, splitMarginRightPx = p.rightMm * px)
         return LayoutBuilder.build(LayoutKind.SPLIT, layer, spec)
     }
 

@@ -18,20 +18,44 @@ object LayoutBuilder {
         if (layer == Layer.GENERAL) Sides(prefs.generalSideLeftMm, prefs.generalSideRightMm)
         else Sides(prefs.codeSideLeftMm, prefs.codeSideRightMm)
 
+    data class Units(val leftMm: Float, val rightMm: Float, val halves: Boolean)
+
     fun codeSplitUnitMm(prefs: Prefs, profile: ScreenProfile): Float = prefs.keyWidthMm(profile, true) ?: KeyboardView.MAX_UNIT_MM
 
-    fun splitUnitMm(prefs: Prefs, layer: Layer, profile: ScreenProfile): Float {
-        val codeUnit = codeSplitUnitMm(prefs, profile)
-        if (layer != Layer.GENERAL) return codeUnit
-        prefs.generalUnitMm?.let { return it }
-        val code = sides(prefs, Layer.CODE)
-        val general = sides(prefs, Layer.GENERAL)
-        fun edge(mm: Float) = max(mm, KeyboardView.SIDE_MM)
-        return Layouts.generalSplitUnitMm(
-            codeUnit,
-            edge(general.leftMm) - edge(code.leftMm),
-            edge(general.rightMm) - edge(code.rightMm),
+    fun codeSplitUnits(prefs: Prefs, profile: ScreenProfile): Units {
+        if (!prefs.hasHalfWidths(profile)) return codeSplitUnitMm(prefs, profile).let { Units(it, it, false) }
+        return Units(
+            prefs.keyWidthLeftMm(profile, true) ?: KeyboardView.MAX_UNIT_MM,
+            prefs.keyWidthRightMm(profile, true) ?: KeyboardView.MAX_UNIT_MM,
+            true,
         )
+    }
+
+    fun splitUnitMm(prefs: Prefs, layer: Layer, profile: ScreenProfile): Float = splitUnits(prefs, layer, profile).leftMm
+
+    fun splitUnits(prefs: Prefs, layer: Layer, profile: ScreenProfile): Units {
+        val code = codeSplitUnits(prefs, profile)
+        if (layer != Layer.GENERAL) return code
+        if (prefs.hasGeneralHalfWidths) {
+            val common = derivedGeneralUnits(prefs, code)
+            return Units(prefs.generalUnitLeftMm ?: common.leftMm, prefs.generalUnitRightMm ?: common.rightMm, true)
+        }
+        prefs.generalUnitMm?.let { return Units(it, it, false) }
+        return derivedGeneralUnits(prefs, code)
+    }
+
+    private fun derivedGeneralUnits(prefs: Prefs, code: Units): Units {
+        val codeSides = sides(prefs, Layer.CODE)
+        val generalSides = sides(prefs, Layer.GENERAL)
+        fun edge(mm: Float) = max(mm, KeyboardView.SIDE_MM)
+        val insetLeft = edge(generalSides.leftMm) - edge(codeSides.leftMm)
+        val insetRight = edge(generalSides.rightMm) - edge(codeSides.rightMm)
+        if (!code.halves) {
+            val unit = Layouts.generalSplitUnitMm(code.leftMm, insetLeft, insetRight)
+            return Units(unit, unit, false)
+        }
+        val (left, right) = Layouts.generalSplitUnitsMm(code.leftMm, code.rightMm, insetLeft, insetRight)
+        return Units(left, right, true)
     }
 
     fun maxWidthPx(prefs: Prefs, kind: LayoutKind, profile: ScreenProfile, pxPerMmX: Float): Float {
@@ -57,6 +81,7 @@ object LayoutBuilder {
     ): GeometrySpec {
         val split = kind == LayoutKind.SPLIT
         val sides = sides(prefs, layer)
+        val units = splitUnits(prefs, layer, profile)
         return GeometrySpec(
             widthPx = widthPx,
             pxPerMmX = pxPerMmX,
@@ -71,7 +96,8 @@ object LayoutBuilder {
             bottomPaddingPx = bottomPx,
             maxUnitMm = KeyboardView.MAX_UNIT_MM,
             maxWidthPx = maxWidthPx(prefs, kind, profile, pxPerMmX),
-            splitUnitMm = splitUnitMm(prefs, layer, profile),
+            splitUnitMm = units.leftMm,
+            splitUnitRightMm = if (units.halves) units.rightMm else Float.NaN,
             ghostUnits = if (split) KeyboardView.GHOST_UNITS else 0f,
             liftPx = liftPx,
             panelMinPx = panelMinPx,

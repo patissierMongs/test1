@@ -43,6 +43,11 @@
             android:label="@string/typing_title" />
 
         <activity
+            android:name=".settings.LayoutEditorActivity"
+            android:exported="false"
+            android:label="@string/edit_title" />
+
+        <activity
             android:name=".settings.OffsetMapActivity"
             android:exported="false"
             android:label="@string/offsets_title" />
