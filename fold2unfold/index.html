@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>폴드투언폴드 체험</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 맨 위에 "나 / 옆 사람" 두 시점을 놓고, 조작부와 화면 두 장, 단면도를 그 아래에 쌓는다. 넓은 화면에서는 시점 두 개를 나란히 둔다. */
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #e5eaf1;
+  --text: #10151d;
+  --muted: #566274;
+  --border: #d1d9e4;
+  --accent: #0a62c9;
+  --accent-ink: #ffffff;
+  --good: #0d7653;
+  --good-bg: #d6f0e4;
+  --warn: #8f5f00;
+  --warn-bg: #f6e6c2;
+  --bad: #b0302a;
+  --bad-bg: #f7dcd9;
+  --screen: #0a0c10;
+  --screen-ink: #cdd5e1;
+  --overlay: rgba(6, 8, 12, 0.78);
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0e13;
+    --surface: #141a22;
+    --surface-2: #1c2430;
+    --text: #e7ecf4;
+    --muted: #94a1b5;
+    --border: #263040;
+    --accent: #6cb2ff;
+    --accent-ink: #06121f;
+    --good: #5ad8a6;
+    --good-bg: #11352b;
+    --warn: #f0c062;
+    --warn-bg: #3a2f10;
+    --bad: #ff8e84;
+    --bad-bg: #3b1b19;
+    --screen: #040508;
+    --screen-ink: #cdd5e1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0e13;
+  --surface: #141a22;
+  --surface-2: #1c2430;
+  --text: #e7ecf4;
+  --muted: #94a1b5;
+  --border: #263040;
+  --accent: #6cb2ff;
+  --accent-ink: #06121f;
+  --good: #5ad8a6;
+  --good-bg: #11352b;
+  --warn: #f0c062;
+  --warn-bg: #3a2f10;
+  --bad: #ff8e84;
+  --bad-bg: #3b1b19;
+  --screen: #040508;
+  --screen-ink: #cdd5e1;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.6 var(--font-body);
+  padding-block: 0 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-text-size-adjust: 100%;
+}
+.wrap { max-width: 1040px; margin: 0 auto; }
+h1, h2, h3 { margin: 0; line-height: 1.25; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--accent); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 상단 */
+.top { padding-block: 22px 14px; display: grid; gap: 12px; }
+.top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+.top .sub { color: var(--muted); max-width: 62ch; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+.tab {
+  background: none; border: 0; padding: 10px 14px; cursor: pointer; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500;
+}
+.tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+/* 시점 두 개 */
+.stage { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); margin-top: 16px; }
+@media (min-width: 760px) { .stage { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.view { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.view figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.view figcaption b { font-weight: 700; }
+.view figcaption small { color: var(--muted); font-size: 12.5px; display: block; font-weight: 400; }
+canvas.px { display: block; width: 100%; height: auto; max-width: 100%; background: var(--screen); border-radius: 6px; image-rendering: pixelated; }
+.chip {
+  font: 500 12.5px/1 var(--font-mono); padding: 6px 9px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface-2); color: var(--muted);
+}
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+
+/* 카드 */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.card h2 { font-size: 17px; font-weight: 700; }
+.card .hint { color: var(--muted); font-size: 13.5px; }
+.stack { display: grid; gap: 14px; margin-top: 16px; }
+.grid2 { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+
+/* 조작 */
+.field { display: grid; gap: 6px; min-width: 0; }
+.field .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.field label, .field .lbl { font-weight: 500; font-size: 14px; }
+.field output { font: 500 13px var(--font-mono); color: var(--accent); }
+input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; margin: 0; }
+input[type="text"] {
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); font: 500 20px var(--font-mono); letter-spacing: 0.12em;
+}
+.inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.seg { position: relative; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 8px 13px; cursor: pointer; font-size: 13.5px; color: var(--muted); font-weight: 500; }
+.seg input:checked + label { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -3px; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.btn {
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 11px 16px;
+  font-weight: 700; cursor: pointer;
+}
+.btn.ghost { background: var(--surface-2); color: var(--text); font-weight: 500; }
+details.adv { border-top: 1px solid var(--border); padding-top: 12px; }
+details.adv summary { cursor: pointer; font-weight: 500; color: var(--muted); }
+details.adv .field, details.adv .inline { margin-top: 12px; }
+
+/* 화면 두 장 */
+.pair { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pair figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.pair figcaption { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.pair figcaption b { color: var(--text); font-weight: 500; }
+canvas.diagram { display: block; width: 100%; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
+
+/* 문서 */
+.doc { display: grid; gap: 18px; margin-top: 18px; max-width: 760px; }
+.doc ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; }
+.doc ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; }
+td.num { font-variant-numeric: tabular-nums; }
+.note { background: var(--warn-bg); color: var(--text); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
+
+/* 실기기 전체화면 */
+#device { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; touch-action: manipulation; }
+#device canvas { position: absolute; left: 0; width: 100%; height: 50%; image-rendering: pixelated; display: block; }
+#dvTop { top: 0; }
+#dvBot { top: 50%; }
+#dvBar {
+  position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+  padding: 8px max(10px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
+  background: var(--overlay);
+}
+#dvBar button { background: #232b38; color: #e7ecf4; border: 1px solid #36425a; border-radius: 8px; min-width: 44px; height: 40px; padding: 0 10px; cursor: pointer; }
+#dvBar button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#dvInfo {
+  position: absolute; left: max(10px, env(safe-area-inset-left, 0px)); top: calc(8px + env(safe-area-inset-top, 0px));
+  background: var(--overlay); color: #cfd8e6; font: 500 12px var(--font-mono); padding: 6px 9px; border-radius: 8px;
+}
+#dvSheet {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 66%; overflow: auto; background: var(--surface); color: var(--text);
+  border-radius: 14px 14px 0 0; display: grid; gap: 14px;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+#dvSheet .head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+#dvSheet .head h2 { font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>폴드투언폴드 체험</h1>
+  <p class="sub">폴더블폰을 반쯤 접으면 아래 화면이 위 화면에 거울처럼 비칩니다. 숫자를 두 장으로 쪼개 양쪽 화면에 띄우면, 내 눈 자리에서만 두 장이 겹쳐 숫자가 되고 옆에서 보는 사람에게는 무늬로 보입니다. 이 앱은 그 원리를 직접 만져 보는 시뮬레이터입니다.</p>
+  <div class="tabs" role="tablist" aria-label="화면 선택">
+    <button class="tab" role="tab" id="tabBtnSim" data-tab="sim" aria-selected="true" aria-controls="tab-sim">체험</button>
+    <button class="tab" role="tab" id="tabBtnHow" data-tab="how" aria-selected="false" aria-controls="tab-how">원리와 한계</button>
+  </div>
+</header>
+
+<!-- ============ 체험 ============ -->
+<section id="tab-sim" role="tabpanel" aria-labelledby="tabBtnSim">
+  <div class="stage" id="stage">
+    <figure class="view">
+      <figcaption>
+        <span><b>나</b><small>눈 위치에 맞춰 화면 두 장이 겹친 모습</small></span>
+        <span class="chip" id="rUser">판독도 -</span>
+      </figcaption>
+      <canvas class="px" id="cvUser" width="320" height="192" aria-label="내 시점에서 보이는 화면"></canvas>
+    </figure>
+    <figure class="view">
+      <figcaption>
+        <span><b>옆에서 훔쳐보는 사람</b><small id="obsCap">-</small></span>
+        <span class="chip" id="rObs">판독도 -</span>
+      </figcaption>
+      <canvas class="px" id="cvObs" width="320" height="192" aria-label="옆 사람 시점에서 보이는 화면"></canvas>
+    </figure>
+  </div>
+
+  <div class="stack">
+    <div class="grid2">
+      <div class="card">
+        <h2>보여줄 내용</h2>
+        <div class="field">
+          <div class="row"><label for="inText">숫자</label></div>
+          <input type="text" id="inText" data-t="text" inputmode="numeric" autocomplete="off" maxlength="6" value="4729" aria-describedby="inTextHint">
+          <p class="hint" id="inTextHint">0~9만 6자리까지 넣을 수 있어요.</p>
+        </div>
+        <div class="field">
+          <span class="lbl">표시 방식</span>
+          <div class="seg" role="radiogroup" aria-label="표시 방식">
+            <input type="radio" name="mode" id="mdText" data-m value="text" checked><label for="mdText">숫자</label>
+            <input type="radio" name="mode" id="mdPad" data-m value="keypad"><label for="mdPad">PIN 키패드</label>
+          </div>
+        </div>
+        <div class="field">
+          <div class="row"><label for="rgPhi">접힘 각도</label><output data-o="phi">110°</output></div>
+          <input type="range" id="rgPhi" data-k="phi" min="70" max="150" step="1" value="110">
+          <p class="hint">두 화면 사이의 각도예요. 바꾸면 반사 경로가 달라져 아래 화면 그림도 다시 계산돼요.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>내 머리 움직이기</h2>
+        <div class="field">
+          <div class="row"><label for="rgHx">좌우</label><output data-o="hx">0 cm</output></div>
+          <input type="range" id="rgHx" data-k="hx" min="-12" max="12" step="0.1" value="0">
+        </div>
+        <div class="field">
+          <div class="row"><label for="rgHy">위아래</label><output data-o="hy">0 cm</output></div>
+          <input type="range" id="rgHy" data-k="hy" min="-12" max="12" step="0.1" value="0">
+        </div>
+        <label class="check" for="ckTrack">
+          <input type="checkbox" id="ckTrack" data-k="track" checked>
+          <span>앞면 카메라로 내 눈을 따라가며 그림을 보정<br><span class="hint">끄면 처음 자리에 맞춘 그림이 그대로라서, 머리를 움직이는 순간 내 화면도 흐려져요.</span></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>훔쳐보는 사람</h2>
+      <div class="grid2">
+        <div class="field">
+          <div class="row"><label for="rgDelta">내 눈에서 벗어난 각도</label><output data-o="delta">7.5°</output></div>
+          <input type="range" id="rgDelta" data-k="delta" min="0" max="30" step="0.5" value="7.5">
+          <p class="hint" id="deltaHint"></p>
+        </div>
+        <div class="field">
+          <span class="lbl">훔쳐보는 방향</span>
+          <div class="seg" role="radiogroup" aria-label="훔쳐보는 방향">
+            <input type="radio" name="dir" id="dirSide" data-d value="side" checked><label for="dirSide">옆</label>
+            <input type="radio" name="dir" id="dirUp" data-d value="vert"><label for="dirUp">어깨 너머(위)</label>
+          </div>
+        </div>
+      </div>
+      <details class="adv">
+        <summary>고급 설정</summary>
+        <div class="grid2">
+          <div class="field">
+            <div class="row"><label for="rgGrain">무늬 알갱이 크기</label><output data-o="grainMm">1.00 mm</output></div>
+            <input type="range" id="rgGrain" data-k="grainMm" min="0.5" max="4" step="0.25" value="1">
+            <p class="hint">크게 하면 머리가 조금 움직여도 잘 보이고, 숫자 윤곽은 거칠어져요.</p>
+          </div>
+          <div class="field">
+            <div class="row"><label for="rgRho">반사율</label><output data-o="rho">15%</output></div>
+            <input type="range" id="rgRho" data-k="rho" min="5" max="40" step="1" value="15">
+            <p class="hint">위 화면을 이 비율만큼 어둡게 해서 반사된 빛과 밝기를 맞춰요.</p>
+          </div>
+          <div class="field">
+            <div class="row"><label for="rgDist">눈에서 화면까지</label><output data-o="dist">35 cm</output></div>
+            <input type="range" id="rgDist" data-k="dist" min="20" max="60" step="1" value="35">
+          </div>
+          <div class="field">
+            <div class="row"><label for="rgW">화면 가로</label><output data-o="W">10 cm</output></div>
+            <input type="range" id="rgW" data-k="W" min="6" max="16" step="0.5" value="10">
+          </div>
+          <div class="field">
+            <div class="row"><label for="rgH">화면 반쪽 세로</label><output data-o="H">6 cm</output></div>
+            <input type="range" id="rgH" data-k="H" min="4" max="9" step="0.5" value="6">
+          </div>
+          <div class="inline"><button type="button" class="btn ghost" id="btnShuffle">무늬 새로 섞기</button></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>화면 두 장은 이렇게 생겼어요</h2>
+      <p class="hint">각각은 숫자와 상관없이 무작위 무늬로만 보여요. 위 화면은 반사율만큼 어둡게 보정돼 있고, 아래 화면은 눈 위치에 맞게 미리 찌그러뜨려 그려요.</p>
+      <div class="pair">
+        <figure>
+          <canvas class="px" id="cvTop" width="320" height="192" aria-label="위 화면 단독"></canvas>
+          <figcaption><b>위 화면</b><br>내가 직접 보는 화면</figcaption>
+        </figure>
+        <figure>
+          <canvas class="px" id="cvBot" width="320" height="192" aria-label="아래 화면 단독"></canvas>
+          <figcaption><b>아래 화면</b><br>위 화면 유리에 비치는 화면</figcaption>
+        </figure>
+      </div>
+      <canvas class="diagram" id="cvDiagram" width="640" height="400" aria-label="옆에서 본 접힌 폰의 반사 경로"></canvas>
+      <p class="hint">옆에서 본 단면도예요. 눈에서 위 화면으로 들어간 빛이 거울처럼 꺾여 아래 화면의 한 점에 닿아요. 눈은 그림 밖 위쪽에 있고 비례는 맞지 않아요.</p>
+    </div>
+
+    <div class="card">
+      <h2>내 폴더블폰으로 해보기</h2>
+      <p class="hint">폰을 노트북처럼 반쯤 접고 어두운 곳에서 밝기를 최대로 올린 뒤 시작하세요. 위·아래 화면이 각각 한 장씩 전체 화면으로 뜹니다.</p>
+      <div class="inline">
+        <button type="button" class="btn" id="btnDevice">실기기 모드 시작</button>
+        <span class="chip" id="postureChip">기기 자세 확인 중</span>
+      </div>
+      <p class="note">실험 기능이에요. 웹은 접힘 각도와 눈 위치를 읽지 못해서 직접 맞춰야 하고, 기기마다 반사 정도가 달라 안 보일 수 있어요. 실제 폴더블폰에서는 확인하지 못했어요.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 원리와 한계 ============ -->
+<section id="tab-how" role="tabpanel" aria-labelledby="tabBtnHow" hidden>
+  <div class="doc">
+    <div>
+      <h2>기사 요약</h2>
+      <p style="margin-top:8px">포스텍 황인석 교수팀과 KAIST 한준 교수가 폴더블폰 화면 반사로 옆 사람의 엿보기를 막는 기술 '폴드투언폴드'를 만들었습니다. 특수 필름이나 추가 장치 없이 시판 폴더블폰의 소프트웨어만으로 구현하고, 미국 디트로이트에서 열린 ACM UIST 2026에서 데모 부문 우수상을 받았습니다.</p>
+    </div>
+
+    <div>
+      <h2>동작 원리</h2>
+      <ol style="margin-top:10px">
+        <li>숫자를 이미지 두 장으로 쪼갭니다. 한 장만 보면 무슨 숫자인지 알 수 없습니다.</li>
+        <li>한 장은 위 화면에, 한 장은 아래 화면에 띄웁니다. 폰을 반쯤 접으면 아래 화면의 빛이 위 화면 유리에 거울처럼 비칩니다.</li>
+        <li>내 눈 위치에서는 직접 보이는 이미지와 반사된 이미지가 정확히 겹쳐 원래 숫자로 보입니다.</li>
+        <li>다른 각도에서는 두 이미지가 어긋나 뒤죽박죽 무늬로 보입니다.</li>
+        <li>접힘 각도를 계산하고 앞면 카메라로 눈 위치를 따라가며 두 이미지의 위치와 모양을 계속 바꿉니다. 그래서 머리를 조금 움직여도 읽을 수 있습니다.</li>
+      </ol>
+    </div>
+
+    <div>
+      <h2>기사에 나온 수치</h2>
+      <div class="tbl" style="margin-top:8px">
+        <table>
+          <thead><tr><th>항목</th><th>값</th></tr></thead>
+          <tbody>
+            <tr><td>기존 사생활 보호 필름</td><td class="num">좌우 30°에서도 대부분의 숫자를 읽음</td></tr>
+            <tr><td>폴드투언폴드</td><td class="num">시선에서 7.5°만 벗어나도 거의 못 읽음</td></tr>
+            <tr><td>35 cm 거리에서 환산</td><td class="num">약 4.6 cm 차이</td></tr>
+            <tr><td>PIN 입력 실험</td><td class="num">키패드 숫자 10개 중 평균 0.65개를 알아봄</td></tr>
+            <tr><td>수상</td><td class="num">UIST 2026 데모 부문 우수상 (시연된 127개 데모 중 6개에게 수여, 최우수상 1개·우수상 5개)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2>이 앱이 하는 일과 하지 않는 일</h2>
+      <ul style="margin-top:10px">
+        <li>기사에 나온 원리만 보고 만든 체험용 시뮬레이터이고, 논문의 실제 알고리즘이 아닙니다. 이미지를 쪼개는 방식은 이 앱 나름의 방식입니다. 한 장은 무작위 알갱이 무늬이고, 다른 한 장은 숫자 안쪽에서는 같은 무늬, 바깥쪽에서는 뒤집은 무늬입니다. 정확히 겹치면 바깥쪽은 고른 회색이 되고 숫자 안쪽만 알갱이로 반짝입니다.</li>
+        <li>반사 경로는 접힘 각도와 눈 위치로 거울 반사를 직접 계산합니다. 눈 위치가 달라지면 아래 화면 그림이 달라집니다.</li>
+        <li>판독도는 이 앱의 방식에서 숫자 안쪽과 바깥쪽의 밝기 흩어짐 차이로 낸 값입니다. 기사의 7.5°나 0.65개 같은 수치를 이 앱이 재현한 것이 아닙니다. 이 앱에서 값이 떨어지는 각도는 알갱이 크기에 따라 기사의 수치와 다릅니다.</li>
+        <li>앞면 카메라 눈 추적은 넣지 않았습니다. 머리 위치는 슬라이더와 버튼으로 직접 입력합니다.</li>
+        <li>실기기 모드는 실제 폴더블폰에서 확인하지 못했습니다.</li>
+      </ul>
+    </div>
+
+    <div>
+      <h2>출처</h2>
+      <ul style="margin-top:10px">
+        <li><a href="https://www.dongascience.com/ko/news/80800" target="_blank" rel="noopener">동아사이언스, 성가신 폴더블폰 화면 반사, 엿보기 막는 기술로 탈바꿈 (2026.11.10)</a></li>
+        <li><a href="https://doi.org/10.1145/3830398.3830569" target="_blank" rel="noopener">논문 DOI 10.1145/3830398.3830569</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- ============ 실기기 전체화면 ============ -->
+<div id="device" hidden>
+  <canvas id="dvTop" aria-label="위 화면"></canvas>
+  <canvas id="dvBot" aria-label="아래 화면"></canvas>
+  <div id="dvInfo">-</div>
+  <div id="dvBar" role="toolbar" aria-label="실기기 조작">
+    <button type="button" data-nudge="hx:-0.5" aria-label="머리 왼쪽">◀</button>
+    <button type="button" data-nudge="hx:0.5" aria-label="머리 오른쪽">▶</button>
+    <button type="button" data-nudge="hy:0.5" aria-label="머리 위">▲</button>
+    <button type="button" data-nudge="hy:-0.5" aria-label="머리 아래">▼</button>
+    <button type="button" data-nudge="phi:-2" aria-label="접힘 각도 줄이기">각도 −</button>
+    <button type="button" data-nudge="phi:2" aria-label="접힘 각도 늘리기">각도 +</button>
+    <button type="button" id="dvGear">설정</button>
+    <button type="button" id="dvClose">종료</button>
+  </div>
+  <div id="dvSheet" hidden>
+    <div class="head"><h2>실기기 설정</h2><button type="button" class="btn ghost" id="dvSheetClose">닫기</button></div>
+    <div class="field">
+      <div class="row"><label for="dvText">숫자</label></div>
+      <input type="text" id="dvText" data-t="text" inputmode="numeric" autocomplete="off" maxlength="6" value="4729">
+    </div>
+    <div class="field">
+      <span class="lbl">표시 방식</span>
+      <div class="seg" role="radiogroup" aria-label="표시 방식">
+        <input type="radio" name="dvmode" id="dvMdText" data-m value="text" checked><label for="dvMdText">숫자</label>
+        <input type="radio" name="dvmode" id="dvMdPad" data-m value="keypad"><label for="dvMdPad">PIN 키패드</label>
+      </div>
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvW">기기 화면 가로 길이</label><output data-o="devW">14 cm</output></div>
+      <input type="range" id="dvW" data-k="devW" min="6" max="20" step="0.1" value="14">
+      <p class="hint">반쯤 접은 상태에서 화면의 가로 길이를 자로 재서 맞추세요.</p>
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvPhi">접힘 각도</label><output data-o="phi">110°</output></div>
+      <input type="range" id="dvPhi" data-k="phi" min="70" max="150" step="1" value="110">
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvHx">머리 좌우</label><output data-o="hx">0 cm</output></div>
+      <input type="range" id="dvHx" data-k="hx" min="-12" max="12" step="0.1" value="0">
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvHy">머리 위아래</label><output data-o="hy">0 cm</output></div>
+      <input type="range" id="dvHy" data-k="hy" min="-12" max="12" step="0.1" value="0">
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvDist">눈에서 화면까지</label><output data-o="dist">35 cm</output></div>
+      <input type="range" id="dvDist" data-k="dist" min="20" max="60" step="1" value="35">
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvGrain">무늬 알갱이 크기</label><output data-o="grainMm">1.00 mm</output></div>
+      <input type="range" id="dvGrain" data-k="grainMm" min="0.5" max="4" step="0.25" value="1">
+    </div>
+    <div class="field">
+      <div class="row"><label for="dvRho">반사율</label><output data-o="rho">15%</output></div>
+      <input type="range" id="dvRho" data-k="rho" min="5" max="40" step="1" value="15">
+    </div>
+    <p class="hint">숫자가 안 보이면 알갱이 크기를 키우고, ◀ ▶ ▲ ▼ 로 머리 위치를 조금씩 옮겨 보세요. 위 화면은 반사율만큼 어둡게 보이는 것이 정상이에요.</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ===================== 기하: 접힌 폰의 반사 경로 =====================
+ * 좌표계(cm): 경첩이 x축, 아래 화면은 z=0 평면에서 +y 방향으로 뻗고,
+ * 위 화면은 경첩에서 (0, cosφ, sinφ) 방향으로 뻗는다. 눈은 +y 쪽 위에 있다.
+ * x는 두 화면 모두 경첩 방향(좌우)이다.
+ */
+const DEG = Math.PI / 180;
+const FONT = '"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif';
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+function hash2(i, j, seed) {
+  let h = Math.imul(i | 0, 374761393) ^ Math.imul(j | 0, 668265263) ^ Math.imul(seed | 0, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+function makeGeom(phiDeg, W, H) {
+  const p = phiDeg * DEG, c = Math.cos(p), s = Math.sin(p);
+  return { W, H, c, s, n: [0, s, -c], tau: [0, c, s] };
+}
+
+/* 위 화면의 점 (x, v) 를 눈 E 에서 본 반사가 닿는 아래 화면의 점 (x, s). 안 보이면 false */
+function topToBottom(g, E, x, v, out) {
+  const Py = v * g.c, Pz = v * g.s;
+  let dx = x - E[0], dy = Py - E[1], dz = Pz - E[2];
+  const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  dx /= len; dy /= len; dz /= len;
+  const dn = dy * g.n[1] + dz * g.n[2];
+  if (dn >= 0) return false;
+  const ry = dy - 2 * dn * g.n[1], rz = dz - 2 * dn * g.n[2];
+  if (rz >= -1e-6) return false;
+  const t = -Pz / rz;
+  if (t < 0) return false;
+  const qx = x + t * dx, qy = Py + t * ry;
+  if (qx < -g.W / 2 || qx > g.W / 2 || qy < 0 || qy > g.H) return false;
+  out.x = qx; out.s = qy;
+  return true;
+}
+
+/* 아래 화면의 점 (x, s) 가 눈 E 에서 위 화면의 어느 점 (x, v) 에 비쳐 보이는가 (거울상 이용) */
+function bottomToTop(g, E, x, s, out) {
+  const qn = s * g.n[1];
+  const qpx = x, qpy = s - 2 * qn * g.n[1], qpz = -2 * qn * g.n[2];
+  const En = E[1] * g.n[1] + E[2] * g.n[2];
+  if (En <= 0) return false;
+  const ex = qpx - E[0], ey = qpy - E[1], ez = qpz - E[2];
+  const den = ey * g.n[1] + ez * g.n[2];
+  if (den >= 0) return false;
+  const lam = -En / den;
+  if (lam <= 0 || lam > 1) return false;
+  const Px = E[0] + lam * ex, Py = E[1] + lam * ey, Pz = E[2] + lam * ez;
+  const v = Py * g.tau[1] + Pz * g.tau[2];
+  out.x = Px; out.v = v;
+  return Px >= -g.W / 2 && Px <= g.W / 2 && v >= 0 && v <= g.H;
+}
+
+/* 아래 화면 중앙이 위 화면 중앙에 비쳐 보이는 눈 위치 (기준 눈) */
+function nominalEye(g, dist) {
+  const Pc = [0, (g.H / 2) * g.c, (g.H / 2) * g.s];
+  let uy = g.H / 2 - Pc[1], uz = -Pc[2];
+  const ul = Math.hypot(uy, uz); uy /= ul; uz /= ul;
+  const un = uy * g.n[1] + uz * g.n[2];
+  let wy = 2 * un * g.n[1] - uy, wz = 2 * un * g.n[2] - uz;
+  const wl = Math.hypot(wy, wz); wy /= wl; wz /= wl;
+  return { E: [0, Pc[1] + dist * wy, Pc[2] + dist * wz], w: [0, wy, wz] };
+}
+
+/* ===================== 이미지 쪼개기 ===================== */
+function sample(buf, w, h, fx, fy) {
+  const x = fx - 0.5, y = fy - 0.5;
+  let x0 = Math.floor(x), y0 = Math.floor(y);
+  const tx = x - x0, ty = y - y0;
+  let x1 = x0 + 1, y1 = y0 + 1;
+  x0 = x0 < 0 ? 0 : x0 >= w ? w - 1 : x0; x1 = x1 < 0 ? 0 : x1 >= w ? w - 1 : x1;
+  y0 = y0 < 0 ? 0 : y0 >= h ? h - 1 : y0; y1 = y1 < 0 ? 0 : y1 >= h ? h - 1 : y1;
+  const a = buf[y0 * w + x0], b = buf[y0 * w + x1], c = buf[y1 * w + x0], d = buf[y1 * w + x1];
+  return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+}
+
+function drawMask(cfg, Wp, Hp, box) {
+  const c = document.createElement('canvas');
+  c.width = Wp; c.height = Hp;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  if (cfg.mode === 'keypad') {
+    const wide = box.w / box.h > 1.6;
+    const cols = wide ? 5 : 3, rows = wide ? 2 : 4;
+    const keys = wide ? ['1','2','3','4','5','6','7','8','9','0'] : ['1','2','3','4','5','6','7','8','9','','0',''];
+    const cw = box.w / cols, chh = box.h / rows, fs = Math.min(chh * 0.8, cw * 0.62);
+    x.font = '800 ' + fs + 'px ' + FONT;
+    keys.forEach((k, idx) => {
+      if (!k) return;
+      const r = Math.floor(idx / cols), cc = idx % cols;
+      x.fillText(k, box.x + cw * (cc + 0.5), box.y + chh * (r + 0.5) + fs * 0.04);
+    });
+  } else {
+    const t = cfg.text || '0', n = t.length;
+    const fs = Math.min(box.h * 0.92, box.w / (n * 0.62));
+    x.font = '800 ' + fs + 'px ' + FONT;
+    x.fillText(t, box.x + box.w / 2, box.y + box.h / 2 + fs * 0.04);
+  }
+  const d = x.getImageData(0, 0, Wp, Hp).data;
+  const m = new Uint8Array(Wp * Hp);
+  for (let k = 0; k < m.length; k++) m[k] = d[k * 4 + 3] > 127 ? 1 : 0;
+  return m;
+}
+
+/* 장면: 위 화면 이미지(ST)는 무작위 알갱이, 아래 화면용 이미지(SB)는 숫자 안쪽에서 ST와 같고 바깥쪽에서 ST를 뒤집은 것 */
+function buildScene(cfg, Wp, Hp) {
+  const g = makeGeom(cfg.phi, cfg.W, cfg.H);
+  const ppc = Wp / cfg.W;
+  const gpx = Math.max(1, (cfg.grainMm / 10) * ppc);
+  const ne = nominalEye(g, cfg.dist);
+  const tmp = { x: 0, s: 0 };
+  let x0 = Wp, x1 = -1, y0 = Hp, y1 = -1;
+  for (let j = 0; j < Hp; j++) {
+    const v = (Hp - (j + 0.5)) / ppc;
+    for (let i = 0; i < Wp; i++) {
+      const x = (i + 0.5) / ppc - cfg.W / 2;
+      if (topToBottom(g, ne.E, x, v, tmp)) {
+        if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j;
+      }
+    }
+  }
+  let box;
+  if (x1 < 0) box = { x: 0, y: 0, w: Wp, h: Hp };
+  else {
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1, mx = bw * 0.07, my = bh * 0.07;
+    box = { x: x0 + mx, y: y0 + my, w: bw - 2 * mx, h: bh - 2 * my };
+  }
+  const mask = drawMask(cfg, Wp, Hp, box);
+  const ST = new Float32Array(Wp * Hp), SB = new Float32Array(Wp * Hp);
+  for (let j = 0; j < Hp; j++) {
+    const cj = Math.floor((j + 0.5) / gpx);
+    for (let i = 0; i < Wp; i++) {
+      const k = j * Wp + i;
+      const t = hash2(Math.floor((i + 0.5) / gpx), cj, cfg.seed) < 0.5 ? 0 : 1;
+      ST[k] = t;
+      SB[k] = mask[k] ? t : 1 - t;
+    }
+  }
+  return { cfg, g, ppc, gpx, Wp, Hp, E0: ne.E, w: ne.w, box, mask, ST, SB };
+}
+
+/* 눈 위치를 기준 눈에서 (좌우 hx, 시야 위아래 hy) 만큼 옮긴다 */
+function viewUp(scene) {
+  let e = [0, scene.w[2], -scene.w[1]];
+  if (e[1] < 0) e = [0, -e[1], -e[2]];
+  return e;
+}
+function eyeFrom(scene, hx, hy) {
+  const e = viewUp(scene), E0 = scene.E0;
+  return [E0[0] + hx, E0[1] + hy * e[1], E0[2] + hy * e[2]];
+}
+function observerEye(scene, Eu, deltaDeg, dir) {
+  const off = scene.cfg.dist * Math.tan(deltaDeg * DEG);
+  if (dir === 'side') return [Eu[0] + off, Eu[1], Eu[2]];
+  const e = viewUp(scene);
+  return [Eu[0], Eu[1] + off * e[1], Eu[2] + off * e[2]];
+}
+
+/* 눈 Eb 에 맞춰 아래 화면에 실제로 그릴 그림 (미리 찌그러뜨림) */
+function buildBottom(scene, Eb) {
+  const { g, ppc, Wp, Hp, gpx, SB, cfg } = scene;
+  const out = new Float32Array(Wp * Hp);
+  const t = { x: 0, v: 0 };
+  for (let j = 0; j < Hp; j++) {
+    const s = (j + 0.5) / ppc;
+    const cj = Math.floor((j + 0.5) / gpx);
+    for (let i = 0; i < Wp; i++) {
+      const x = (i + 0.5) / ppc - cfg.W / 2;
+      const k = j * Wp + i;
+      if (bottomToTop(g, Eb, x, s, t)) out[k] = sample(SB, Wp, Hp, (t.x + cfg.W / 2) * ppc, Hp - t.v * ppc);
+      else out[k] = hash2(Math.floor((i + 0.5) / gpx), cj, cfg.seed + 101) < 0.5 ? 0 : 1;
+    }
+  }
+  return out;
+}
+
+/* 눈 E 에 보이는 모습. 위 화면(직접) + 아래 화면(반사). 밝기는 0..1로 정규화 */
+function renderView(scene, Bscreen, E, ctx2d) {
+  const { g, ppc, Wp, Hp, cfg, ST, mask } = scene;
+  const im = ctx2d.createImageData(Wp, Hp);
+  const u32 = new Uint32Array(im.data.buffer);
+  const t = { x: 0, s: 0 };
+  let n1 = 0, s1 = 0, q1 = 0, n0 = 0, s0 = 0, q0 = 0;
+  for (let j = 0; j < Hp; j++) {
+    const v = (Hp - (j + 0.5)) / ppc;
+    for (let i = 0; i < Wp; i++) {
+      const k = j * Wp + i;
+      const x = (i + 0.5) / ppc - cfg.W / 2;
+      let val = ST[k] * 0.5;
+      if (topToBottom(g, E, x, v, t)) {
+        val += sample(Bscreen, Wp, Hp, (t.x + cfg.W / 2) * ppc, t.s * ppc) * 0.5;
+        if (mask[k]) { n1++; s1 += val; q1 += val * val; } else { n0++; s0 += val; q0 += val * val; }
+      }
+      const c = val * 255;
+      u32[k] = (255 << 24) | ((c) << 16) | ((c * 0.97) << 8) | (c * 0.92);
+    }
+  }
+  ctx2d.putImageData(im, 0, 0);
+  const sd = (n, s, q) => (n > 8 ? Math.sqrt(Math.max(0, q / n - (s / n) * (s / n))) : 0);
+  const a = sd(n1, s1, q1), b = sd(n0, s0, q0);
+  return clamp((a - b) / (a + b + 1e-6), 0, 1);
+}
+
+/* 화면 한 장을 실제 발광 밝기(감마 2.2)로 그린다 */
+const GAM = new Uint8Array(1025);
+for (let i = 0; i <= 1024; i++) GAM[i] = Math.round(255 * Math.pow(i / 1024, 1 / 2.2));
+function paintPanel(cv, buf, Wp, Hp, scale) {
+  if (cv.width !== Wp) cv.width = Wp;
+  if (cv.height !== Hp) cv.height = Hp;
+  const ctx = cv.getContext('2d');
+  const im = ctx.createImageData(Wp, Hp);
+  const u32 = new Uint32Array(im.data.buffer);
+  for (let k = 0; k < buf.length; k++) {
+    const c = GAM[Math.round(clamp(buf[k] * scale, 0, 1) * 1024)];
+    u32[k] = (255 << 24) | (c << 16) | ((c * 0.97) << 8) | (c * 0.92);
+  }
+  ctx.putImageData(im, 0, 0);
+}
+
+/* 같은 설정이면 계산을 다시 하지 않는 파이프라인 */
+class Pipe {
+  constructor() { this.sk = ''; this.bk = ''; }
+  update(cfg, Wp, Hp, hx, hy, track) {
+    const key = [cfg.phi, cfg.W, cfg.H, cfg.grainMm, cfg.seed, cfg.text, cfg.mode, cfg.dist, Wp, Hp].join('|');
+    if (key !== this.sk) { this.scene = buildScene(cfg, Wp, Hp); this.sk = key; this.bk = ''; }
+    this.Eu = eyeFrom(this.scene, hx, hy);
+    this.Eb = track ? this.Eu : this.scene.E0;
+    const bk = this.Eb.map(v => v.toFixed(3)).join(',');
+    if (bk !== this.bk) { this.bscreen = buildBottom(this.scene, this.Eb); this.bk = bk; }
+    return this;
+  }
+}
+
+/* ===================== 상태와 컨트롤 ===================== */
+const S = {
+  text: '4729', mode: 'text', phi: 110, hx: 0, hy: 0, track: true, delta: 7.5, dir: 'side',
+  grainMm: 1, rho: 15, dist: 35, W: 10, H: 6, devW: 14, seed: 7
+};
+const FMT = {
+  phi: v => v + '°', hx: v => (v > 0 ? '+' : '') + (+v).toFixed(1) + ' cm', hy: v => (v > 0 ? '+' : '') + (+v).toFixed(1) + ' cm',
+  delta: v => (+v).toFixed(1) + '°', grainMm: v => (+v).toFixed(2) + ' mm', rho: v => v + '%',
+  dist: v => v + ' cm', W: v => (+v).toFixed(1) + ' cm', H: v => (+v).toFixed(1) + ' cm', devW: v => (+v).toFixed(1) + ' cm'
+};
+function syncUI() {
+  document.querySelectorAll('[data-k]').forEach(el => {
+    const v = S[el.dataset.k];
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (document.activeElement !== el) el.value = v;
+  });
+  document.querySelectorAll('[data-t]').forEach(el => { if (document.activeElement !== el) el.value = S.text; });
+  document.querySelectorAll('input[data-m]').forEach(r => { r.checked = r.value === S.mode; });
+  document.querySelectorAll('input[data-d]').forEach(r => { r.checked = r.value === S.dir; });
+  document.querySelectorAll('[data-o]').forEach(o => { o.textContent = (FMT[o.dataset.o] || String)(S[o.dataset.o]); });
+}
+document.querySelectorAll('[data-k]').forEach(el => {
+  el.addEventListener('input', () => {
+    S[el.dataset.k] = el.type === 'checkbox' ? el.checked : +el.value;
+    syncUI(); schedule();
+  });
+});
+document.querySelectorAll('[data-t]').forEach(el => {
+  el.addEventListener('input', () => {
+    const clean = el.value.replace(/\D/g, '').slice(0, 6);
+    if (clean !== el.value) el.value = clean;
+    S.text = clean || '0';
+    syncUI(); schedule();
+  });
+});
+document.querySelectorAll('input[data-m]').forEach(r => r.addEventListener('change', () => { if (r.checked) { S.mode = r.value; syncUI(); schedule(); } }));
+document.querySelectorAll('input[data-d]').forEach(r => r.addEventListener('change', () => { if (r.checked) { S.dir = r.value; syncUI(); schedule(); } }));
+$('btnShuffle').addEventListener('click', () => { S.seed = (S.seed * 7919 + 13) % 100003; schedule(); });
+
+let raf = 0;
+function schedule() {
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = 0; render(); });
+}
+
+/* ===================== 시뮬레이터 그리기 ===================== */
+const sim = { Wp: 0, Hp: 0, pipe: new Pipe() };
+function layoutSim() {
+  const host = $('cvUser').parentElement;
+  const w = Math.floor(host.clientWidth);
+  if (!w) return false;
+  const Wp = clamp(w, 180, 560);
+  const Hp = Math.round(Wp * S.H / S.W);
+  if (Wp === sim.Wp && Hp === sim.Hp) return true;
+  sim.Wp = Wp; sim.Hp = Hp;
+  ['cvUser', 'cvObs', 'cvTop', 'cvBot'].forEach(id => { $(id).width = Wp; $(id).height = Hp; });
+  return true;
+}
+
+function setChip(el, r) {
+  const p = Math.round(r * 100);
+  el.textContent = '판독도 ' + p + '% · ' + (p >= 60 ? '잘 읽혀요' : p >= 25 ? '흐려요' : '안 보여요');
+  el.className = 'chip ' + (p >= 60 ? 'good' : p >= 25 ? 'warn' : 'bad');
+}
+
+function renderSim() {
+  if (!layoutSim()) return;
+  const cfg = { phi: S.phi, W: S.W, H: S.H, rho: S.rho / 100, grainMm: S.grainMm, seed: S.seed, text: S.text, mode: S.mode, dist: S.dist };
+  const p = sim.pipe.update(cfg, sim.Wp, sim.Hp, S.hx, S.hy, S.track);
+  const rU = renderView(p.scene, p.bscreen, p.Eu, $('cvUser').getContext('2d'));
+  const Eo = observerEye(p.scene, p.Eu, S.delta, S.dir);
+  const rO = renderView(p.scene, p.bscreen, Eo, $('cvObs').getContext('2d'));
+  setChip($('rUser'), rU);
+  setChip($('rObs'), rO);
+  const off = S.dist * Math.tan(S.delta * DEG);
+  const where = S.dir === 'side' ? '옆으로' : '위로';
+  $('obsCap').textContent = where + ' ' + S.delta.toFixed(1) + '° 벗어남 (눈 위치 기준 약 ' + off.toFixed(1) + ' cm)';
+  $('deltaHint').textContent = S.dist + ' cm 거리에서 ' + S.delta.toFixed(1) + '°는 약 ' + off.toFixed(1) + ' cm예요. 기사에서는 7.5°가 약 4.6 cm에 해당해요.';
+  paintPanel($('cvTop'), p.scene.ST, sim.Wp, sim.Hp, cfg.rho);
+  paintPanel($('cvBot'), p.bscreen, sim.Wp, sim.Hp, 1);
+  drawDiagram(p);
+}
+
+/* 옆에서 본 단면도 */
+function drawDiagram(p) {
+  const cv = $('cvDiagram');
+  const cssW = Math.floor(cv.clientWidth) || 320;
+  const cssH = Math.round(cssW * 0.72);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); cv.style.height = cssH + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const st = getComputedStyle(document.documentElement);
+  const C = n => st.getPropertyValue(n).trim();
+  const g = p.scene.g, E = p.Eu, H = g.H;
+  const q = { x: 0, s: 0 };
+  const vs = [0.18, 0.55, 0.92];
+  const rays = [];
+  const pts = [[0, 0], [H * g.c, H * g.s], [H, 0]];
+  const qn = H * g.n[1];
+  const virt = [H - 2 * qn * g.n[1], -2 * qn * g.n[2]];
+  pts.push(virt);
+  vs.forEach(f => {
+    const v = f * H, Py = v * g.c, Pz = v * g.s;
+    if (!topToBottom(g, E, 0, v, q)) return;
+    let dy = E[1] - Py, dz = E[2] - Pz; const dl = Math.hypot(dy, dz); dy /= dl; dz /= dl;
+    const tail = [Py + dy * H * 0.85, Pz + dz * H * 0.85];
+    rays.push({ P: [Py, Pz], tail, q: [q.s, 0] });
+    pts.push(tail, [q.s, 0]);
+  });
+  let yMin = Infinity, yMax = -Infinity, zMin = Infinity, zMax = -Infinity;
+  pts.forEach(a => { yMin = Math.min(yMin, a[0]); yMax = Math.max(yMax, a[0]); zMin = Math.min(zMin, a[1]); zMax = Math.max(zMax, a[1]); });
+  const padL = 18, padR = 18, padT = 26, padB = 30;
+  const sc = Math.min((cssW - padL - padR) / (yMax - yMin), (cssH - padT - padB) / (zMax - zMin));
+  const ox = padL + ((cssW - padL - padR) - (yMax - yMin) * sc) / 2;
+  const oy = cssH - padB - ((cssH - padT - padB) - (zMax - zMin) * sc) / 2;
+  const X = y => ox + (y - yMin) * sc, Y = z => oy - (z - zMin) * sc;
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.lineCap = 'round';
+  ctx.font = '12px ' + FONT;
+  // 가상 상(거울에 비친 아래 화면)
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = C('--muted'); ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(virt[0]), Y(virt[1])); ctx.stroke();
+  ctx.setLineDash([]);
+  // 화면 두 장
+  ctx.lineWidth = 5; ctx.strokeStyle = C('--text');
+  ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(H * g.c), Y(H * g.s)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(H), Y(0)); ctx.stroke();
+  // 접힘 각도 표시
+  ctx.lineWidth = 1.5; ctx.strokeStyle = C('--accent');
+  ctx.beginPath(); ctx.arc(X(0), Y(0), 26, -Math.atan2(g.s, g.c), 0, false); ctx.stroke();
+  ctx.fillStyle = C('--accent');
+  const am = -Math.atan2(g.s, g.c) / 2;
+  ctx.fillText(S.phi + '°', X(0) + 42 * Math.cos(am) - 12, Y(0) + 42 * Math.sin(am) + 4);
+  // 광선
+  rays.forEach(r => {
+    ctx.lineWidth = 1.6; ctx.strokeStyle = C('--accent');
+    ctx.beginPath(); ctx.moveTo(X(r.tail[0]), Y(r.tail[1])); ctx.lineTo(X(r.P[0]), Y(r.P[1])); ctx.stroke();
+    ctx.strokeStyle = C('--good');
+    ctx.beginPath(); ctx.moveTo(X(r.P[0]), Y(r.P[1])); ctx.lineTo(X(r.q[0]), Y(r.q[1])); ctx.stroke();
+    ctx.fillStyle = C('--good');
+    ctx.beginPath(); ctx.arc(X(r.q[0]), Y(r.q[1]), 3, 0, 6.2832); ctx.fill();
+  });
+  if (rays.length) {
+    const r = rays[Math.min(1, rays.length - 1)];
+    ctx.fillStyle = C('--accent');
+    ctx.fillText('눈 방향 ↗ 약 ' + S.dist + ' cm', clamp(X(r.tail[0]) - 40, 6, cssW - 110), Math.max(Y(r.tail[1]) - 8, 14));
+  }
+  ctx.fillStyle = C('--text');
+  ctx.fillText('위 화면', Math.max(X(H * g.c) - 52, 6), Y(H * g.s) + 4);
+  ctx.fillText('아래 화면', X(H * 0.55) - 20, Y(0) + 20);
+  ctx.fillStyle = C('--muted');
+  ctx.fillText('거울에 비친 아래 화면', X(virt[0]) - 20, Y(virt[1]) + 16);
+}
+
+/* ===================== 실기기 전체화면 ===================== */
+const dv = { Wp: 0, Hp: 0, pipe: new Pipe() };
+function layoutDevice() {
+  const iw = window.innerWidth, ih = window.innerHeight;
+  dv.Wp = Math.min(720, Math.round(iw));
+  dv.Hp = Math.max(60, Math.round(dv.Wp * (ih / 2) / iw));
+}
+function renderDevice() {
+  layoutDevice();
+  const Wp = dv.Wp, Hp = dv.Hp, W = S.devW, ppc = Wp / W, H = Hp / ppc;
+  const cfg = { phi: S.phi, W, H, rho: S.rho / 100, grainMm: S.grainMm, seed: S.seed, text: S.text, mode: S.mode, dist: S.dist };
+  const p = dv.pipe.update(cfg, Wp, Hp, S.hx, S.hy, true);
+  paintPanel($('dvTop'), p.scene.ST, Wp, Hp, cfg.rho);
+  paintPanel($('dvBot'), p.bscreen, Wp, Hp, 1);
+  $('dvInfo').textContent = '각도 ' + S.phi + '° · 좌우 ' + S.hx.toFixed(1) + ' · 위아래 ' + S.hy.toFixed(1) + ' cm';
+}
+function openDevice() {
+  $('device').hidden = false;
+  document.body.style.overflow = 'hidden';
+  try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 전체화면 불가 */ }
+  try { if (window.F2UNative) window.F2UNative.immersive(true); } catch (e) { /* 안드로이드 앱에서만 있음 */ }
+  syncUI(); renderDevice();
+}
+function closeDevice() {
+  $('device').hidden = true; $('dvSheet').hidden = true;
+  document.body.style.overflow = '';
+  try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) { /* 무시 */ }
+  try { if (window.F2UNative) window.F2UNative.immersive(false); } catch (e) { /* 안드로이드 앱에서만 있음 */ }
+  schedule();
+}
+$('btnDevice').addEventListener('click', openDevice);
+$('dvClose').addEventListener('click', closeDevice);
+$('dvGear').addEventListener('click', () => { $('dvSheet').hidden = !$('dvSheet').hidden; });
+$('dvSheetClose').addEventListener('click', () => { $('dvSheet').hidden = true; });
+document.querySelectorAll('[data-nudge]').forEach(b => b.addEventListener('click', () => {
+  const [k, d] = b.dataset.nudge.split(':');
+  const lim = k === 'phi' ? [70, 150] : [-12, 12];
+  S[k] = clamp(Math.round((S[k] + +d) * 100) / 100, lim[0], lim[1]);
+  syncUI(); schedule();
+}));
+window.addEventListener('resize', () => { if (!$('device').hidden) schedule(); });
+
+(function initPosture() {
+  const el = $('postureChip');
+  try {
+    if (navigator.devicePosture) {
+      const upd = () => { el.textContent = '기기 자세: ' + (navigator.devicePosture.type === 'folded' ? '반쯤 접힘 감지' : '펼침(평면)'); };
+      upd();
+      navigator.devicePosture.addEventListener('change', upd);
+    } else el.textContent = '기기 자세 API 없음 · 수동 설정';
+  } catch (e) { el.textContent = '기기 자세 API 없음 · 수동 설정'; }
+})();
+
+/* ===================== 탭, 렌더 루프 ===================== */
+function showTab(name) {
+  const sim_ = name !== 'how';
+  $('tab-sim').hidden = !sim_; $('tab-how').hidden = sim_;
+  $('tabBtnSim').setAttribute('aria-selected', String(sim_));
+  $('tabBtnHow').setAttribute('aria-selected', String(!sim_));
+  if (sim_) schedule();
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  showTab(b.dataset.tab);
+  try { history.replaceState(null, '', '#' + b.dataset.tab); } catch (e) { /* 무시 */ }
+}));
+window.addEventListener('hashchange', () => showTab(location.hash === '#how' ? 'how' : 'sim'));
+
+function render() {
+  if (!$('device').hidden) renderDevice();
+  else if (!$('tab-sim').hidden) renderSim();
+}
+if ('ResizeObserver' in window) new ResizeObserver(() => { if (!$('tab-sim').hidden) schedule(); }).observe($('stage'));
+if (window.matchMedia) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(schedule);
+}
+new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+syncUI();
+showTab(location.hash === '#how' ? 'how' : 'sim');
+schedule();
+</script>
+</body>
+</html>
