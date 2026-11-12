@@ -16,6 +16,26 @@ python3 -m http.server 8080   # 그리고 브라우저에서 http://localhost:80
 
 `index.html`을 브라우저로 바로 열어도 됩니다.
 
+## Android 앱(APK)
+
+`android/`에 `index.html`을 WebView로 감싸는 얇은 Android 프로젝트가 있습니다. 웹 소스는 `index.html` 한 벌만
+유지하고, 빌드할 때 APK의 assets로 복사합니다.
+
+```bash
+cd android
+export ANDROID_HOME=/path/to/android-sdk   # platforms;android-35, build-tools;35.0.0 필요
+./gradlew assembleDebug
+# 결과: app/build/outputs/apk/debug/app-debug.apk
+```
+
+- 외부 라이브러리가 없고 인터넷 권한도 요청하지 않습니다. 화면은 모두 기기 안에서 그려집니다.
+  외부 링크(출처)는 브라우저 앱으로 넘깁니다.
+- 실기기 모드를 열면 시스템 바를 숨기고 화면을 켜 둡니다. 뒤로 가기는 설정창, 실기기 모드 순으로 닫습니다.
+- 폴더블을 접고 펼쳐도 액티비티를 다시 만들지 않아서 페이지 상태가 유지됩니다.
+- minSdk 26(Android 8.0), targetSdk 34.
+- `assembleDebug`는 Android 디버그 키로 서명합니다. 직접 설치(사이드로딩)해서 써 보는 용도입니다.
+  스토어 배포나 업데이트 배포에는 본인 키스토어로 서명한 release 빌드가 필요합니다. 키스토어는 저장소에 넣지 마세요.
+
 ## 구성
 
 | 화면 | 내용 |

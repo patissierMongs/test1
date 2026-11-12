@@ -876,12 +876,14 @@ function openDevice() {
   $('device').hidden = false;
   document.body.style.overflow = 'hidden';
   try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 전체화면 불가 */ }
+  try { if (window.F2UNative) window.F2UNative.immersive(true); } catch (e) { /* 안드로이드 앱에서만 있음 */ }
   syncUI(); renderDevice();
 }
 function closeDevice() {
   $('device').hidden = true; $('dvSheet').hidden = true;
   document.body.style.overflow = '';
   try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) { /* 무시 */ }
+  try { if (window.F2UNative) window.F2UNative.immersive(false); } catch (e) { /* 안드로이드 앱에서만 있음 */ }
   schedule();
 }
 $('btnDevice').addEventListener('click', openDevice);

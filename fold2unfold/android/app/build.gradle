@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// 웹앱(../index.html)을 assets 루트로 복사해서 APK에 넣는다. 웹 소스는 한 벌만 유지한다.
+def syncWeb = tasks.register('syncWebAssets', Copy) {
+    from(rootProject.file('../index.html'))
+    into(layout.buildDirectory.dir('webassets'))
+}
+
+android {
+    namespace 'app.fold2unfold.demo'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'app.fold2unfold.demo'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir(layout.buildDirectory.dir('webassets'))
+        }
+    }
+}
+
+// Android Gradle 플러그인은 assets 작업이 복사 작업의 결과를 읽는다는 것을 모르므로 직접 이어 준다.
+// 이 연결이 없으면 복사가 건너뛰어져서 APK에 index.html 이 빠진다.
+tasks.matching { it.name.matches('merge.*Assets') || it.name.matches('lint.*') }.configureEach {
+    dependsOn(syncWeb)
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 페이지가 그려지기 전의 창 배경. 웹앱의 배경색 토큰과 같은 색 -->
+    <color name="window_bg">#EEF1F5</color>
+    <color name="ic_launcher_background">#0B0E13</color>
+</resources>
